@@ -2239,8 +2239,9 @@ class Env{
 }
 /*DEV-START*/
 // ---- 사용자 라이브러리 (.jbx · JDH 로 구운 것) — JawBreaker Dev. 전용 ----
-//   파일: "JBX1" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…  →  jdl.json (선언) · web.js (JS 구현) · doc/… · native/…
-//   JS 구현은 권한을 뺀 프레임 안의 워커에서 실행 (에디터 페이지 · 저장 공간 · 프로젝트 파일에 닿지 못함) — 엔진과는 메시지로만
+//   파일: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…  →  jdl.json (선언) · lib.wasm (C 구현을 웹용으로 컴파일한 것) · native/… (C 소스) · doc/…
+//   라이브러리는 C 로 한 번만 씀: 웹(에디터 · HTML · APK)에서는 lib.wasm 을, EXE 에서는 C 소스를 실행기와 함께 컴파일해서 씀
+//   lib.wasm 은 권한을 뺀 프레임 안의 워커에서 실행 (에디터 페이지 · 저장 공간 · 프로젝트 파일에 닿지 못함) — 엔진과는 메시지로만
 const JBX_PT=new Set(['int','float','string','bit','color','mat12']),JBX_VT=new Set(['int','float','string','bit']);
 const JBX_PERMS=new Set(['draw','objects.read','objects.write','files.read']);
 const JBX_CACHE=new Map();   // 경로 → {src, lib}
@@ -2249,7 +2250,7 @@ function jbxRead(d,path){
   const m=/^data:[^;,]*;base64,(.*)$/.exec(d||'');if(!m)throw bad('.jbx 파일을 읽을 수 없습니다');
   const b=atob(m[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
   const dv=new DataView(u.buffer),td=new TextDecoder('utf-8');
-  if(u.length<8||td.decode(u.subarray(0,4))!=='JBX1')throw bad('.jbx 파일이 아니거나 손상되었습니다 (JDH 의 jdh lib build 로 구운 파일이어야 합니다)');
+  if(u.length<8||td.decode(u.subarray(0,4))!=='JBLX')throw bad('.jbx 파일이 아니거나 손상되었습니다 (JDH 의 jdh lib build 로 구운 파일이어야 합니다)');
   const n=dv.getUint32(4,true),ent={};let p=8;
   for(let k=0;k<n;k++){
     if(p+4>u.length)throw bad('.jbx 파일이 손상되었습니다');
@@ -2261,7 +2262,7 @@ function jbxRead(d,path){
   if(!ent['jdl.json'])throw bad('선언(jdl.json)이 없습니다');
   let man;try{man=JSON.parse(td.decode(ent['jdl.json']));}catch(e){throw bad('선언(jdl.json)을 읽을 수 없습니다');}
   if(!man||typeof man.id!=='string'||!/^[\p{L}_][\p{L}\p{N}_]*$/u.test(man.id))throw bad('선언의 id 가 올바르지 않습니다');
-  if(!ent['web.js'])throw bad('JS 구현(web.js)이 없습니다');
+  if(!ent['lib.wasm'])throw bad('컴파일된 구현(lib.wasm)이 없습니다 — JDH 의 jdh lib build 로 다시 구워 주세요');
   const cmds=Object.create(null),vals=Object.create(null);
   for(const [k,c] of Object.entries(man.commands||{})){
     const ps=(c&&c.params)||[];
@@ -2274,7 +2275,7 @@ function jbxRead(d,path){
   }
   const perms=Array.isArray(man.permissions)?man.permissions:[];
   for(const q of perms)if(!JBX_PERMS.has(q))throw bad(`알 수 없는 권한입니다: ${q}`);
-  return{id:man.id,version:String(man.version||''),path,cmds,vals,perms,requires:(man.requires&&man.requires.libs)||[],web:td.decode(ent['web.js']),native:Object.keys(ent).some(k=>k.startsWith('native/')),docs:Object.keys(ent).filter(k=>k.startsWith('doc/')).map(k=>({name:k.slice(4),text:td.decode(ent[k])}))};
+  return{id:man.id,version:String(man.version||''),path,cmds,vals,perms,requires:(man.requires&&man.requires.libs)||[],wasm:ent['lib.wasm'].slice(),native:Object.keys(ent).some(k=>k.startsWith('native/')),docs:Object.keys(ent).filter(k=>k.startsWith('doc/')).map(k=>({name:k.slice(4),text:td.decode(ent[k])}))};
 }
 // 프로젝트의 ext/*.jbx → Map(id → 라이브러리)
 function jbxScan(files){
@@ -2289,48 +2290,82 @@ function jbxScan(files){
   return reg;
 }
 const JBX_BOOT=`'use strict';
-let P=null,api=null,looping=false,last=0;const vals={},frames=[],stops=[];
+let P=null,X=null,man=null,looping=false,last=0;const vals={};
 const send=m=>{if(P)P.postMessage(m);};
 const raf=self.requestAnimationFrame?f=>self.requestAnimationFrame(f):f=>setTimeout(f,16);
 const fail=(e,c)=>send({t:'err',s:String(e&&e.message||e),line:c?c[2]:0,file:c?c[3]:''});
+const td=new TextDecoder('utf-8'),te=new TextEncoder();
+const mem=()=>new Uint8Array(X.memory.buffer);
+function cstr(p){if(!p)return '';const m=mem();let e=p;while(e<m.length&&m[e])e++;return td.decode(m.slice(p,e));}
+function putStr(s){
+  const b=te.encode(String(s)),p=X.jdh_scratch?X.jdh_scratch(b.length+1):0;
+  if(!p)throw new Error('문자열이 너무 깁니다 (명령 하나에 넘길 수 있는 글자는 모두 합쳐 64KB 까지)');
+  const m=mem();m.set(b,p);m[p+b.length]=0;return p;
+}
+function callCmd(name,args){
+  const sp=man.cmds[name],f=X['jdh_cmd_'+name];
+  if(typeof f!=='function')throw new Error("컴파일된 구현에 명령어 '"+name+"' 이(가) 없습니다");
+  if(X.jdh_scratch)X.jdh_scratch(-1);
+  const a=[];
+  sp.forEach((t,i)=>{const v=args[i];
+    if(t==='int'||t==='bit')a.push(v|0);else if(t==='float')a.push(+v);
+    else if(t==='mat12'){a.push(+v[0],+v[1]);}
+    else a.push(putStr(v));});
+  f.apply(null,a);
+}
 function pushVals(){
-  if(!api||!api.values)return;let ch=null;
-  for(const k in api.values){let v;try{v=api.values[k]();}catch(e){continue;}if(vals[k]!==v){vals[k]=v;(ch||(ch={}))[k]=v;}}
+  if(!X)return;let ch=null;
+  for(const k in man.vals){const f=X['jdh_val_'+k];if(typeof f!=='function')continue;let v;try{v=f();if(man.vals[k]==='string')v=cstr(v);}catch(e){continue;}if(vals[k]!==v){vals[k]=v;(ch||(ch={}))[k]=v;}}
   if(ch)send({t:'val',v:ch});
 }
 function loop(){
-  if(looping)return;looping=true;last=performance.now();
-  const tick=()=>{const n=performance.now(),dt=n-last;last=n;for(const f of frames){try{f(dt);}catch(e){fail(e);}}pushVals();raf(tick);};
+  if(looping)return;looping=true;last=performance.now();let dead=false;
+  const tick=()=>{if(dead)return;const n=performance.now(),dt=n-last;last=n;if(X.jdh_frame){try{X.jdh_frame(dt);}catch(e){dead=true;fail(e);return;}}pushVals();raf(tick);};
   raf(tick);
 }
-const host={
-  onFrame(f){if(typeof f==='function'){frames.push(f);loop();}},
-  onStop(f){if(typeof f==='function')stops.push(f);},
-  log(t){send({t:'log',s:String(t)});},
-  error(t){send({t:'err',s:String(t),line:0,file:''});},
-  layer:null,screen:{w:0,h:0}
-};
-self.onmessage=e=>{
-  P=e.data.port;
-  if(e.data.canvas){try{host.layer=e.data.canvas.getContext('2d');host.screen={w:e.data.canvas.width,h:e.data.canvas.height};}catch(x){}}
-  P.onmessage=m=>{
+self.onmessage=async e=>{
+  P=e.data.port;man=e.data.man;
+  let up;const ready=new Promise(r=>{up=r;});   // 컴파일이 끝나기 전에 온 명령은 순서대로 기다렸다가 처리
+  P.onmessage=m=>ready.then(()=>{
     const d=m.data;
     if(d.t==='call'){
-      for(const c of d.q){const f=api&&api[c[0]];try{if(typeof f!=='function')throw new Error("JS 구현에 명령어 '"+c[0]+"' 이(가) 없습니다");f.apply(api,c[1]);}catch(x){fail(x,c);}}
+      for(const c of d.q){try{if(!X)throw new Error('라이브러리가 시작되지 않았습니다');callCmd(c[0],c[1]);}catch(x){fail(x,c);}}
       pushVals();send({t:'ack',n:d.n});
-    }else if(d.t==='size'){host.screen={w:d.w,h:d.h};}
-    else if(d.t==='stop'){for(const f of stops){try{f();}catch(x){}}send({t:'bye'});}
-  };
+    }else if(d.t==='stop'){try{if(X&&X.jdh_stop)X.jdh_stop();}catch(x){}send({t:'bye'});}
+  });
   try{
-    const lib=self.__jdhlib;
-    if(typeof lib!=='function')throw new Error('JS 구현은 export default function (host) { … } 로 시작해야 합니다');
-    api=lib(host)||{};
-    send({t:'ready',cmds:Object.keys(api).filter(k=>typeof api[k]==='function')});
-    pushVals();if(api.values&&Object.keys(api.values).length)loop();
-  }catch(x){fail(x);}
+    const dv=()=>new DataView(X.memory.buffer);
+    // 파일 · 환경 변수는 "없음" 으로, 시계와 난수만 실제 값으로
+    const WASI={
+      proc_exit(){throw new Error('라이브러리가 멈췄습니다 (abort · exit)');},
+      environ_sizes_get(a,b){dv().setUint32(a,0,true);dv().setUint32(b,0,true);return 0;},
+      environ_get(){return 0;},
+      args_sizes_get(a,b){dv().setUint32(a,0,true);dv().setUint32(b,0,true);return 0;},
+      args_get(){return 0;},
+      fd_prestat_get(){return 8;},fd_prestat_dir_name(){return 8;},fd_fdstat_get(){return 8;},fd_close(){return 8;},fd_seek(){return 8;},fd_read(){return 8;},
+      fd_write(fd,iov,n,out){let t=0;const d=dv();for(let i=0;i<n;i++)t+=d.getUint32(iov+i*8+4,true);d.setUint32(out,t,true);return 0;},   // printf 등은 버림
+      clock_time_get(id,pr,out){dv().setBigUint64(out,BigInt(Math.round((id===0?Date.now():performance.now())*1e6)),true);return 0;},
+      clock_res_get(id,out){dv().setBigUint64(out,1000000n,true);return 0;},
+      random_get(p,n){const m=mem();for(let i=0;i<n;i+=65536)crypto.getRandomValues(m.subarray(p+i,p+Math.min(n,i+65536)));return 0;}
+    };
+    const mod=await WebAssembly.compile(e.data.wasm),imp={jdh:{log:p=>send({t:'log',s:cstr(p)}),error:p=>send({t:'err',s:cstr(p),line:0,file:''})}};
+    // C 표준 라이브러리가 바깥(파일 · 시계 등)을 부르는 자리는 모두 "지원하지 않음" 으로 막음
+    for(const im of WebAssembly.Module.imports(mod)){
+      if(im.kind!=='function')continue;
+      if(im.module==='jdh'){if(!imp.jdh[im.name])throw new Error("알 수 없는 host 함수입니다: "+im.name);continue;}
+      (imp[im.module]||(imp[im.module]={}))[im.name]=WASI[im.name]||(()=>52);
+    }
+    X=(await WebAssembly.instantiate(mod,imp)).exports;
+    if(!X.memory)throw new Error('컴파일된 구현에 memory 가 없습니다');
+    if(X._initialize)X._initialize();
+    if(X.jdh_init)X.jdh_init();
+    send({t:'ready',cmds:Object.keys(man.cmds).filter(k=>typeof X['jdh_cmd_'+k]==='function'),vals:Object.keys(man.vals).filter(k=>typeof X['jdh_val_'+k]==='function')});
+    pushVals();if(X.jdh_frame||Object.keys(man.vals).length)loop();
+  }catch(x){X=null;fail(x);}
+  up();
 };
 `;
-const JBX_FRAME='<!doctype html><meta charset="utf-8"><script>onmessage=function(e){if(e.source!==parent||!e.data||!e.data.code)return;var w=new Worker(URL.createObjectURL(new Blob([e.data.code],{type:"text/javascript"})));var t=[e.data.port];if(e.data.canvas)t.push(e.data.canvas);w.postMessage({port:e.data.port,canvas:e.data.canvas||null},t);onmessage=null;};<\/script>';
+const JBX_FRAME='<!doctype html><meta charset="utf-8"><script>onmessage=function(e){if(e.source!==parent||!e.data||!e.data.code)return;var w=new Worker(URL.createObjectURL(new Blob([e.data.code],{type:"text/javascript"})));w.postMessage(e.data.init,[e.data.init.port,e.data.init.wasm]);onmessage=null;};<\/script>';
 const JBEXT={
   live:new Map(),timer:null,
   // 실행 시작: 이 프로그램이 쓰는 라이브러리마다 격리된 공간을 만들고 JS 를 올림
@@ -2343,16 +2378,16 @@ const JBEXT={
       fr.setAttribute('sandbox','allow-scripts');fr.setAttribute('aria-hidden','true');
       fr.style.cssText='position:absolute;width:0;height:0;border:0;visibility:hidden';
       fr.srcdoc=JBX_FRAME;
-      const code=JBX_BOOT+'\n'+lib.web.replace(/(^|\n)\s*export\s+default\s+/,'$1self.__jdhlib=')+'\n';
-      fr.onload=()=>{if(L.dead)return;try{fr.contentWindow.postMessage({code,port:ch.port2},'*',[ch.port2]);}catch(e){onErr(new JBError(`라이브러리 '${lib.id}' 을(를) 시작하지 못했습니다: ${e.message}`,1,lib.path));}};
+      const man={cmds:{},vals:{}};for(const k in lib.cmds)man.cmds[k]=lib.cmds[k].params;for(const k in lib.vals)man.vals[k]=lib.vals[k];
+      fr.onload=()=>{if(L.dead)return;try{const wb=lib.wasm.slice().buffer;fr.contentWindow.postMessage({code:JBX_BOOT,init:{port:ch.port2,wasm:wb,man}},'*',[ch.port2,wb]);}catch(e){onErr(new JBError(`라이브러리 '${lib.id}' 을(를) 시작하지 못했습니다: ${e.message}`,1,lib.path));}};
       ch.port1.onmessage=m=>{
         const d=m.data;if(L.dead||!d)return;
         if(d.t==='val'){for(const k in d.v)if(Object.hasOwn(lib.vals,k))L.vals[k]=d.v[k];}
         else if(d.t==='ack')L.pend.delete(d.n);
         else if(d.t==='ready'){
           L.ready=true;
-          const miss=Object.keys(lib.cmds).filter(k=>!d.cmds.includes(k));
-          if(miss.length)onErr(new JBError(`라이브러리 '${lib.id}' 의 JS 구현에 선언된 명령어가 없습니다: ${miss.join(', ')}`,1,lib.path));
+          const miss=Object.keys(lib.cmds).filter(k=>!d.cmds.includes(k)).concat(Object.keys(lib.vals).filter(k=>!d.vals.includes(k)));
+          if(miss.length)onErr(new JBError(`라이브러리 '${lib.id}' 의 컴파일된 구현에 선언된 명령어 · 값이 없습니다: ${miss.join(', ')}`,1,lib.path));
           io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}${lib.version?' '+lib.version:''} (격리 실행)`);
         }
         else if(d.t==='log'){(io.log||io.sys)&&(io.log||io.sys)(`[${lib.id}] ${d.s}`);}

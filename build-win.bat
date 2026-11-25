@@ -17,6 +17,8 @@ if not exist build mkdir build
 %CC% -O2 -static -Wall -o dist\bin\jdh.exe src\jdh.c build\app.res.o -lshell32 || exit /b 1
 %CC% -O2 -static -Wall -mwindows -o dist\bin\jbdev.exe src\jbdev.c build\app.res.o -lshell32 -ladvapi32 || exit /b 1
 copy /y editor\jbdev.html dist\editor\jbdev.html >nul || exit /b 1
+if not exist dist\sdk mkdir dist\sdk
+copy /y sdk\jdh.h dist\sdk\jdh.h >nul || exit /b 1
 echo.
 echo 빌드 끝: dist\bin\jdh.exe · dist\bin\jbdev.exe · dist\editor\jbdev.html
-echo 설치 파일: Inno Setup 으로 installer\jdh.iss 를 컴파일하면 installer\out\JDH-Setup-0.1.0.exe
+echo 설치 파일: Inno Setup 으로 installer\jdh.iss 를 컴파일하면 installer\out\JDH-Setup-0.2.0.exe

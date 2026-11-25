@@ -2,13 +2,13 @@
 [Setup]
 AppId={{6B1E6C0E-5E0B-4B1B-9C0E-4A44483D4831}
 AppName=JDH (JawBreaker Development Helper)
-AppVersion=0.1.0
+AppVersion=0.2.0
 DefaultDirName={localappdata}\Programs\JDH
 DefaultGroupName=JawBreaker
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=out
-OutputBaseFilename=JDH-Setup-0.1.0
+OutputBaseFilename=JDH-Setup-0.2.0
 Compression=lzma2
 SolidCompression=yes
 ChangesEnvironment=yes
@@ -20,6 +20,8 @@ WizardStyle=modern
 Source: "..\dist\bin\jdh.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\dist\bin\jbdev.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\dist\editor\jbdev.html"; DestDir: "{app}\editor"; Flags: ignoreversion
+Source: "..\dist\sdk\jdh.h"; DestDir: "{app}\sdk"; Flags: ignoreversion
+Source: "..\dist\toolchain\zig\*"; DestDir: "{app}\toolchain\zig"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\JawBreaker Dev."; Filename: "{app}\bin\jbdev.exe"

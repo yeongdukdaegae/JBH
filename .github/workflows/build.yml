@@ -22,12 +22,23 @@ jobs:
       - name: 빌드
         shell: cmd
         run: build-win.bat
-      - name: 명령 시험
+      - name: 라이브러리용 컴파일러 (zig) 넣기
         shell: cmd
         run: |
+          python -m pip install ziglang -t zigpkg --no-deps -q
+          if not exist dist\toolchain mkdir dist\toolchain
+          xcopy /e /i /q /y zigpkg\ziglang dist\toolchain\zig >nul
+          dist\toolchain\zig\zig.exe version
+      - name: 명령 시험 (틀 만들기 → C 를 컴파일해 굽기 → 프로젝트에 적용)
+        shell: cmd
+        run: |
+          set JDH_HOME=
           dist\bin\jdh.exe version
           dist\bin\jdh.exe new lib Hello
           dist\bin\jdh.exe lib build Hello
+          dist\bin\jdh.exe new project Game
+          dist\bin\jdh.exe lib add Hello\Hello-0.1.0.jbx Game
+          dist\bin\jdh.exe lib list Game
       - name: 설치 파일 만들기
         shell: cmd
         run: |
@@ -37,7 +48,3 @@ jobs:
         with:
           name: JDH-Setup
           path: installer/out/*.exe
-      - uses: actions/upload-artifact@v4
-        with:
-          name: JDH-files
-          path: dist

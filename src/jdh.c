@@ -1,9 +1,10 @@
 /* jdh — JawBreaker Development Helper 명령
  *   라이브러리 틀 만들기 · 검사 · 굽기(.jbx) · 프로젝트에 적용
- *   .jbx: "JBX1" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
- *         jdl.json (선언) · web.js (JS 구현) · doc/… (설명서) · native/… (C 소스)
+ *   라이브러리는 C 로 한 번만 씀 — jdh lib build 가 웹용(WebAssembly)으로 컴파일해 C 소스와 함께 .jbx 에 담음
+ *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
+ *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.1.0"
+#define JDH_VERSION "0.2.0"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -131,7 +132,8 @@ static const char *jgets(JV *o, const char *key) { JV *v = jget(o, key); return 
 /* ---------- 라이브러리 폴더 읽기 · 검사 ---------- */
 typedef struct { char *name; unsigned char *data; size_t len; } Ent;
 typedef struct {
-    char *dir, *id, *version, *webPath;
+    char *dir, *id, *version;
+    char **csrc; int ncsrc;      /* native/ 의 C 파일 (폴더 기준 경로) */
     unsigned char *man; size_t manLen;
     JV *json;
     Ent *ents; int nents;
@@ -169,17 +171,6 @@ static void addFolder(Lib *L, const char *sub) {   /* doc/ · native/ 바로 아
         free(p); free(names[i]);
     }
     free(names); free(dir);
-}
-/* JS 에서 명령어가 정의되어 있는지 (이름 뒤에 '(' 또는 ':' 가 오는 곳이 있는지) — 대강의 검사 */
-static int jsHas(const char *js, const char *name) {
-    size_t n = strlen(name);
-    for (const char *p = js; (p = strstr(p, name)); p += n) {
-        unsigned char b = p == js ? ' ' : (unsigned char)p[-1];
-        if (isalnum(b) || b == '_' || b == '$' || b >= 0x80) continue;
-        const char *q = p + n; while (*q == ' ' || *q == '\t') q++;
-        if (*q == '(' || *q == ':') return 1;
-    }
-    return 0;
 }
 static Lib *libLoad(const char *dir) {
     Lib *L = xalloc(sizeof *L); memset(L, 0, sizeof *L);
@@ -221,20 +212,18 @@ static void libCheck(Lib *L) {
         if (rq->k != J_ARR) lerr(L, "\"requires\".\"libs\" 는 [ ] 목록이어야 합니다");
         else for (int i = 0; i < rq->n; i++) if (rq->items[i]->k != J_STR || !inSet(rq->items[i]->str, BUILTIN)) lerr(L, "requires.libs 에는 내장 라이브러리 이름만 씁니다: %s", rq->items[i]->k == J_STR ? rq->items[i]->str : "(문자열 아님)");
     }
-    /* JS 구현 */
-    const char *web = jgets(j, "web");
-    char *js = NULL;
-    if (!web) lerr(L, "\"web\" (JS 구현 파일 경로) 가 필요합니다 (예: \"web/%s.js\")", L->id ? L->id : "lib");
-    else if (!okRelPath(web)) lerr(L, "web 경로는 라이브러리 폴더 안을 가리켜야 합니다: %s", web);
-    else {
-        char *wp = fmtdup("%s/%s", L->dir, web); size_t len;
-        js = (char*)readAll(wp, &len);
-        if (!js) lerr(L, "JS 구현 파일이 없습니다: %s", web);
-        else {
-            if (strlen(js) != len) lerr(L, "JS 구현 파일에 0 바이트가 들어 있습니다 (글자 파일이 아님): %s", web);
-            if (!strstr(js, "export default")) lerr(L, "%s: 'export default function (host) { … }' 로 시작하는 함수가 있어야 합니다", web);
-            L->webPath = wp; addEnt(L, "web.js", (unsigned char*)js, len);
-        }
+    if (jget(j, "web")) lerr(L, "\"web\" (JS 구현) 은 더 이상 쓰지 않습니다 — 구현은 C 로 한 번만 쓰고 \"native\" 에 적습니다");
+    /* C 구현 */
+    JV *nt = jget(j, "native");
+    if (!nt || nt->k != J_ARR || !nt->n) lerr(L, "\"native\" (C 구현 파일 목록) 가 필요합니다 (예: [\"native/%s.c\"])", L->id ? L->id : "lib");
+    else for (int i = 0; i < nt->n; i++) {
+        if (nt->items[i]->k != J_STR || !okRelPath(nt->items[i]->str)) { lerr(L, "native 경로가 올바르지 않습니다"); continue; }
+        const char *np = nt->items[i]->str;
+        if (strncmp(np, "native/", 7) || strchr(np + 7, '/') || !endsWith(np, ".c")) { lerr(L, "C 파일은 native/ 폴더 바로 아래의 .c 파일이어야 합니다: %s", np); continue; }
+        char *fp = fmtdup("%s/%s", L->dir, np);
+        if (!isFile(fp)) lerr(L, "C 구현 파일이 없습니다: %s", np);
+        else { L->csrc = realloc(L->csrc, sizeof(char*) * (L->ncsrc + 1)); L->csrc[L->ncsrc++] = xdup(np); }
+        free(fp);
     }
     /* 명령어 */
     JV *cm = jget(j, "commands"); int ncmd = 0;
@@ -250,7 +239,6 @@ static void libCheck(Lib *L) {
         else for (int k = 0; k < ps->n; k++)
             if (ps->items[k]->k != J_STR || !inSet(ps->items[k]->str, PT)) lerr(L, "명령어 '%s' 의 %d번째 인자 형식 '%s' 은(는) 쓸 수 없습니다 (int · float · string · bit · color · mat12)", name, k + 1, ps->items[k]->k == J_STR ? ps->items[k]->str : "?");
         if (jget(c, "returns")) lerr(L, "명령어 '%s': \"returns\" 는 지원하지 않습니다 — 돌려줄 값은 \"values\" 에 선언하고 코드에서 별칭.값이름 으로 읽습니다", name);
-        if (js && !jsHas(js, name)) lerr(L, "명령어 '%s' 이(가) JS 구현에 보이지 않습니다 (%s 에서 %s(…) { … } 를 찾지 못함)", name, web, name);
     }
     /* 값 */
     JV *vs = jget(j, "values"); int nval = 0;
@@ -260,24 +248,171 @@ static void libCheck(Lib *L) {
         if (!okName(name)) { lerr(L, "값 이름 '%s' 은(는) 쓸 수 없습니다", name); continue; }
         if (vs->items[i]->k != J_STR || !inSet(vs->items[i]->str, VT)) lerr(L, "값 '%s' 의 형식은 int · float · string · bit 중 하나여야 합니다", name);
         if (cm && cm->k == J_OBJ && jget(cm, name)) lerr(L, "'%s' 이(가) 명령어와 값 양쪽에 선언되었습니다", name);
-        if (js && !jsHas(js, name)) lerr(L, "값 '%s' 이(가) JS 구현에 보이지 않습니다 (values: { %s: () => … } 를 찾지 못함)", name, name);
     }
-    if (nval && js && !jsHas(js, "values")) lerr(L, "값을 선언했지만 JS 구현에 values: { … } 가 없습니다");
     if (!ncmd && !nval) lwarn(L, "명령어도 값도 선언하지 않았습니다");
-    /* C 구현 (소스만 담음 — 컴파일은 EXE 로 내보낼 때) */
-    JV *nt = jget(j, "native");
-    if (nt) {
-        if (nt->k != J_ARR) lerr(L, "\"native\" 는 C 파일 경로의 [ ] 목록이어야 합니다");
-        else for (int i = 0; i < nt->n; i++) {
-            if (nt->items[i]->k != J_STR || !okRelPath(nt->items[i]->str)) { lerr(L, "native 경로가 올바르지 않습니다"); continue; }
-            const char *np = nt->items[i]->str;
-            if (strncmp(np, "native/", 7) || strchr(np + 7, '/')) { lerr(L, "C 파일은 native/ 폴더 바로 아래에 둡니다: %s", np); continue; }
-            char *fp = fmtdup("%s/%s", L->dir, np); if (!isFile(fp)) lerr(L, "C 구현 파일이 없습니다: %s", np); free(fp);
+}
+
+/* ---------- C → WebAssembly 컴파일 · 결과 검사 ---------- */
+static char *EXEDIR = NULL;   /* jdh 실행 파일이 있는 폴더 (찾지 못하면 NULL) */
+static char *homeDir(void) {   /* JDH 설치 폴더: JDH_HOME, 없으면 실행 파일의 위 폴더 */
+    const char *h = getenv("JDH_HOME");
+    if (h && *h && isDir(h)) return xdup(h);
+    if (EXEDIR) { char *p = fmtdup("%s/..", EXEDIR); if (isDir(p)) return p; free(p); }
+    return NULL;
+}
+static char *sdkDir(void) {
+    const char *e = getenv("JDH_SDK"); if (e && *e) return xdup(e);
+    char *h = homeDir(); if (h) { char *p = fmtdup("%s/sdk", h), *f = fmtdup("%s/jdh.h", p); int ok = isFile(f); free(f); if (ok) return p; free(p); }
+    return NULL;
+}
+/* 컴파일러 명령 (따옴표까지 붙인 꼴): JDH_ZIG → 설치 폴더의 toolchain/zig → PATH 의 zig */
+static char *zigCmd(void) {
+    const char *e = getenv("JDH_ZIG"); if (e && *e) return xdup(e);
+    char *h = homeDir();
+    if (h) {
+#ifdef _WIN32
+        char *p = fmtdup("%s\\toolchain\\zig\\zig.exe", h);
+#else
+        char *p = fmtdup("%s/toolchain/zig/zig", h);
+#endif
+        if (isFile(p)) { char *q = fmtdup("\"%s\"", p); free(p); return q; }
+        free(p);
+    }
+    return xdup("zig");
+}
+static char *catf(char *a, const char *fmt, ...) {
+    va_list ap; va_start(ap, fmt); int n = vsnprintf(NULL, 0, fmt, ap); va_end(ap);
+    size_t al = strlen(a); a = realloc(a, al + n + 1); va_start(ap, fmt); vsnprintf(a + al, n + 1, fmt, ap); va_end(ap); return a;
+}
+static int compileWasm(Lib *L, const char *out) {
+    char *sdk = sdkDir();
+    if (!sdk) { lerr(L, "jdh.h 를 찾을 수 없습니다 — JDH 를 다시 설치하거나 환경 변수 JDH_HOME 을 확인하세요"); return 0; }
+    char *zig = zigCmd();
+    char *cmd = fmtdup("%s cc -target wasm32-wasi -mexec-model=reactor -O2 -s -Wall -Wno-unused-function -I\"%s\" -o \"%s\"", zig, sdk, out);
+    for (int i = 0; i < L->ncsrc; i++) cmd = catf(cmd, " \"%s/%s\"", L->dir, L->csrc[i]);
+#ifdef _WIN32
+    char *full = fmtdup("\"%s\"", cmd);   /* cmd.exe: 따옴표로 시작하는 명령은 통째로 한 번 더 감쌈 */
+#else
+    char *full = xdup(cmd);
+#endif
+    remove(out);
+    fflush(stdout);
+    int r = system(full);
+    free(full); free(cmd); free(zig); free(sdk);
+    if (r != 0 || !isFile(out)) { lerr(L, "C 구현을 컴파일하지 못했습니다 (위 메시지를 확인하세요 · 컴파일러가 없으면 JDH 를 다시 설치)"); return 0; }
+    return 1;
+}
+/* wasm 읽기: 내보낸 함수 이름 → 꼴 (인자 형식들 '>' 결과 형식들 · i = 32비트 정수, d = double, 그 밖은 ?) */
+typedef struct { const unsigned char *p, *end; int bad; } WR;
+static uint32_t wleb(WR *r) { uint32_t v = 0; int sh = 0; for (;;) { if (r->p >= r->end) { r->bad = 1; return 0; } unsigned char b = *r->p++; v |= (uint32_t)(b & 0x7F) << sh; if (!(b & 0x80)) return v; sh += 7; if (sh > 35) { r->bad = 1; return 0; } } }
+static char wty(unsigned char t) { return t == 0x7F ? 'i' : t == 0x7C ? 'd' : t == 0x7E ? 'l' : t == 0x7D ? 'f' : '?'; }
+typedef struct { char *name; char *sig; } WExp;
+static WExp *wasmExports(const unsigned char *b, size_t len, int *count) {
+    *count = 0;
+    if (len < 8 || memcmp(b, "\0asm", 4)) return NULL;
+    char **types = NULL; int ntypes = 0; uint32_t *ftype = NULL; int nfunc = 0, nimp = 0; uint32_t *itype = NULL;
+    WExp *ex = NULL; WR r = { b + 8, b + len, 0 };
+    while (r.p < r.end && !r.bad) {
+        unsigned char id = *r.p++; uint32_t sz = wleb(&r); if (r.bad || (size_t)(r.end - r.p) < sz) break;
+        WR s = { r.p, r.p + sz, 0 }; r.p += sz;
+        if (id == 1) {
+            uint32_t n = wleb(&s);
+            for (uint32_t i = 0; i < n && !s.bad; i++) {
+                if (s.p >= s.end || *s.p++ != 0x60) { s.bad = 1; break; }
+                uint32_t np = wleb(&s); char *sig = xalloc(np + 40); uint32_t w = 0;
+                for (uint32_t k = 0; k < np && s.p < s.end; k++) sig[w++] = wty(*s.p++);
+                sig[w++] = '>';
+                uint32_t nr = wleb(&s); for (uint32_t k = 0; k < nr && s.p < s.end && w < np + 38; k++) sig[w++] = wty(*s.p++);
+                sig[w] = 0;
+                types = realloc(types, sizeof(char*) * (ntypes + 1)); types[ntypes++] = sig;
+            }
+        } else if (id == 2) {
+            uint32_t n = wleb(&s);
+            for (uint32_t i = 0; i < n && !s.bad; i++) {
+                uint32_t a = wleb(&s); s.p += a; uint32_t c = wleb(&s); s.p += c;
+                if (s.p >= s.end) { s.bad = 1; break; }
+                unsigned char kind = *s.p++;
+                if (kind == 0) { uint32_t t = wleb(&s); itype = realloc(itype, sizeof(uint32_t) * (nimp + 1)); itype[nimp++] = t; }
+                else if (kind == 1) { s.p++; uint32_t fl = wleb(&s); wleb(&s); if (fl & 1) wleb(&s); }
+                else if (kind == 2) { uint32_t fl = wleb(&s); wleb(&s); if (fl & 1) wleb(&s); }
+                else if (kind == 3) { s.p += 2; }
+                else { s.bad = 1; }
+            }
+        } else if (id == 3) {
+            uint32_t n = wleb(&s);
+            for (uint32_t i = 0; i < n && !s.bad; i++) { uint32_t t = wleb(&s); ftype = realloc(ftype, sizeof(uint32_t) * (nfunc + 1)); ftype[nfunc++] = t; }
+        } else if (id == 7) {
+            uint32_t n = wleb(&s);
+            for (uint32_t i = 0; i < n && !s.bad; i++) {
+                uint32_t nl = wleb(&s); if ((size_t)(s.end - s.p) < nl + 1) { s.bad = 1; break; }
+                char *name = xalloc(nl + 1); memcpy(name, s.p, nl); name[nl] = 0; s.p += nl;
+                unsigned char kind = *s.p++; uint32_t idx = wleb(&s);
+                if (kind != 0) { free(name); continue; }
+                uint32_t t = idx < (uint32_t)nimp ? itype[idx] : (idx - nimp < (uint32_t)nfunc ? ftype[idx - nimp] : 0xFFFFFFFFu);
+                ex = realloc(ex, sizeof(WExp) * (*count + 1));
+                ex[*count].name = name; ex[*count].sig = t < (uint32_t)ntypes ? types[t] : "?"; (*count)++;
+            }
         }
-        if (nt->k == J_ARR && nt->n) lwarn(L, "C 구현은 소스만 담습니다 — EXE 내보내기에서 쓰는 것은 JDH 0.2 부터입니다");
+    }
+    return ex;
+}
+static const char *expSig(WExp *ex, int n, const char *prefix, const char *name) {
+    size_t pl = strlen(prefix);
+    for (int i = 0; i < n; i++) if (!strncmp(ex[i].name, prefix, pl) && !strcmp(ex[i].name + pl, name)) return ex[i].sig;
+    return NULL;
+}
+static const char *cTypeOf(const char *t) { return !strcmp(t, "float") ? "double" : !strcmp(t, "string") || !strcmp(t, "color") ? "const char *" : !strcmp(t, "mat12") ? "double x, double y" : "int"; }
+/* 컴파일된 것이 선언과 맞는지: 명령어 · 값이 모두 있고 인자 형식이 같은지 */
+static void checkWasm(Lib *L, const unsigned char *b, size_t len) {
+    int n; WExp *ex = wasmExports(b, len, &n);
+    if (!ex && !n) { lerr(L, "컴파일 결과를 읽을 수 없습니다"); return; }
+    JV *cm = jget(L->json, "commands"), *vs = jget(L->json, "values");
+    if (cm && cm->k == J_OBJ) for (int i = 0; i < cm->n; i++) {
+        const char *name = cm->keys[i]; JV *ps = jget(cm->items[i], "params"); if (!ps || ps->k != J_ARR) continue;
+        char want[256]; size_t w = 0; char proto[512] = ""; int okp = 1;
+        for (int k = 0; k < ps->n && w < sizeof want - 4; k++) {
+            if (ps->items[k]->k != J_STR) { okp = 0; break; }
+            const char *t = ps->items[k]->str;
+            if (!strcmp(t, "float")) want[w++] = 'd'; else if (!strcmp(t, "mat12")) { want[w++] = 'd'; want[w++] = 'd'; } else want[w++] = 'i';
+            if (strlen(proto) + 40 < sizeof proto) { if (k) strcat(proto, ", "); strcat(proto, cTypeOf(t)); }
+        }
+        if (!okp) continue;
+        want[w++] = '>'; want[w] = 0; if (!ps->n) strcpy(proto, "void");
+        const char *sig = expSig(ex, n, "jdh_cmd_", name);
+        if (!sig) lerr(L, "명령어 '%s' 이(가) C 구현에 없습니다 — JDH_COMMAND(%s, %s) { … } 가 필요합니다", name, name, proto);
+        else if (strcmp(sig, want)) lerr(L, "명령어 '%s' 의 인자가 선언과 다릅니다 — 선언대로라면 JDH_COMMAND(%s, %s)", name, name, proto);
+    }
+    if (vs && vs->k == J_OBJ) for (int i = 0; i < vs->n; i++) {
+        const char *name = vs->keys[i]; if (vs->items[i]->k != J_STR) continue;
+        const char *t = vs->items[i]->str, *want = !strcmp(t, "float") ? ">d" : ">i", *ct = !strcmp(t, "float") ? "double" : !strcmp(t, "string") ? "const char *" : "int";
+        const char *sig = expSig(ex, n, "jdh_val_", name);
+        if (!sig) lerr(L, "값 '%s' 이(가) C 구현에 없습니다 — JDH_VALUE(%s, %s) { return …; } 가 필요합니다", name, ct, name);
+        else if (strcmp(sig, want)) lerr(L, "값 '%s' 의 형식이 선언과 다릅니다 — 선언대로라면 JDH_VALUE(%s, %s)", name, ct, name);
+    }
+    /* 선언에 없는데 구현에만 있는 것 */
+    for (int i = 0; i < n; i++) {
+        if (!strncmp(ex[i].name, "jdh_cmd_", 8) && !(cm && cm->k == J_OBJ && jget(cm, ex[i].name + 8))) lwarn(L, "C 구현의 명령어 '%s' 이(가) 선언(jdl.json)에 없습니다 — 코드에서 쓸 수 없습니다", ex[i].name + 8);
+        if (!strncmp(ex[i].name, "jdh_val_", 8) && !(vs && vs->k == J_OBJ && jget(vs, ex[i].name + 8))) lwarn(L, "C 구현의 값 '%s' 이(가) 선언(jdl.json)에 없습니다 — 코드에서 쓸 수 없습니다", ex[i].name + 8);
+    }
+}
+/* 선언 검사 → 컴파일 → 결과 검사 → 담을 파일 목록 */
+static void libPrepare(Lib *L) {
+    libCheck(L);
+    if (L->errors) return;
+    char *bd = fmtdup("%s/build", L->dir); mkdirs(bd);
+    char *out = fmtdup("%s/lib.wasm", bd);
+    if (compileWasm(L, out)) {
+        size_t len; unsigned char *b = readAll(out, &len);
+        if (!b) lerr(L, "컴파일 결과를 읽을 수 없습니다: %s", out);
+        else { checkWasm(L, b, len); addEnt(L, "lib.wasm", b, len); }
+    }
+    for (int i = 0; i < L->ncsrc; i++) {
+        char *fp = fmtdup("%s/%s", L->dir, L->csrc[i]); size_t len; unsigned char *b = readAll(fp, &len);
+        if (b) addEnt(L, L->csrc[i], b, len);
+        free(fp);
     }
     addFolder(L, "doc");
-    if (nt && nt->k == J_ARR && nt->n) addFolder(L, "native");
+    free(out); free(bd);
 }
 
 /* ---------- .jbx 쓰기 · 읽기 ---------- */
@@ -285,7 +420,7 @@ static void put32(FILE *f, uint32_t v) { unsigned char b[4] = { (unsigned char)v
 static uint32_t get32(const unsigned char *p) { return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24); }
 static void jbxWrite(Lib *L, const char *out) {
     FILE *f = fopen(out, "wb"); if (!f) die("파일을 쓸 수 없습니다: %s", out);
-    fwrite("JBX1", 1, 4, f); put32(f, (uint32_t)(L->nents + 1));
+    fwrite("JBLX", 1, 4, f); put32(f, (uint32_t)(L->nents + 1));
     put32(f, 8); fwrite("jdl.json", 1, 8, f); put32(f, (uint32_t)L->manLen); fwrite(L->man, 1, L->manLen, f);
     for (int i = 0; i < L->nents; i++) {
         size_t nl = strlen(L->ents[i].name);
@@ -297,7 +432,7 @@ static void jbxWrite(Lib *L, const char *out) {
 static JV *jbxManifest(const char *path, unsigned char **raw, size_t *rawLen) {
     size_t len; unsigned char *b = readAll(path, &len);
     if (!b) die("파일을 열 수 없습니다: %s", path);
-    if (len < 8 || memcmp(b, "JBX1", 4)) die("%s 은(는) .jbx 파일이 아니거나 손상되었습니다", path);
+    if (len < 8 || memcmp(b, "JBLX", 4)) die("%s 은(는) .jbx 파일이 아니거나 손상되었습니다", path);
     uint32_t n = get32(b + 4); size_t p = 8;
     for (uint32_t k = 0; k < n; k++) {
         if (p + 4 > len) die("%s 이(가) 손상되었습니다", path);
@@ -317,26 +452,29 @@ static JV *jbxManifest(const char *path, unsigned char **raw, size_t *rawLen) {
 }
 
 /* ---------- 명령 ---------- */
-static const char *TPL_JS =
-"// %s — JS 구현 (JawBreaker Dev. 실행 · HTML · APK)\n"
-"//   이 코드는 격리된 공간에서 실행됩니다: 에디터 · 저장 공간 · 프로젝트 파일에는 닿지 못하고,\n"
-"//   엔진과는 host 와 아래에서 돌려주는 명령어 · 값으로만 주고받습니다.\n"
-"export default function (host) {\n"
-"  let count = 0;\n"
+static const char *TPL_C =
+"// %s — C 구현 (한 번만 씁니다: 웹에서는 WebAssembly 로, EXE 에서는 실행기와 함께 컴파일됩니다)\n"
+"//   웹에서는 격리된 공간에서 실행됩니다: 에디터 · 저장 공간 · 프로젝트 파일에는 닿지 못합니다.\n"
+"#include \"jdh.h\"\n"
+"#include <stdio.h>\n"
 "\n"
-"  // host.onFrame(dt => { });      프레임마다 (dt = 지난 시간 ms)\n"
-"  // host.onStop(() => { });       실행이 끝날 때\n"
-"  // host.log(\"글자\");             디버그 로그에 찍기\n"
+"static int count;\n"
 "\n"
-"  return {\n"
-"    // 명령어: 코드에서  별칭.hello(\"이름\");\n"
-"    hello(name) { count++; host.log(\"hello, \" + name); },\n"
-"    reset() { count = 0; },\n"
+"// 명령어: 코드에서  별칭.hello(\"이름\");\n"
+"JDH_COMMAND(hello, const char *name) {\n"
+"    char line[256];\n"
+"    count++;\n"
+"    snprintf(line, sizeof line, \"hello, %%s\", name);\n"
+"    jdh_log(line);\n"
+"}\n"
 "\n"
-"    // 값: 코드에서  별칭.count   (명령어는 값을 돌려주지 않습니다 — 돌려줄 것은 여기에)\n"
-"    values: { count: () => count }\n"
-"  };\n"
-"}\n";
+"// 인자가 없는 명령어는 void\n"
+"JDH_COMMAND(reset, void) { count = 0; }\n"
+"\n"
+"// 값: 코드에서  별칭.count   (명령어는 값을 돌려주지 않습니다 — 돌려줄 것은 값으로)\n"
+"JDH_VALUE(int, count) { return count; }\n"
+"\n"
+"// 선택: JDH_INIT() { }  실행을 시작할 때 · JDH_FRAME(dt) { }  프레임마다 (dt = 지난 시간 ms) · JDH_STOP() { }  끝날 때\n";
 static const char *TPL_JDL =
 "{\n"
 "  \"jdl\": 1,\n"
@@ -349,7 +487,7 @@ static const char *TPL_JDL =
 "    \"reset\": { \"params\": [] }\n"
 "  },\n"
 "  \"values\": { \"count\": \"int\" },\n"
-"  \"web\": \"web/%s.js\"\n"
+"  \"native\": [\"native/%s.c\"]\n"
 "}\n";
 static const char *TPL_DOC =
 "// %s — 설명서 (읽기 전용으로 열림)\n"
@@ -364,13 +502,13 @@ static int cmdNewLib(const char *id) {
     if (inSet(id, BUILTIN)) die("'%s' 은(는) 내장 라이브러리 이름이라 쓸 수 없습니다", id);
     if (isDir(id) || isFile(id)) die("이미 '%s' 이(가) 있습니다", id);
     char *p;
-    p = fmtdup("%s/web", id); mkdirs(p); free(p);
+    p = fmtdup("%s/native", id); mkdirs(p); free(p);
     p = fmtdup("%s/doc", id); mkdirs(p); free(p);
     char *t;
     p = fmtdup("%s/jdl.json", id); t = fmtdup(TPL_JDL, id, id); writeAll(p, t, strlen(t)); free(p); free(t);
-    p = fmtdup("%s/web/%s.js", id, id); t = fmtdup(TPL_JS, id); writeAll(p, t, strlen(t)); free(p); free(t);
+    p = fmtdup("%s/native/%s.c", id, id); t = fmtdup(TPL_C, id); writeAll(p, t, strlen(t)); free(p); free(t);
     p = fmtdup("%s/doc/%s.jbl", id, id); t = fmtdup(TPL_DOC, id, id); writeAll(p, t, strlen(t)); free(p); free(t);
-    printf("✔ 라이브러리 틀을 만들었습니다: %s/\n    jdl.json        선언 (명령어 · 값 · 권한)\n    web/%s.js   JS 구현\n    doc/%s.jbl  설명서\n  다음: cd %s → jdh lib check → jdh lib build\n", id, id, id, id);
+    printf("✔ 라이브러리 틀을 만들었습니다: %s/\n    jdl.json        선언 (명령어 · 값 · 권한)\n    native/%s.c  C 구현\n    doc/%s.jbl  설명서\n  다음: cd %s → jdh lib check → jdh lib build\n", id, id, id, id);
     return 0;
 }
 static int cmdNewProject(const char *name) {
@@ -387,7 +525,7 @@ static int cmdNewProject(const char *name) {
 static int cmdLibCheck(const char *dir, Lib **out) {
     Lib *L = libLoad(dir);
     printf("검사: %s\n", L->dir);
-    libCheck(L);
+    libPrepare(L);
     if (L->errors) printf("✖ 오류 %d개%s\n", L->errors, L->warns ? fmtdup(" · 주의 %d개", L->warns) : "");
     else printf("✔ 문제 없음%s — %s %s\n", L->warns ? fmtdup(" (주의 %d개)", L->warns) : "", L->id, L->version);
     if (out) *out = L;
@@ -468,7 +606,7 @@ static void usage(void) {
          "  jdh version                      버전\n"
          "  jdh new project <이름>           빈 프로젝트 폴더 만들기\n"
          "  jdh new lib <id>                 라이브러리 틀 만들기\n"
-         "  jdh lib check [폴더]             선언과 JS 구현이 맞는지 검사\n"
+         "  jdh lib check [폴더]             선언과 C 구현이 맞는지 검사 (컴파일해 봄)\n"
          "  jdh lib build [폴더] [-o 파일]   라이브러리 폴더를 .jbx 하나로 굽기\n"
          "  jdh lib add <.jbx> [프로젝트]    프로젝트의 ext/ 에 적용\n"
          "  jdh lib list [프로젝트]          적용된 라이브러리 보기\n"
@@ -478,6 +616,9 @@ static void usage(void) {
 int main(int argc, char **argv) {
 #ifdef _WIN32
     SetConsoleOutputCP(65001);
+    { char me[MAX_PATH]; DWORD mn = GetModuleFileNameA(NULL, me, MAX_PATH); if (mn && mn < MAX_PATH) { char *sl = strrchr(me, '\\'); if (sl) { *sl = 0; EXEDIR = xdup(me); } } }
+#else
+    { char me[4096]; ssize_t mn = readlink("/proc/self/exe", me, sizeof me - 1); if (mn > 0) { me[mn] = 0; char *sl = strrchr(me, '/'); if (sl) { *sl = 0; EXEDIR = xdup(me); } } }
 #endif
     if (argc < 2 || !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help") || !strcmp(argv[1], "help")) { usage(); return argc < 2 ? 2 : 0; }
     const char *a = argv[1], *b = argc > 2 ? argv[2] : NULL;
