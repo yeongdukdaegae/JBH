@@ -39,6 +39,33 @@ jobs:
           dist\bin\jdh.exe new project Game
           dist\bin\jdh.exe lib add Hello\Hello-0.1.0.jbx Game
           dist\bin\jdh.exe lib list Game
+      - name: SDL2 (실행기용) 넣기
+        shell: pwsh
+        run: |
+          $rels = Invoke-RestMethod "https://api.github.com/repos/libsdl-org/SDL/releases?per_page=60"
+          $asset = $rels | Where-Object { $_.tag_name -like 'release-2.*' } | ForEach-Object { $_.assets } | Where-Object { $_.name -like 'SDL2-devel-*-mingw.zip' } | Select-Object -First 1
+          Write-Host $asset.name
+          Invoke-WebRequest $asset.browser_download_url -OutFile sdl.zip
+          Expand-Archive sdl.zip -DestinationPath sdl
+          $src = (Get-ChildItem sdl -Directory | Select-Object -First 1).FullName + "\x86_64-w64-mingw32"
+          New-Item -ItemType Directory -Force dist\sdk\SDL2 | Out-Null
+          Copy-Item "$src\include" dist\sdk\SDL2\include -Recurse
+          New-Item -ItemType Directory -Force dist\sdk\SDL2\lib | Out-Null
+          Copy-Item "$src\lib\libSDL2.a" dist\sdk\SDL2\lib\
+      - name: EXE 시험 (라이브러리를 쓰는 프로젝트를 실행 파일로 만들어 실제로 실행)
+        shell: cmd
+        run: |
+          set JDH_HOME=
+          (echo Use jawbreaker call jaw;& echo Use Hello call h;& echo.& echo run{& echo     h.hello^("one"^);& echo     h.hello^("two"^);& echo     print^("count=%%h.count%%"^);& echo }) > Game\main.jb
+          type Game\main.jb
+          dist\bin\jdh.exe build exe Game -o Game.exe || exit /b 1
+          set SDL_VIDEODRIVER=dummy
+          set SDL_AUDIODRIVER=dummy
+          Game.exe > out.txt 2> err.txt
+          echo exit=%errorlevel%
+          type out.txt
+          type err.txt
+          findstr /c:"count=2" out.txt || exit /b 1
       - name: 설치 파일 만들기
         shell: cmd
         run: |

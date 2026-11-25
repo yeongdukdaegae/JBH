@@ -10017,6 +10017,7 @@ function iconRender(bmp,s){
 const exeCfgKey=n=>'jawbreaker.exe.cfg.'+(n||'');
 async function exportExe(){
   if(exporting)return;
+  /*DEV-START*/if(Object.keys(files).some(f=>/^ext\/.+\.jbx$/i.test(f))){addLog('✖ 사용자 라이브러리가 들어 있는 프로젝트의 EXE 는 명령 창에서 만듭니다:  jdh build exe <프로젝트 폴더>','err');setPanelOpen(true);showPanel('log');return;}/*DEV-END*/
   const c=exportCheck('EXE');if(!c)return;
   const rt=exeRuntime();
   if(!rt){addLog('✖ 이 편집기에는 Windows 실행기가 들어 있지 않습니다','err');return;}

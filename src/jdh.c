@@ -4,7 +4,7 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.2.0"
+#define JDH_VERSION "0.3.0"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -236,6 +236,7 @@ static void libCheck(Lib *L) {
         if (c->k != J_OBJ) { lerr(L, "명령어 '%s' 의 선언은 { \"params\": [ … ] } 꼴이어야 합니다", name); continue; }
         JV *ps = jget(c, "params");
         if (!ps || ps->k != J_ARR) lerr(L, "명령어 '%s': \"params\" 목록이 필요합니다 (인자가 없으면 [])", name);
+        else if (ps->n > 8) lerr(L, "명령어 '%s': 인자는 8개까지입니다 (받은 것: %d개)", name, ps->n);
         else for (int k = 0; k < ps->n; k++)
             if (ps->items[k]->k != J_STR || !inSet(ps->items[k]->str, PT)) lerr(L, "명령어 '%s' 의 %d번째 인자 형식 '%s' 은(는) 쓸 수 없습니다 (int · float · string · bit · color · mat12)", name, k + 1, ps->items[k]->k == J_STR ? ps->items[k]->str : "?");
         if (jget(c, "returns")) lerr(L, "명령어 '%s': \"returns\" 는 지원하지 않습니다 — 돌려줄 값은 \"values\" 에 선언하고 코드에서 별칭.값이름 으로 읽습니다", name);
@@ -587,6 +588,186 @@ static int cmdLibRemove(const char *id, const char *projArg) {
     printf("✔ %s 을(를) 프로젝트에서 뺐습니다\n", id);
     return 0;
 }
+
+/* ---------- jdh build exe — 프로젝트를 Windows 실행 파일로 (사용자 라이브러리의 C 구현을 실행기와 함께 컴파일) ---------- */
+typedef struct { char *name; const unsigned char *data; size_t len; } JEnt;
+static JEnt *jbxEntries(const char *path, int *count) {
+    size_t len; unsigned char *b = readAll(path, &len); *count = 0;
+    if (!b) die("파일을 열 수 없습니다: %s", path);
+    if (len < 8 || memcmp(b, "JBLX", 4)) die("%s 은(는) .jbx 파일이 아니거나 예전 형식입니다 — jdh lib build 로 다시 구워 주세요", path);
+    uint32_t n = get32(b + 4); size_t p = 8; JEnt *e = xalloc(sizeof(JEnt) * (n + 1));
+    for (uint32_t k = 0; k < n; k++) {
+        if (p + 4 > len) die("%s 이(가) 손상되었습니다", path);
+        uint32_t nl = get32(b + p); p += 4; if (p + nl + 4 > len) die("%s 이(가) 손상되었습니다", path);
+        e[k].name = xalloc(nl + 1); memcpy(e[k].name, b + p, nl); e[k].name[nl] = 0; p += nl;
+        uint32_t sz = get32(b + p); p += 4; if (p + sz > len) die("%s 이(가) 손상되었습니다", path);
+        e[k].data = b + p; e[k].len = sz; p += sz;
+    }
+    *count = (int)n; return e;
+}
+static JEnt *jent(JEnt *e, int n, const char *name) { for (int i = 0; i < n; i++) if (!strcmp(e[i].name, name)) return &e[i]; return NULL; }
+static int run(const char *cmd) {
+#ifdef _WIN32
+    char *full = fmtdup("\"%s\"", cmd);
+#else
+    char *full = xdup(cmd);
+#endif
+    fflush(stdout); int r = system(full); free(full); return r;
+}
+static const char *ctyOf(const char *t) { return !strcmp(t, "float") ? "double" : !strcmp(t, "string") || !strcmp(t, "color") ? "const char *" : "int"; }
+static int tcode(const char *t) { return !strcmp(t, "int") ? 1 : !strcmp(t, "float") ? 2 : !strcmp(t, "string") ? 3 : !strcmp(t, "bit") ? 4 : !strcmp(t, "color") ? 5 : !strcmp(t, "mat12") ? 6 : 0; }
+static char *cstrLit(const char *s) {   /* C 문자열 상수 (따옴표 포함) */
+    char *o = xalloc(strlen(s) * 4 + 3), *w = o; *w++ = '"';
+    for (; *s; s++) { unsigned char c = (unsigned char)*s; if (c == '"' || c == '\\') { *w++ = '\\'; *w++ = (char)c; } else if (c < 32) { w += sprintf(w, "\\%03o", c); } else *w++ = (char)c; }
+    *w++ = '"'; *w = 0; return o;
+}
+/* 프로젝트 파일을 실행 파일 끝에 붙임: "JBPK" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)… · u64 시작 위치 · "JBPAYLD1" */
+typedef struct { char **path; int n; } PList;
+static void projScan(const char *root, const char *rel, PList *pl) {
+    char *dir = *rel ? fmtdup("%s/%s", root, rel) : xdup(root); DIR *d = opendir(dir); if (!d) { free(dir); return; }
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (e->d_name[0] == '.') continue;
+        char *r2 = *rel ? fmtdup("%s/%s", rel, e->d_name) : xdup(e->d_name), *f2 = fmtdup("%s/%s", root, r2);
+        if (isDir(f2)) {
+            if (!*rel && (!strcmp(e->d_name, "build") || !strcmp(e->d_name, "ext") || endsWith(e->d_name, "_data"))) { free(r2); free(f2); continue; }
+            projScan(root, r2, pl); free(r2);
+        } else if (isFile(f2) && !endsWith(e->d_name, ".exe") && !endsWith(e->d_name, ".zip")) {
+            pl->path = realloc(pl->path, sizeof(char*) * (pl->n + 1)); pl->path[pl->n++] = r2;
+        } else free(r2);
+        free(f2);
+    }
+    closedir(d); free(dir);
+}
+static void put64(FILE *f, uint64_t v) { for (int i = 0; i < 8; i++) fputc((int)((v >> (8 * i)) & 255), f); }
+static void appendPayload(const char *exe, const char *root) {
+    PList pl = { NULL, 0 }; projScan(root, "", &pl);
+    qsort(pl.path, pl.n, sizeof(char*), cmpStr);
+    FILE *f = fopen(exe, "ab"); if (!f) die("실행 파일에 프로젝트를 붙일 수 없습니다: %s", exe);
+    fseek(f, 0, SEEK_END); long start = ftell(f);
+    fwrite("JBPK", 1, 4, f); put32(f, (uint32_t)pl.n);
+    for (int i = 0; i < pl.n; i++) {
+        char *fp = fmtdup("%s/%s", root, pl.path[i]); size_t len; unsigned char *b = readAll(fp, &len);
+        if (!b) die("파일을 읽을 수 없습니다: %s", fp);
+        size_t nl = strlen(pl.path[i]);
+        put32(f, (uint32_t)nl); fwrite(pl.path[i], 1, nl, f); put32(f, (uint32_t)len); fwrite(b, 1, len, f);
+        free(b); free(fp);
+    }
+    put64(f, (uint64_t)start); fwrite("JBPAYLD1", 1, 8, f);
+    if (fclose(f)) die("실행 파일을 쓰다가 실패했습니다: %s", exe);
+    printf("  프로젝트 파일 %d개를 넣었습니다\n", pl.n);
+}
+static char *projName(const char *pd) {
+    char *p = fmtdup("%s/project.jbs", pd); unsigned char *t = readAll(p, NULL); free(p);
+    char *name = NULL;
+    for (char *ln = strtok((char*)t, "\n"); ln; ln = strtok(NULL, "\n")) {
+        while (*ln == ' ' || *ln == '\t') ln++;
+        if (!strncmp(ln, "name", 4)) { char *eq = strchr(ln, '='); if (eq) { eq++; while (*eq == ' ' || *eq == '\t') eq++; size_t L = strlen(eq); while (L && (eq[L-1] == '\r' || eq[L-1] == ' ' || eq[L-1] == '\t')) eq[--L] = 0; if (L) name = xdup(eq); } }
+    }
+    if (!name) name = xdup("game");
+    for (char *q = name; *q; q++) if (strchr("\\/:*?\"<>|", *q)) *q = '_';
+    return name;
+}
+static int cmdBuildExe(const char *projArg, const char *outArg) {
+    const char *pd = projDir(projArg);
+    char *home = homeDir(), *sdk = sdkDir();
+    if (!sdk) die("jdh.h 를 찾을 수 없습니다 — JDH 를 다시 설치하거나 환경 변수 JDH_HOME 을 확인하세요");
+    const char *rte = getenv("JDH_RUNTIME"), *sdle = getenv("JDH_SDL");
+    char *rt = rte && *rte ? xdup(rte) : fmtdup("%s/runtime", sdk), *sdl = sdle && *sdle ? xdup(sdle) : fmtdup("%s/SDL2", sdk);
+    char *rtsrc = fmtdup("%s/src", rt);
+    if (!isDir(rtsrc)) die("실행기 소스가 없습니다: %s — JDH 를 다시 설치해 주세요", rtsrc);
+    (void)home;
+    char *bd = fmtdup("%s/build/jdh", pd); mkdirs(bd);
+    /* 1. 라이브러리 풀기 · 잇는 표 만들기 */
+    char *ext = fmtdup("%s/ext", pd); DIR *d = opendir(ext);
+    char **jbx = NULL; int nj = 0;
+    if (d) { struct dirent *e; while ((e = readdir(d))) if (endsWith(e->d_name, ".jbx")) { jbx = realloc(jbx, sizeof(char*) * (nj + 1)); jbx[nj++] = fmtdup("%s/%s", ext, e->d_name); } closedir(d); }
+    if (nj) qsort(jbx, nj, sizeof(char*), cmpStr);
+    char *gen = xdup("/* jdh build exe 가 만든 파일 — 사용자 라이브러리를 실행기에 잇는 표 */\n#include \"jdh_native.h\"\n");
+    char *tbl = xdup("");
+    char **objsrc = NULL; int *objlib = NULL; int nobj = 0;
+    for (int li = 0; li < nj; li++) {
+        int ne; JEnt *en = jbxEntries(jbx[li], &ne);
+        JEnt *me = jent(en, ne, "jdl.json"), *we = jent(en, ne, "lib.wasm");
+        if (!me) die("%s 에 선언(jdl.json)이 없습니다", jbx[li]);
+        char *mt = xalloc(me->len + 1); memcpy(mt, me->data, me->len); mt[me->len] = 0;
+        const char *err; int line; JV *j = jparse(mt, &err, &line); if (!j) die("%s 의 선언을 읽을 수 없습니다 — %s", jbx[li], err);
+        const char *id = jgets(j, "id"); if (!id) die("%s 의 선언에 id 가 없습니다", jbx[li]);
+        int hasInit = 0, hasFrame = 0, hasStop = 0;
+        if (we) { int nx; WExp *ex = wasmExports(we->data, we->len, &nx); for (int q = 0; q < nx; q++) { if (!strcmp(ex[q].name, "jdh_init")) hasInit = 1; if (!strcmp(ex[q].name, "jdh_frame")) hasFrame = 1; if (!strcmp(ex[q].name, "jdh_stop")) hasStop = 1; } }
+        int nsrc = 0;
+        for (int q = 0; q < ne; q++) {
+            if (strncmp(en[q].name, "native/", 7) || !endsWith(en[q].name, ".c") || strchr(en[q].name + 7, '/') || strstr(en[q].name, "..")) continue;
+            char *ld = fmtdup("%s/x%d", bd, li); mkdirs(ld);
+            char *fp = fmtdup("%s/%s", ld, en[q].name + 7); writeAll(fp, en[q].data, en[q].len);
+            objsrc = realloc(objsrc, sizeof(char*) * (nobj + 1)); objlib = realloc(objlib, sizeof(int) * (nobj + 1)); objsrc[nobj] = fp; objlib[nobj++] = li; nsrc++; free(ld);
+        }
+        if (!nsrc) die("라이브러리 '%s' 에 C 소스가 없어 EXE 에 넣을 수 없습니다 (%s)", id, jbx[li]);
+        JV *cm = jget(j, "commands"), *vs = jget(j, "values");
+        int nc = cm && cm->k == J_OBJ ? cm->n : 0, nv = vs && vs->k == J_OBJ ? vs->n : 0;
+        char *ct = xdup(""), *vt = xdup("");
+        for (int q = 0; q < nc; q++) {
+            JV *ps = jget(cm->items[q], "params"); int np = ps && ps->k == J_ARR ? ps->n : 0;
+            if (np > 8) die("라이브러리 '%s' 의 명령어 '%s': 인자는 8개까지입니다", id, cm->keys[q]);
+            char *proto = xdup(""), *call = xdup(""), *codes = xdup(""); int k = 0;
+            for (int a = 0; a < np; a++) {
+                const char *t = ps->items[a]->k == J_STR ? ps->items[a]->str : "int"; int tc = tcode(t);
+                if (!tc) die("라이브러리 '%s' 의 명령어 '%s': 알 수 없는 인자 형식 '%s'", id, cm->keys[q], t);
+                codes = catf(codes, "%s%d", a ? ", " : "", tc);
+                if (tc == 6) { proto = catf(proto, "%sdouble, double", k ? ", " : ""); call = catf(call, "%sa[%d].d, a[%d].d", k ? ", " : "", k, k + 1); k += 2; }
+                else { proto = catf(proto, "%s%s", k ? ", " : "", ctyOf(t)); call = catf(call, "%sa[%d].%s", k ? ", " : "", k, tc == 2 ? "d" : tc == 3 || tc == 5 ? "s" : "i"); k++; }
+            }
+            if (!np) proto = catf(proto, "void");
+            gen = catf(gen, "void jdh_x%d_cmd_%s(%s);\nstatic void c_%d_%d(const JdhArg *a) { (void)a; jdh_x%d_cmd_%s(%s); }\n", li, cm->keys[q], proto, li, q, li, cm->keys[q], call);
+            char *nm = cstrLit(cm->keys[q]);
+            ct = catf(ct, "    {%s, %d, {%s}, c_%d_%d},\n", nm, np, np ? codes : "0", li, q);
+            free(nm); free(proto); free(call); free(codes);
+        }
+        for (int q = 0; q < nv; q++) {
+            const char *t = vs->items[q]->k == J_STR ? vs->items[q]->str : "int"; int tc = tcode(t);
+            gen = catf(gen, "%s jdh_x%d_val_%s(void);\nstatic void v_%d_%d(JdhArg *o) { o->%s = jdh_x%d_val_%s(); }\n", ctyOf(t), li, vs->keys[q], li, q, tc == 2 ? "d" : tc == 3 ? "s" : "i", li, vs->keys[q]);
+            char *nm = cstrLit(vs->keys[q]);
+            vt = catf(vt, "    {%s, %d, v_%d_%d},\n", nm, tc, li, q); free(nm);
+        }
+        if (hasInit) gen = catf(gen, "void jdh_x%d_init(void);\n", li);
+        if (hasFrame) gen = catf(gen, "void jdh_x%d_frame(double);\n", li);
+        if (hasStop) gen = catf(gen, "void jdh_x%d_stop(void);\n", li);
+        gen = catf(gen, "static const JdhCmd cmds_%d[] = {\n%s    {0}\n};\nstatic const JdhVal vals_%d[] = {\n%s    {0}\n};\n", li, ct, li, vt);
+        char *idl = cstrLit(id), *fi = hasInit ? fmtdup("jdh_x%d_init", li) : xdup("0"), *ff = hasFrame ? fmtdup("jdh_x%d_frame", li) : xdup("0"), *fs = hasStop ? fmtdup("jdh_x%d_stop", li) : xdup("0");
+        tbl = catf(tbl, "    {%s, cmds_%d, %d, vals_%d, %d, %s, %s, %s},\n", idl, li, nc, li, nv, fi, ff, fs);
+        printf("  라이브러리 %s %s — C 파일 %d개\n", id, jgets(j, "version") ? jgets(j, "version") : "", nsrc);
+    }
+    gen = catf(gen, "const JdhLib JDH_LIBS[] = {\n%s    {0}\n};\nconst int JDH_NLIBS = %d;\n", tbl, nj);
+    char *genp = fmtdup("%s/jdh_ext_gen.c", bd); writeAll(genp, gen, strlen(gen));
+    if (getenv("JDH_GEN_ONLY")) { printf("✔ 표를 만들었습니다: %s\n", genp); return 0; }
+    /* 2. 컴파일: 라이브러리 C (라이브러리마다 이름을 구분) → 실행기 + 표 + 라이브러리 */
+    char *zig = zigCmd(); const char *tg = "-target x86_64-windows-gnu";
+    char *objs = xdup("");
+    for (int q = 0; q < nobj; q++) {
+        char *o = fmtdup("%s/x%d_%d.o", bd, objlib[q], q);
+        char *cmd = fmtdup("%s cc %s -O2 -c -Wall -Wno-unused-function -DJDH_LIB=x%d -I\"%s\" -o \"%s\" \"%s\"", zig, tg, objlib[q], sdk, o, objsrc[q]);
+        if (run(cmd)) die("라이브러리의 C 구현을 컴파일하지 못했습니다: %s", objsrc[q]);
+        objs = catf(objs, " \"%s\"", o); free(cmd);
+    }
+    char *name = projName(pd);
+    char *out = outArg ? xdup(outArg) : fmtdup("%s/%s.exe", pd, name);
+    char *srcs = xdup(""); DIR *sd = opendir(rtsrc); struct dirent *se; int nrt = 0;
+    while (sd && (se = readdir(sd))) if (endsWith(se->d_name, ".c") && strcmp(se->d_name, "ext_none.c")) { srcs = catf(srcs, " \"%s/%s\"", rtsrc, se->d_name); nrt++; }
+    if (sd) closedir(sd);
+    if (!nrt) die("실행기 소스가 비어 있습니다: %s", rtsrc);
+    char *sdla = fmtdup("%s/lib/libSDL2.a", sdl);
+    if (!isFile(sdla)) die("SDL2 가 없습니다: %s — JDH 를 다시 설치해 주세요", sdla);
+    remove(out);
+    printf("  실행기를 컴파일합니다 (처음에는 1분쯤 걸릴 수 있습니다)…\n");
+    char *cmd = fmtdup("%s cc %s -O2 -mwindows -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32",
+        zig, tg, rt, sdl, rtsrc, sdk, out, srcs, genp, objs, sdla);
+    if (run(cmd) || !isFile(out)) die("실행 파일을 만들지 못했습니다 (위 메시지를 확인하세요)");
+    /* 3. 프로젝트 붙이기 */
+    appendPayload(out, pd);
+    size_t total; unsigned char *b = readAll(out, &total); free(b);
+    printf("✔ 만들었습니다: %s (%.1f MB)\n", out, total / 1048576.0);
+    return 0;
+}
 static int cmdOpen(void) {
 #ifdef _WIN32
     char exe[MAX_PATH]; DWORD n = GetModuleFileNameA(NULL, exe, MAX_PATH);
@@ -611,6 +792,7 @@ static void usage(void) {
          "  jdh lib add <.jbx> [프로젝트]    프로젝트의 ext/ 에 적용\n"
          "  jdh lib list [프로젝트]          적용된 라이브러리 보기\n"
          "  jdh lib remove <id> [프로젝트]   프로젝트에서 빼기\n"
+         "  jdh build exe [프로젝트] [-o 파일]  Windows 실행 파일 만들기 (라이브러리 포함)\n"
          "  jdh open                         JawBreaker Dev. 열기");
 }
 int main(int argc, char **argv) {
@@ -628,6 +810,11 @@ int main(int argc, char **argv) {
         if (argc < 4) die("이름이 필요합니다: jdh new %s <이름>", b);
         if (!strcmp(b, "lib")) return cmdNewLib(argv[3]);
         if (!strcmp(b, "project")) return cmdNewProject(argv[3]);
+    }
+    if (!strcmp(a, "build") && b && !strcmp(b, "exe")) {
+        const char *pj = NULL, *out = NULL;
+        for (int i = 3; i < argc; i++) { if (!strcmp(argv[i], "-o")) { if (++i >= argc) die("-o 뒤에 파일 이름이 필요합니다"); out = argv[i]; } else pj = argv[i]; }
+        return cmdBuildExe(pj, out);
     }
     if (!strcmp(a, "lib") && b) {
         if (!strcmp(b, "check")) return cmdLibCheck(argc > 3 ? argv[3] : ".", NULL);

@@ -32,11 +32,27 @@ extern "C" {
 JDH__IMPORT(log) void jdh_log(const char *text);       /* 디버그 로그에 한 줄 */
 JDH__IMPORT(error) void jdh_error(const char *text);   /* 오류로 실행을 멈춤 */
 
+#ifdef __wasm__
 #define JDH_COMMAND(name, ...) JDH__EXPORT(jdh_cmd_##name) void jdh_cmd_##name(__VA_ARGS__)
 #define JDH_VALUE(type, name) JDH__EXPORT(jdh_val_##name) type jdh_val_##name(void)
 #define JDH_INIT() JDH__EXPORT(jdh_init) void jdh_init(void)
 #define JDH_FRAME(dt) JDH__EXPORT(jdh_frame) void jdh_frame(double dt)
 #define JDH_STOP() JDH__EXPORT(jdh_stop) void jdh_stop(void)
+#else
+/* EXE: 여러 라이브러리가 한 실행 파일에 들어가므로 이름 앞에 라이브러리 표시(JDH_LIB · jdh build exe 가 정함)를 붙임 */
+#ifndef JDH_LIB
+#define JDH_LIB lib
+#endif
+#define JDH__N3(l, k, n) jdh_##l##_##k##_##n
+#define JDH__N2(l, k, n) JDH__N3(l, k, n)
+#define JDH__H3(l, n) jdh_##l##_##n
+#define JDH__H2(l, n) JDH__H3(l, n)
+#define JDH_COMMAND(name, ...) void JDH__N2(JDH_LIB, cmd, name)(__VA_ARGS__)
+#define JDH_VALUE(type, name) type JDH__N2(JDH_LIB, val, name)(void)
+#define JDH_INIT() void JDH__H2(JDH_LIB, init)(void)
+#define JDH_FRAME(dt) void JDH__H2(JDH_LIB, frame)(double dt)
+#define JDH_STOP() void JDH__H2(JDH_LIB, stop)(void)
+#endif
 
 #ifdef __wasm__
 /* 엔진이 문자열 인자를 넣어 두는 자리 (명령마다 비움) — 건드리지 않아도 됩니다 */
