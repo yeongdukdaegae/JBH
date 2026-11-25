@@ -1,0 +1,65 @@
+; JDH 설치 프로그램 (Inno Setup 6) — 사용자 계정에 설치 (관리자 권한 없이)
+[Setup]
+AppId={{6B1E6C0E-5E0B-4B1B-9C0E-4A44483D4831}
+AppName=JDH (JawBreaker Development Helper)
+AppVersion=0.1.0
+DefaultDirName={localappdata}\Programs\JDH
+DefaultGroupName=JawBreaker
+DisableProgramGroupPage=yes
+PrivilegesRequired=lowest
+OutputDir=out
+OutputBaseFilename=JDH-Setup-0.1.0
+Compression=lzma2
+SolidCompression=yes
+ChangesEnvironment=yes
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+WizardStyle=modern
+
+[Files]
+Source: "..\dist\bin\jdh.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\dist\bin\jbdev.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\dist\editor\jbdev.html"; DestDir: "{app}\editor"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\JawBreaker Dev."; Filename: "{app}\bin\jbdev.exe"
+Name: "{group}\JDH 명령 창"; Filename: "{cmd}"; Parameters: "/k ""set PATH={app}\bin;%PATH% && jdh"""; WorkingDir: "{userdocs}"
+Name: "{userdesktop}\JawBreaker Dev."; Filename: "{app}\bin\jbdev.exe"; Tasks: desktopicon
+
+[Tasks]
+Name: "desktopicon"; Description: "바탕 화면에 JawBreaker Dev. 바로 가기 만들기"
+
+[Registry]
+Root: HKCU; Subkey: "Environment"; ValueType: string; ValueName: "JDH_HOME"; ValueData: "{app}"; Flags: uninsdeletevalue
+
+[Run]
+Filename: "{app}\bin\jbdev.exe"; Description: "JawBreaker Dev. 실행"; Flags: nowait postinstall skipifsilent
+
+[Code]
+// 사용자 PATH 에 {app}\bin 을 더하고, 제거할 때 뺌
+procedure AddToPath(Dir: string);
+var P: string;
+begin
+  if not RegQueryStringValue(HKCU, 'Environment', 'Path', P) then P := '';
+  if Pos(';' + Lowercase(Dir) + ';', ';' + Lowercase(P) + ';') > 0 then exit;
+  if (P <> '') and (P[Length(P)] <> ';') then P := P + ';';
+  RegWriteExpandStringValue(HKCU, 'Environment', 'Path', P + Dir);
+end;
+procedure RemoveFromPath(Dir: string);
+var P: string; I: Integer;
+begin
+  if not RegQueryStringValue(HKCU, 'Environment', 'Path', P) then exit;
+  I := Pos(';' + Lowercase(Dir) + ';', ';' + Lowercase(P) + ';');
+  if I = 0 then exit;
+  Delete(P, I, Length(Dir) + 1);
+  if (P <> '') and (P[Length(P)] = ';') then Delete(P, Length(P), 1);
+  RegWriteExpandStringValue(HKCU, 'Environment', 'Path', P);
+end;
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then AddToPath(ExpandConstant('{app}\bin'));
+end;
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then RemoveFromPath(ExpandConstant('{app}\bin'));
+end;

@@ -1,0 +1,5 @@
+dist/
+build/
+installer/out/
+llvm-mingw/
+/jdh

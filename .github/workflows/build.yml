@@ -1,0 +1,43 @@
+# GitHub 가 Windows 에서 빌드해 설치 파일을 만들어 줍니다 (PC 없이도 됨).
+#   저장소의 Actions 탭 → "JDH build" → Run workflow → 끝나면 아래 Artifacts 에서 JDH-Setup 을 받습니다.
+name: JDH build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: llvm-mingw 받기
+        shell: pwsh
+        run: |
+          $rel = Invoke-RestMethod https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest
+          $asset = $rel.assets | Where-Object { $_.name -like '*ucrt-x86_64.zip' } | Select-Object -First 1
+          Invoke-WebRequest $asset.browser_download_url -OutFile mingw.zip
+          Expand-Archive mingw.zip -DestinationPath mingw
+          $dir = (Get-ChildItem mingw -Directory | Select-Object -First 1).FullName
+          "MINGW=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: 빌드
+        shell: cmd
+        run: build-win.bat
+      - name: 명령 시험
+        shell: cmd
+        run: |
+          dist\bin\jdh.exe version
+          dist\bin\jdh.exe new lib Hello
+          dist\bin\jdh.exe lib build Hello
+      - name: 설치 파일 만들기
+        shell: cmd
+        run: |
+          where iscc >nul 2>nul || choco install innosetup -y --no-progress
+          "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" installer\jdh.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JDH-Setup
+          path: installer/out/*.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JDH-files
+          path: dist
