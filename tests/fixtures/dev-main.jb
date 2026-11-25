@@ -1,0 +1,18 @@
+Use jawbreaker call jaw;
+Use Counter call cnt;
+
+run{
+    cnt.add(3);
+    cnt.add(4);
+    cnt.say("hello");
+    cnt.at([10, 2.5], "#ffd166");
+    cnt.probe();
+    jaw.wait(300);
+    print("total=%cnt.total% name=%cnt.name%");
+    var int call t = cnt.total + 1;
+    var float call p = cnt.px;
+    print("t=%t% p=%p%");
+    cnt.reset();
+    jaw.wait(200);
+    print("after reset=%cnt.total% frames>0=%cnt.frames%");
+}
