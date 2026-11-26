@@ -11,10 +11,6 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write   # 릴리스 게시 (태그일 때만 씀)
-    env:
-      # zig 가 컴파일한 것 (C 표준 라이브러리 · 실행기 · SDL2 를 잇는 부분) 을 여기에 두고 다음 실행 때 다시 씀 — 아래 "컴파일 결과 캐시"
-      ZIG_GLOBAL_CACHE_DIR: ${{ github.workspace }}\.zigcache
-      ZIG_LOCAL_CACHE_DIR: ${{ github.workspace }}\.zigcache
     steps:
       - uses: actions/checkout@v4
       - name: llvm-mingw 받기
@@ -36,15 +32,6 @@ jobs:
           if not exist dist\toolchain mkdir dist\toolchain
           xcopy /e /i /q /y zigpkg\ziglang dist\toolchain\zig >nul
           dist\toolchain\zig\zig.exe version
-          for /f %%v in ('dist\toolchain\zig\zig.exe version') do echo ver=%%v>> %GITHUB_OUTPUT%
-        id: zig
-      - name: 컴파일 결과 캐시 (zig 버전 · 실행기 소스가 같으면 다시 컴파일하지 않음)
-        uses: actions/cache@v4
-        with:
-          path: .zigcache
-          key: zigcache-${{ runner.os }}-${{ steps.zig.outputs.ver }}-${{ hashFiles('runtime/src/**', 'runtime/vendor/**', 'sdk/jdh.h') }}
-          restore-keys: |
-            zigcache-${{ runner.os }}-${{ steps.zig.outputs.ver }}-
       - name: 명령 시험 (틀 만들기 → C 를 컴파일해 굽기 → 프로젝트에 적용)
         shell: cmd
         run: |
