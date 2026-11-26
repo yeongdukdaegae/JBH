@@ -12,6 +12,17 @@
  *   선언(jdl.json)의 형식 → C 의 형식
  *     int · bit → int      float → double      string · color → const char * (UTF-8 · 그 명령이 끝날 때까지만 유효)
  *     mat12 → double 두 개 (x, y)
+ *     리스트 (항목 형식은 int · float · string · bit)
+ *       "[int, string]"  (항목 수가 정해짐 · 8개까지) → 항목마다 하나씩:  int a, const char *b
+ *       "[int, ...]"     (몇 개든 · 0개도)          → 배열과 개수:  const int *items, int n
+ *                        float → const double *  · string → const char *const *  · bit → const int * (0 · 1)
+ *     행렬 (숫자 · 행 순서: m[(행-1) * 열 수 + (열-1)])
+ *       "matrix[2, 3]"   → const double *m
+ *       크기 자리에 ... 를 쓰면 그 크기가 뒤에 붙음:  "matrix[..., 3]" → const double *m, int rows
+ *                        "matrix[2, ...]" → const double *m, int cols    "matrix[..., ...]" → const double *m, int rows, int cols
+ *     예)  "params": ["[float, ...]"]   →   JDH_COMMAND(avg, const double *items, int n) { … }
+ *     배열 · 글자는 그 명령이 끝날 때까지만 유효합니다 (바꾸지 말고 읽기만 · 남겨 두려면 복사).
+ *     정해진 항목 수와 다르거나 항목 형식이 틀리면 엔진이 그 줄에서 오류를 냅니다 (int 는 소수점 아래를 버림).
  *   값의 형식:  int · bit → int      float → double      string → const char *
  */
 #ifndef JDH_H
@@ -89,12 +100,17 @@ JDH__IMPORT(file_read) int jdh_file_read(const char *path, void *buf, int n);   
 #endif
 
 #ifdef __wasm__
-/* 엔진이 문자열 인자를 넣어 두는 자리 (명령마다 비움) — 건드리지 않아도 됩니다 */
+#include <stdlib.h>
+/* 엔진이 문자열 · 리스트 · 행렬 인자를 넣어 두는 자리 (명령마다 비움 · 8바이트 맞춤) — 건드리지 않아도 됩니다
+ *   64KB 를 넘는 것은 malloc 으로 따로 잡았다가 다음 명령 때 돌려줌 */
 JDH__EXPORT(jdh_scratch) __attribute__((weak)) char *jdh_scratch(int n) {
-    static char buf[65536]; static int used;
-    if (n < 0) { used = 0; return buf; }
-    if (n > (int)sizeof buf - used) return 0;
-    char *p = buf + used; used += n; return p;
+    static char buf[65536] __attribute__((aligned(8))); static int used; static void **big; static int nbig, capbig;
+    if (n < 0) { used = 0; for (int i = 0; i < nbig; i++) free(big[i]); nbig = 0; return buf; }
+    n = (n + 7) & ~7;
+    if (n <= (int)sizeof buf - used) { char *p = buf + used; used += n; return p; }
+    if (nbig == capbig) { void **nb = (void **)realloc(big, sizeof(void *) * (capbig ? capbig * 2 : 8)); if (!nb) return 0; big = nb; capbig = capbig ? capbig * 2 : 8; }
+    char *p = (char *)malloc((size_t)n); if (!p) return 0;
+    big[nbig++] = p; return p;
 }
 #endif
 

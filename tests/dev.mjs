@@ -133,6 +133,25 @@ const ac=await pg.evaluate(()=>{
 ok(ac.mem.includes('move|(string, mat12)')&&ac.mem.includes('px|float'),'autocomplete: alias. → commands and values');
 ok(ac.use.some(x=>x.startsWith('Probe|')),'autocomplete: Use → user library');
 ok(ac.str.some(x=>x.startsWith('p.fsize|')),'autocomplete: %alias.value% in strings');
+// ---- 리스트 · 행렬 인자 — tests/libs/Lists · 실행기(EXE) 와 같은 줄 · 같은 오류여야 함 (CI 의 EXE 시험과 같은 main.jb) ----
+await pg.evaluate(a=>{files['ext/Lists.jbx']=bytesToDataUrl('Lists.jbx',new Uint8Array(a));},[...fs.readFileSync(ROOT+'/tests/fixtures/dev-Lists.jbx')]);
+A=await runAsk(fs.readFileSync(ROOT+'/tests/fixtures/lists-main.jb','utf8'),'신뢰하고 쓰기',1500);L=A.L;console.log(L.map(x=>'    | '+x).join('\n'));
+const LEXPECT=['isum n=3 sum=5 total=5','isum n=0 sum=0','fsum n=3 sum=4 n=3','join n=3:a|bc|한글','bits 10101','pair 7 seven','mix t 1.5 -2 3 9','mat 1 2 3 4 5 6','anymat 3x2 sum=21 last=6','rowmat rows=3 (1,2) (3,4) (5,6)','isum n=20000 sum=200010000'];
+ok(LEXPECT.every(x=>L.includes(x)),'lists · matrices: same lines as the EXE');
+const LERR=[['L.pair([7]);',"'pair' 의 1번째 값은 항목이 2개인 리스트여야 합니다 (받은 것: 1개)"],
+ ['var list call xs; xs = [7]; L.pair(xs);',"'pair' 의 1번째 값은 항목이 2개인 리스트여야 합니다 (받은 것: 1개)"],
+ ['L.isum([1, "a"]);',"'isum' 의 1번째 값의 2번째 항목은 int 형식이어야 합니다 (받은 값: \"a\")"],
+ ['var list call xs; xs = ["x", 2]; L.join(xs);',"'join' 의 1번째 값의 2번째 항목은 string 형식이어야 합니다 (받은 값: 2)"],
+ ['L.isum(3);',"'isum' 의 1번째 값은 리스트여야 합니다 (받은 형식: int)"],
+ ['L.mat([1, 2 | 3, 4]);',"'mat' 의 1번째 값은 matrix[2, 3] 행렬이어야 합니다 (받은 값: matrix[2, 2])"],
+ ['L.rowmat([1, 2, 3]);',"'rowmat' 의 1번째 값은 matrix[..., 2] 행렬이어야 합니다 (받은 값: matrix[1, 3])"],
+ ['var compound call c; c = [1, [2, 3]]; L.isum(c);',"'isum' 의 1번째 값의 2번째 항목은 int 형식이어야 합니다 (받은 값: matrix[1, 2])"]];
+for(const [body,want] of LERR){
+  L=await run('Use jawbreaker call jaw;\nUse Lists call L;\n\nrun{\n    '+body+'\n}\n',300);
+  const last=L.filter(x=>/✖|오류/.test(x)).slice(-1)[0]||L.slice(-1)[0]||'';
+  ok(last.includes('main.jb:5')&&last.includes(want),'lists error: '+want+(last.includes(want)?'':' — got: '+last));
+}
+await pg.evaluate(()=>{delete files['ext/Lists.jbx'];});
 await pg.evaluate(()=>{delete files['ext/Probe.jbx'];});
 console.log(errs.length?errs.join('\n'):'no page errors');
 await b.close();

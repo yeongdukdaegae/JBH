@@ -27,7 +27,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 - 웹에서 라이브러리는 에디터 · 저장 공간에 닿지 못한다. 프로젝트 파일은 선언에 `files.read` 권한이 있고 사용자가 허락한 경우에만, 그 프로젝트의 파일을 읽기 전용으로 연다 (쓰기는 없음 · `ext/` 는 못 읽음). 허락은 신뢰 확인 창에서 고른다. 내보낸 HTML · APK 는 에디터에서 허락한 것을 그대로 가진다. EXE 는 격리가 없으므로 선언만 있으면 읽는다.
 - 네트워크: 웹에서는 쓸 수 없다 (라이브러리가 부를 수 있는 host 함수가 `log` · `error` 뿐이고 네트워크용은 만들지 않음). 따로 막는 장치를 두지는 않는다. EXE 에서는 C 코드가 격리되지 않으므로 소켓을 직접 쓸 수 있다. 네트워크 host 함수는 요청이 있을 때 추가한다.
 - `jdh_log` 는 `print` 와 같은 디버그 출력이다. 에디터에서는 로그 패널에, EXE 에서는 표준 출력에 나온다 (창 프로그램이라 화면에는 안 보임).
-- 엔진 버전은 1.2 (에디터의 `JB_VER` · `JBX_ENGINE` · `src/jdh.c` 의 `JDH_ENGINE_*` 를 같이 올린다). 라이브러리 선언의 `requires.engine` (">=1.2" 꼴) 을 `jdh lib check` 와 에디터가 검사한다.
+- 엔진 버전은 1.3 (에디터의 `JB_VER` · `JBX_ENGINE` · `src/jdh.c` 의 `JDH_ENGINE_*` 를 같이 올린다). 라이브러리 선언의 `requires.engine` (">=1.2" 꼴) 을 `jdh lib check` 와 에디터가 검사한다.
 - 신뢰 확인 (Dev.): `.jbx` 내용의 SHA-256 마다 한 번 묻고 `localStorage` 의 `jawbreaker.jbx.trust` 에 기억한다 (다시 구우면 다시 물음). 창에는 버전 · 명령어 · 값 개수 · 쓰는 권한 · "EXE 에서는 격리 없음" 을 보여 주고, files.read 가 있으면 허락 여부도 고른다. 묻는 때: 「라이브러리 불러오기 (.jbx)」 메뉴 · 파일로 넣을 때 (불러오기 · 끌어 놓기) · 프로젝트 zip 등으로 들어온 것은 처음 실행할 때. 신뢰하지 않은 라이브러리를 쓰는 프로그램은 실행하지 않는다. 코드는 에디터 쪽 DEV 구간 (`jbxTrustRun` · `jbxImport` · `jbxDocText` · `jbxAcMembers`) — 내보낸 게임에는 없다.
 - `ext/*.jbx` 를 열면 설명서 (선언 · 권한 · `doc/` 파일) 를 읽기 전용으로 보여 준다. 자동완성은 `Use ` · `별칭.` · 문자열 안 `%별칭.값%` 에서 라이브러리의 명령어 · 값을 낸다.
 - 엔진 기능 (host 함수) 은 `sdk/jdh.h` 에 선언하고 웹 (`JBX_BOOT` 의 `HOST` · `JBEXT`) 과 EXE (`runtime/src/gfx.c` · `render.c` · `run.c` 의 `jdh_*`) 에 같은 뜻으로 구현한다. 함수 → 권한 표는 `src/jdh.c` 의 `HOSTFN` 과 에디터의 `JBX_HOST` 를 같게 둔다.
@@ -37,6 +37,13 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - 웹에서는 엔진이 바뀐 오브젝트를 명령 묶음과 화면 프레임마다 워커로 보내고, 쓰기 · 그리기는 명령 묶음 · 프레임이 끝날 때 엔진으로 온다 (한 박자 늦을 수 있음 — 값과 같은 규칙). EXE 는 바로.
   - 시험: `tests/libs/Probe` (모든 기능) · `tests/libs/NoPerm` (권한 없이 씀 → 거부) · `tests/fixtures/probe-main.jb` 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌려 같은 줄이 나오는지 본다.
 - 실행이 끝난 뒤: 웹은 라이브러리를 끄고 그리기 층은 다음 실행까지 화면에 남긴다. EXE 는 창이 열려 있는 동안 `JDH_FRAME` 이 계속 불린다 (웹은 멈춤 — 차이로 남아 있음).
+- 명령어 인자 형식 (`jdl.json` 의 `params`): `int` · `float` · `string` · `bit` · `color` · `mat12` · 리스트 · 행렬 (리스트 · 행렬은 엔진 1.3 부터). 규칙은 `src/jdh.c` 의 `ptParse` 와 에디터의 `jbxPT` 를 같게 둔다.
+  - 리스트 `"[int, string]"`: 항목 수가 정해짐 (8개까지 · 항목은 int · float · string · bit) → C 에서는 항목마다 인자 하나 (`int a, const char *b`).
+  - 리스트 `"[int, ...]"`: 몇 개든 (0개도 · `...` 는 이 꼴로만) → 배열과 개수 (`const int *items, int n` · float 은 `const double *` · string 은 `const char *const *`).
+  - 행렬 `"matrix[2, 3]"` → `const double *m` (행 순서). 크기 자리의 `...` 는 아무 크기이고, 그 크기가 뒤에 붙는다 (`matrix[..., 3]` → `const double *m, int rows`).
+  - 리스트 인자는 list · compound 변수와 `[ ]` 를 받고, 행렬 인자는 행렬만 받는다. 검사 때 아는 것 (형식 · `[ ]` 의 항목 수 · 행렬 크기) 은 검사기가, 나머지 (항목 수 · 항목 형식) 는 실행할 때 그 줄에서 오류를 낸다 — 웹 (`jbxArg`) 과 EXE (`run.c` 의 `ext_call`) 가 같은 문구. int 항목은 소수점 아래를 버린다.
+  - C 에서 인자는 모두 합쳐 64칸까지 (리스트 항목 · 개수 · 크기 포함). 웹에서는 인자를 `jdh_scratch` (64KB 를 넘으면 malloc) 에 넣는다.
+  - 시험: `tests/libs/Lists` · `tests/fixtures/lists-main.jb` 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌린다.
 - `.jbx` 에는 `lib.wasm` 이 반드시 있어야 한다 (`jdh build exe` 가 init · frame · stop 이 있는지를 거기서 읽음 — 없으면 오류).
 - 명령어는 값을 돌려주지 않는다 (엔진의 식 계산이 기다릴 수 없음). 돌려줄 것은 "값" 으로 선언하고 코드에서 `별칭.값이름` 으로 읽는다. 웹에서는 명령 직후 읽으면 한 박자 늦은 값일 수 있고, EXE 에서는 바로 새 값이다.
 - `.jbx` 형식: `"JBLX"` · u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)… — 안에 `jdl.json` · `lib.wasm` · `native/*.c` · `doc/*`. (`"JBX1"` 은 `jaw.exportFile` 의 난독화 파일이 쓰는 표시라 쓰지 않는다.)

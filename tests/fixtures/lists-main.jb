@@ -1,0 +1,48 @@
+Use jawbreaker call jaw;
+Use Lists call L;
+
+run{
+    var list call xs;
+    xs = [3, 4.9, -2];
+    L.isum(xs);
+    jaw.wait(50);
+    print("%L.out% total=%L.total%");
+    L.isum([]);
+    jaw.wait(50);
+    print("%L.out%");
+    L.fsum([1.5, 2.25, 0.25]);
+    jaw.wait(50);
+    print("%L.out% n=%L.n%");
+    L.join(["a", "bc", "한글"]);
+    jaw.wait(50);
+    print("%L.out%");
+    L.bits([true, false, 1, 0, 5]);
+    jaw.wait(50);
+    print("%L.out%");
+    L.pair([7, "seven"]);
+    jaw.wait(50);
+    print("%L.out%");
+    L.mix("t", [1.5, -2, 3.7], 9);
+    jaw.wait(50);
+    print("%L.out%");
+    L.mat([1, 2, 3 | 4, 5, 6]);
+    jaw.wait(50);
+    print("%L.out%");
+    var matrix[3, 2] call m;
+    m = [1, 2 | 3, 4 | 5, 6];
+    L.anymat(m);
+    jaw.wait(50);
+    print("%L.out%");
+    L.rowmat(m);
+    jaw.wait(50);
+    print("%L.out%");
+    var list call big;
+    var int call i = 0;
+    loop [i < 20000]{
+        i = i + 1;
+        big.add(i);
+    }
+    L.isum(big);
+    jaw.wait(50);
+    print("%L.out%");
+}

@@ -176,15 +176,56 @@ int jdh_file_read(const char *path, void *buf, int n) {
     if (k && buf) memcpy(buf, b, k);
     return (int)k;
 }
+/* 리스트 · 행렬 인자 — 에디터의 jbxArg 와 같은 검사 · 같은 문구 */
+static const char *xtyName(int t) { return t == JDH_T_INT ? "int" : t == JDH_T_FLOAT ? "float" : t == JDH_T_STRING ? "string" : "bit"; }
+static int xint(double x) { return x != x ? 0 : x >= 2147483647.0 ? 2147483647 : x <= -2147483648.0 ? (-2147483647 - 1) : (int)x; }   /* 소수점 아래는 버림 */
+static void xitem(Node *n, const char *cmd, int ai, int ii, int t, Value it, JdhArg *out, char **sOut) {
+    if (t == JDH_T_STRING ? it.k != V_STR : it.k != V_NUM) {
+        char *k = kind_txt(it);
+        RT(n, "'%s' 의 %d번째 값의 %d번째 항목은 %s 형식이어야 합니다 (받은 값: %s)", cmd, ai + 1, ii + 1, xtyName(t), k);
+    }
+    if (t == JDH_T_STRING) *sOut = it.u.s;
+    else if (t == JDH_T_FLOAT) out->d = it.u.n;
+    else if (t == JDH_T_BIT) out->i = it.u.n != 0 && it.u.n == it.u.n;
+    else out->i = xint(it.u.n);
+}
 static int ext_call(Node *c, Env *env) {
-    const JdhCmd *cm = c->ext; JdhArg a[16]; char *tmp[8]; int nt = 0, k = 0;
+    const JdhCmd *cm = c->ext; JdhArg a[JDH_MAXSLOT + 8]; Value keep[8]; int nk = 0; void *heap[8]; int nh = 0; char *tmp[8]; int nt = 0, k = 0;
+    a[0].i = 0;
     for (int i = 0; i < cm->np; i++) {
-        Value v = chkd(ev(c->args.v[i], env), c->args.v[i]);
-        switch (cm->p[i]) {
+        const JdhPT *pt = &cm->p[i]; Node *an = c->args.v[i];
+        Value v = chkd(ev(an, env), an);
+        switch (pt->t) {
             case JDH_T_INT: a[k++].i = v.k == V_NUM ? (int)v.u.n : 0; v_free(&v); break;
             case JDH_T_BIT: a[k++].i = v.k == V_NUM && v.u.n != 0; v_free(&v); break;
             case JDH_T_FLOAT: a[k++].d = v.k == V_NUM ? v.u.n : 0; v_free(&v); break;
             case JDH_T_MAT12: a[k].d = v.k == V_MAT ? v.u.m->d[0] : 0; a[k + 1].d = v.k == V_MAT ? v.u.m->d[1] : 0; k += 2; v_free(&v); break;
+            case JDH_T_LIST: {
+                if (v.k != V_LIST) { char *kt = kind_txt(v); RT(an, "'%s' 의 %d번째 값은 리스트여야 합니다 (받은 값: %s)", c->name, i + 1, kt); }
+                List *L = v.u.l;
+                if (!pt->var) {
+                    if (L->n != pt->n) RT(an, "'%s' 의 %d번째 값은 항목이 %d개인 리스트여야 합니다 (받은 것: %d개)", c->name, i + 1, pt->n, L->n);
+                    for (int q = 0; q < pt->n; q++) { char *so = NULL; xitem(an, c->name, i, q, pt->el[q], L->items[q], &a[k], &so); if (so) a[k].s = so; k++; }
+                } else {
+                    int t = pt->el[0], n = L->n; void *arr;
+                    if (t == JDH_T_FLOAT) { double *d = jb_alloc(sizeof(double) * (n ? n : 1)); for (int q = 0; q < n; q++) { JdhArg o; xitem(an, c->name, i, q, t, L->items[q], &o, NULL); d[q] = o.d; } arr = d; }
+                    else if (t == JDH_T_STRING) { const char **ss = jb_alloc(sizeof(char *) * (n ? n : 1)); for (int q = 0; q < n; q++) { char *so = NULL; xitem(an, c->name, i, q, t, L->items[q], NULL, &so); ss[q] = so; } arr = (void *)ss; }
+                    else { int *d = jb_alloc(sizeof(int) * (n ? n : 1)); for (int q = 0; q < n; q++) { JdhArg o; xitem(an, c->name, i, q, t, L->items[q], &o, NULL); d[q] = o.i; } arr = d; }
+                    heap[nh++] = arr; a[k++].p = arr; a[k++].i = n;
+                }
+                keep[nk++] = v;   /* 글자 항목은 리스트 안의 것을 그대로 넘기므로 명령이 끝날 때까지 둠 */
+                break;
+            }
+            case JDH_T_MAT: {
+                if (v.k != V_MAT) { char *kt = kind_txt(v); RT(an, "'%s' 의 %d번째 값은 행렬이어야 합니다 (받은 값: %s)", c->name, i + 1, kt); }
+                Mat *m = v.u.m;
+                if ((pt->r && m->r != pt->r) || (pt->c && m->c != pt->c)) {
+                    char want[64]; snprintf(want, sizeof want, "matrix[%s%.0d, %s%.0d]", pt->r ? "" : "...", pt->r, pt->c ? "" : "...", pt->c);
+                    RT(an, "'%s' 의 %d번째 값은 %s 행렬이어야 합니다 (받은 값: matrix[%d, %d])", c->name, i + 1, want, m->r, m->c);
+                }
+                a[k++].p = m->d; if (!pt->r) a[k++].i = m->r; if (!pt->c) a[k++].i = m->c;
+                keep[nk++] = v; break;
+            }
             default:
                 if (v.k == V_STR) { tmp[nt] = v.u.s; a[k++].s = tmp[nt++]; }
                 else { v_free(&v); a[k++].s = ""; }
@@ -194,6 +235,8 @@ static int ext_call(Node *c, Env *env) {
     cm->call(a);
     EXT_NODE = NULL;
     for (int i = 0; i < nt; i++) free(tmp[i]);
+    for (int i = 0; i < nh; i++) free(heap[i]);
+    for (int i = 0; i < nk; i++) v_free(&keep[i]);
     return S_OK;
 }
 static Value ext_value(Node *e) {

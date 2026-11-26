@@ -25,7 +25,7 @@ static Info *info_new(const char *name, int ty, const int *dims) {
 #include "jdh_native.h"
 /* 사용자 라이브러리 (JDH): 실행기와 함께 컴파일된 것 */
 static const JdhLib *ext_find(const char *id) { for (int i = 0; i < JDH_NLIBS; i++) if (!strcmp(JDH_LIBS[i].id, id)) return &JDH_LIBS[i]; return NULL; }
-static int ext_ty(int t) { return t == JDH_T_INT ? TY_INT : t == JDH_T_FLOAT ? TY_FLOAT : t == JDH_T_BIT ? TY_BIT : t == JDH_T_COLOR ? TY_COLOR : t == JDH_T_MAT12 ? TY_MAT12 : TY_STRING; }
+static int ext_ty(int t) { return t == JDH_T_INT ? TY_INT : t == JDH_T_FLOAT ? TY_FLOAT : t == JDH_T_BIT ? TY_BIT : t == JDH_T_COLOR ? TY_COLOR : t == JDH_T_MAT12 ? TY_MAT12 : t == JDH_T_LIST ? TY_LIST : t == JDH_T_MAT ? TY_MATRIX : TY_STRING; }
 #define DIS_ID "DisPlayer"
 #define COL_ID "colliders"
 #define CAN_ID "Canvas"
@@ -232,6 +232,19 @@ static void colorCheck(Node *a, int t, const char *what) {
     if (a->k == N_NUM) {
         const char *r = a->raw; size_t L = strlen(r); int dig = 1; for (size_t i = 0; i < L; i++) if (!isdigit((unsigned char)r[i])) dig = 0;
         if (!(dig && (L == 3 || L == 6))) E(a, "숫자로 쓴 색은 3자리나 6자리여야 합니다 (예: 114514 → #114514) — 받은 값: %s", r);
+    }
+}
+/* 리스트 · 행렬 인자 (검사 때 알 수 있는 것만 · 나머지는 실행 때 run.c 의 ext_call) — 에디터와 같은 문구 */
+static void ext_arg(Node *c, int i, Node *a, int t, const JdhPT *pt) {
+    if (pt->t == JDH_T_LIST) {
+        if (t != TY_ANY && !isL(t)) E(a, "'%s' 의 %d번째 값은 리스트여야 합니다 (받은 형식: %s)", c->name, i + 1, tyTxt(t, a));
+        if (!pt->var && a->k == N_MAT && a->asList && a->args.n != pt->n) E(a, "'%s' 의 %d번째 값은 항목이 %d개인 리스트여야 합니다 (받은 것: %d개)", c->name, i + 1, pt->n, a->args.n);
+        return;
+    }
+    if (t != TY_ANY && t != TY_MATRIX) E(a, "'%s' 의 %d번째 값은 행렬이어야 합니다 (받은 형식: %s)", c->name, i + 1, tyTxt(t, a));
+    if (t == TY_MATRIX && a->hasDims && ((pt->r && a->dims[0] != pt->r) || (pt->c && a->dims[1] != pt->c))) {
+        char want[64]; snprintf(want, sizeof want, "matrix[%s%.0d, %s%.0d]", pt->r ? "" : "...", pt->r, pt->c ? "" : "...", pt->c);
+        E(a, "'%s' 의 %d번째 값은 %s 행렬이어야 합니다 (받은 값: matrix[%d, %d])", c->name, i + 1, want, a->dims[0], a->dims[1]);
     }
 }
 static void aliasErr(const char *name, Node *n) { E(n, "'%s' 은(는) 라이브러리 별칭이 아닙니다 (파일 위쪽에 'Use 라이브러리id call %s' 이 필요합니다)", name, name); }
@@ -603,7 +616,7 @@ static void call(Node *c, InfoMap **sc, int ns, CS *cs, int ncs) {
             const JdhLib *xl = ext_find(al); const JdhCmd *xc = NULL;
             for (int q = 0; q < xl->ncmds; q++) if (!strcmp(xl->cmds[q].name, c->name)) xc = &xl->cmds[q];
             if (!xc) E(c, "라이브러리 '%s' 에 '%s' 명령어가 없습니다", xl->id, c->name);
-            np = xc->np; for (int i = 0; i < np; i++) params[i] = ext_ty(xc->p[i]);
+            np = xc->np; for (int i = 0; i < np; i++) params[i] = ext_ty(xc->p[i].t);
             c->target = M_EXT; c->ext = xc; c->extLib = xl->id;
         } else {
             Node *def = NULL; Module *f = resolveFunc(al, c->name, &def);
@@ -659,6 +672,7 @@ static void call(Node *c, InfoMap **sc, int ns, CS *cs, int ncs) {
         objCtx = 0;
         char w[160]; snprintf(w, sizeof w, "'%s' 의 %d번째 값", c->name, i + 1);
         if (pt == TY_JSON) continue;
+        if (T_ == M_EXT && (pt == TY_LIST || pt == TY_MATRIX)) { ext_arg(c, i, a, t, &((const JdhCmd *)c->ext)->p[i]); continue; }
         if (pt == TY_MAT12) { int d[2] = {1, 2}; needMat(a, t, d, w); continue; }
         if (pt == TY_MATRIX && c->tdef) { needMat(a, t, c->tdef->params[i].dims, w); continue; }
         if (pt == TY_COLOR) { char w2[180]; snprintf(w2, sizeof w2, "%s(색)", w); colorCheck(a, t, w2); continue; }

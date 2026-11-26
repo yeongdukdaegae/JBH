@@ -1,0 +1,15 @@
+{"jdl":1,"id":"Lists","version":"0.1.0","requires":{"engine":">=1.3"},
+ "permissions":[],
+ "commands":{
+  "isum":{"params":["[int, ...]"]},
+  "fsum":{"params":["[float, ...]"]},
+  "join":{"params":["[string, ...]"]},
+  "bits":{"params":["[bit, ...]"]},
+  "pair":{"params":["[int, string]"]},
+  "mix":{"params":["string","[float, float, int]","int"]},
+  "mat":{"params":["matrix[2, 3]"]},
+  "anymat":{"params":["matrix[..., ...]"]},
+  "rowmat":{"params":["matrix[..., 2]"]}
+ },
+ "values":{"out":"string","n":"int","total":"float"},
+ "native":["native/lists.c"]}

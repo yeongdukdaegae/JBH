@@ -88,6 +88,32 @@ jobs:
           foreach ($e in $expect) { if (-not (Select-String -Path probe-out.txt -SimpleMatch $e -Quiet)) { Write-Host "✖ 없음: $e"; $bad++ } }
           if (-not (Test-Path probe-exe.png)) { Write-Host '✖ 화면을 저장하지 못했습니다 (probe-exe.png)'; $bad++ }
           if ($bad) { exit 1 }
+      - name: 리스트 · 행렬 인자 시험 (웹 시험 tests/dev.mjs 와 같은 main.jb · 같은 줄 · 같은 오류)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          dist\bin\jdh.exe lib build tests\libs\Lists; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe new project ListsGame; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib add tests\libs\Lists\Lists-0.1.0.jbx ListsGame; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\lists-main.jb ListsGame\main.jb -Force
+          dist\bin\jdh.exe build exe ListsGame -o Lists.exe; if ($LASTEXITCODE) { exit 1 }
+          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+          $p = Start-Process .\Lists.exe -RedirectStandardOutput lists-out.txt -RedirectStandardError lists-err.txt -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
+          Get-Content lists-out.txt -Encoding utf8; Get-Content lists-err.txt -Encoding utf8
+          $expect = @('isum n=3 sum=5 total=5', 'isum n=0 sum=0', 'fsum n=3 sum=4 n=3', 'join n=3:a|bc|한글', 'bits 10101', 'pair 7 seven',
+            'mix t 1.5 -2 3 9', 'mat 1 2 3 4 5 6', 'anymat 3x2 sum=21 last=6', 'rowmat rows=3 (1,2) (3,4) (5,6)', 'isum n=20000 sum=200010000')
+          $bad = 0
+          foreach ($e in $expect) { if (-not (Select-String -Path lists-out.txt -SimpleMatch $e -Quiet -Encoding utf8)) { Write-Host "✖ 없음: $e"; $bad++ } }
+          # 실행 중 오류: 항목 형식이 틀린 리스트 → 그 줄에서 멈춤 (웹과 같은 문구)
+          Set-Content ListsGame\main.jb -Encoding utf8NoBOM -Value "Use jawbreaker call jaw;`nUse Lists call L;`n`nrun{`n    var list call xs; xs = [`"x`", 2]; L.join(xs);`n}`n"
+          dist\bin\jdh.exe build exe ListsGame -o ListsErr.exe; if ($LASTEXITCODE) { exit 1 }
+          $p = Start-Process .\ListsErr.exe -RedirectStandardOutput lerr-out.txt -RedirectStandardError lerr-err.txt -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
+          Get-Content lerr-err.txt -Encoding utf8
+          $want = "main.jb:5  'join' 의 1번째 값의 2번째 항목은 string 형식이어야 합니다 (받은 값: 2)"
+          if ($p.ExitCode -eq 0 -or -not (Select-String -Path lerr-err.txt -SimpleMatch $want -Quiet -Encoding utf8)) { Write-Host "✖ 오류 문구가 다릅니다 (기대: $want)"; $bad++ }
+          if ($bad) { exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

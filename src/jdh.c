@@ -4,9 +4,9 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.4.1"
+#define JDH_VERSION "0.5.0"
 #define JDH_ENGINE_MAJOR 1
-#define JDH_ENGINE_MINOR 2   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
+#define JDH_ENGINE_MINOR 3   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -140,11 +140,74 @@ typedef struct {
     JV *json;
     Ent *ents; int nents;
     int errors, warns;
+    int reqMa, reqMi, needEng;   /* 선언의 requires.engine (없으면 -1) · 리스트 · 행렬 인자를 쓰면 needEng = 3 (엔진 1.3 부터) */
 } Lib;
 static void lerr(Lib *L, const char *fmt, ...) { va_list ap; va_start(ap, fmt); fputs("  ✖ ", stdout); vprintf(fmt, ap); putchar('\n'); va_end(ap); L->errors++; }
 static void lwarn(Lib *L, const char *fmt, ...) { va_list ap; va_start(ap, fmt); fputs("  ⚠ ", stdout); vprintf(fmt, ap); putchar('\n'); va_end(ap); L->warns++; }
 static int inSet(const char *s, const char **set) { for (; *set; set++) if (!strcmp(s, *set)) return 1; return 0; }
-static const char *PT[] = { "int", "float", "string", "bit", "color", "mat12", NULL };
+/* 인자 형식 — 하나짜리 (int · float · string · bit · color · mat12) · 리스트 "[int, string]" (정해진 개수) · "[int, ...]" (몇 개든 · 0개도)
+ *   · 행렬 "matrix[2, 3]" (크기 자리에 ... 를 쓰면 아무 크기) — 에디터의 jbxPT 와 같은 규칙 */
+enum { PK_INT = 1, PK_FLOAT, PK_STRING, PK_BIT, PK_COLOR, PK_MAT12, PK_LIST, PK_MAT };
+typedef struct { int k, n, var, el[8], r, c; } PTy;
+#define PT_HELP "int · float · string · bit · color · mat12 · [int, float] (리스트 · 항목은 int · float · string · bit 를 8개까지) · [int, ...] (몇 개든) · matrix[2, 3] (행렬 · 크기 자리에 ... 를 쓰면 아무 크기)"
+static int ptCode(const char *t, size_t n) {
+    static const char *nm[] = { "int", "float", "string", "bit", "color", "mat12" };
+    for (int i = 0; i < 6; i++) if (strlen(nm[i]) == n && !strncmp(t, nm[i], n)) return i + 1;
+    return 0;
+}
+static const char *ptSkip(const char *p) { while (*p == ' ' || *p == '\t') p++; return p; }
+static int ptParse(const char *s, PTy *o) {
+    memset(o, 0, sizeof *o);
+    const char *p = ptSkip(s), *e = p + strlen(p); while (e > p && (e[-1] == ' ' || e[-1] == '\t')) e--;
+    if (e == p) return 0;
+    if (*p != '[' && strncmp(p, "matrix", 6)) { o->k = ptCode(p, (size_t)(e - p)); return o->k != 0; }
+    if (*p == 'm') {   /* matrix[행, 열] */
+        p = ptSkip(p + 6); if (*p != '[' || e[-1] != ']') return 0; p++;
+        int d[2];
+        for (int q = 0; q < 2; q++) {
+            p = ptSkip(p);
+            if (!strncmp(p, "...", 3)) { d[q] = 0; p += 3; }
+            else { if (*p < '1' || *p > '9') return 0; long v = 0; while (*p >= '0' && *p <= '9') { v = v * 10 + (*p++ - '0'); if (v > 100000) return 0; } d[q] = (int)v; }
+            p = ptSkip(p);
+            if (*p != (q ? ']' : ',')) return 0;
+            p++;
+        }
+        if (ptSkip(p) != e) return 0;
+        o->k = PK_MAT; o->r = d[0]; o->c = d[1]; return 1;
+    }
+    /* [형식, 형식] · [형식, ...] */
+    if (e[-1] != ']') return 0;
+    p++; e--;
+    for (;;) {
+        p = ptSkip(p); const char *q = p; while (q < e && *q != ',' && *q != ' ' && *q != '\t') q++;
+        if (q - p == 3 && !strncmp(p, "...", 3)) {
+            if (o->n != 1 || o->var) return 0;   /* ... 는 [형식, ...] 꼴로만 */
+            o->var = 1;
+        } else {
+            int c = ptCode(p, (size_t)(q - p));
+            if (!c || c > PK_BIT || o->var || o->n >= 8) return 0;
+            o->el[o->n++] = c;
+        }
+        p = ptSkip(q);
+        if (p == e) break;
+        if (*p != ',') return 0;
+        p++;
+    }
+    if (!o->n) return 0;
+    o->k = PK_LIST; return 1;
+}
+/* 이 인자가 C 에서 몇 칸인지 (EXE 의 JdhArg 칸 · wasm 의 인자) */
+static int ptSlots(const PTy *t) { return t->k == PK_MAT12 ? 2 : t->k == PK_LIST ? (t->var ? 2 : t->n) : t->k == PK_MAT ? 1 + !t->r + !t->c : 1; }
+static const char *ptCty(int k) { return k == PK_FLOAT ? "double" : k == PK_STRING || k == PK_COLOR ? "const char *" : "int"; }
+/* C 의 인자 꼴 (안내 문구용) */
+static char *ptProto(const PTy *t, char *b, size_t n) {
+    if (t->k == PK_MAT12) snprintf(b, n, "double x, double y");
+    else if (t->k == PK_LIST && t->var) snprintf(b, n, "%s, int n", t->el[0] == PK_FLOAT ? "const double *items" : t->el[0] == PK_STRING ? "const char *const *items" : "const int *items");
+    else if (t->k == PK_LIST) { b[0] = 0; for (int i = 0; i < t->n; i++) { size_t L = strlen(b); snprintf(b + L, n - L, "%s%s", i ? ", " : "", ptCty(t->el[i])); } }
+    else if (t->k == PK_MAT) snprintf(b, n, "const double *m%s%s", t->r ? "" : ", int rows", t->c ? "" : ", int cols");
+    else snprintf(b, n, "%s", ptCty(t->k));
+    return b;
+}
 static const char *VT[] = { "int", "float", "string", "bit", NULL };
 static const char *PERMS[] = { "draw", "objects.read", "objects.write", "files.read", NULL };
 static const char *BUILTIN[] = { "jawbreaker", "DisPlayer", "colliders", "Canvas", "Magellan", "soundMaster", "SeongBin", NULL };
@@ -175,7 +238,7 @@ static void addFolder(Lib *L, const char *sub) {   /* doc/ · native/ 바로 아
     free(names); free(dir);
 }
 static Lib *libLoad(const char *dir) {
-    Lib *L = xalloc(sizeof *L); memset(L, 0, sizeof *L);
+    Lib *L = xalloc(sizeof *L); memset(L, 0, sizeof *L); L->reqMa = L->reqMi = -1;
     L->dir = xdup(dir);
     size_t dl = strlen(L->dir); while (dl > 1 && (L->dir[dl-1] == '/' || L->dir[dl-1] == '\\')) L->dir[--dl] = 0;
     char *mp = fmtdup("%s/jdl.json", L->dir);
@@ -222,6 +285,7 @@ static void libCheck(Lib *L) {
                       while (*q == ' ' || *q == '\t') q++;
                       okf = !*q; } }
           }
+          if (okf) { L->reqMa = ma; L->reqMi = mi; }
           if (!okf) lerr(L, "requires.engine 은 \">=1.2\" 꼴로 씁니다 (받은 값: %s)", en);
           else if (ma > JDH_ENGINE_MAJOR || (ma == JDH_ENGINE_MAJOR && mi > JDH_ENGINE_MINOR)) lerr(L, "requires.engine 이 이 JDH 의 엔진(%d.%d)보다 높습니다: %s", JDH_ENGINE_MAJOR, JDH_ENGINE_MINOR, en);
       } }
@@ -256,8 +320,14 @@ static void libCheck(Lib *L) {
         JV *ps = jget(c, "params");
         if (!ps || ps->k != J_ARR) lerr(L, "명령어 '%s': \"params\" 목록이 필요합니다 (인자가 없으면 [])", name);
         else if (ps->n > 8) lerr(L, "명령어 '%s': 인자는 8개까지입니다 (받은 것: %d개)", name, ps->n);
-        else for (int k = 0; k < ps->n; k++)
-            if (ps->items[k]->k != J_STR || !inSet(ps->items[k]->str, PT)) lerr(L, "명령어 '%s' 의 %d번째 인자 형식 '%s' 은(는) 쓸 수 없습니다 (int · float · string · bit · color · mat12)", name, k + 1, ps->items[k]->k == J_STR ? ps->items[k]->str : "?");
+        else { int slots = 0, coll = 0; PTy pt;
+            for (int k = 0; k < ps->n; k++) {
+                if (ps->items[k]->k != J_STR || !ptParse(ps->items[k]->str, &pt)) { lerr(L, "명령어 '%s' 의 %d번째 인자 형식 '%s' 은(는) 쓸 수 없습니다 (%s)", name, k + 1, ps->items[k]->k == J_STR ? ps->items[k]->str : "?", PT_HELP); continue; }
+                slots += ptSlots(&pt); if (pt.k == PK_LIST || pt.k == PK_MAT) coll = 1;
+            }
+            if (slots > 64) lerr(L, "명령어 '%s': 인자가 C 에서 너무 많습니다 (리스트 항목을 모두 합쳐 64칸까지 · 받은 것: %d칸)", name, slots);
+            if (coll) L->needEng = 3;
+        }
         if (jget(c, "returns")) lerr(L, "명령어 '%s': \"returns\" 는 지원하지 않습니다 — 돌려줄 값은 \"values\" 에 선언하고 코드에서 별칭.값이름 으로 읽습니다", name);
     }
     /* 값 */
@@ -270,6 +340,8 @@ static void libCheck(Lib *L) {
         if (cm && cm->k == J_OBJ && jget(cm, name)) lerr(L, "'%s' 이(가) 명령어와 값 양쪽에 선언되었습니다", name);
     }
     if (!ncmd && !nval) lwarn(L, "명령어도 값도 선언하지 않았습니다");
+    if (L->needEng && (L->reqMa < 1 || (L->reqMa == 1 && L->reqMi < L->needEng)))
+        lwarn(L, "리스트 · 행렬 인자는 엔진 1.%d 부터 씁니다 — \"requires\": { \"engine\": \">=1.%d\" } 로 적어 두면 예전 에디터가 알기 쉬운 오류를 냅니다", L->needEng, L->needEng);
 }
 
 /* ---------- C → WebAssembly 컴파일 · 결과 검사 ---------- */
@@ -406,7 +478,6 @@ static const char *expSig(WExp *ex, int n, const char *prefix, const char *name)
     for (int i = 0; i < n; i++) if (!strncmp(ex[i].name, prefix, pl) && !strcmp(ex[i].name + pl, name)) return ex[i].sig;
     return NULL;
 }
-static const char *cTypeOf(const char *t) { return !strcmp(t, "float") ? "double" : !strcmp(t, "string") || !strcmp(t, "color") ? "const char *" : !strcmp(t, "mat12") ? "double x, double y" : "int"; }
 static void libHostMsg(void *ud, const char *fn, const char *perm) {
     Lib *L = ud;
     if (!perm) lerr(L, "jdh_%s 은(는) 엔진이 주는 함수가 아닙니다 (jdh.h 에 있는 것만 쓸 수 있습니다)", fn);
@@ -419,12 +490,16 @@ static void checkWasm(Lib *L, const unsigned char *b, size_t len) {
     JV *cm = jget(L->json, "commands"), *vs = jget(L->json, "values");
     if (cm && cm->k == J_OBJ) for (int i = 0; i < cm->n; i++) {
         const char *name = cm->keys[i]; JV *ps = jget(cm->items[i], "params"); if (!ps || ps->k != J_ARR) continue;
-        char want[256]; size_t w = 0; char proto[512] = ""; int okp = 1;
-        for (int k = 0; k < ps->n && w < sizeof want - 4; k++) {
-            if (ps->items[k]->k != J_STR) { okp = 0; break; }
-            const char *t = ps->items[k]->str;
-            if (!strcmp(t, "float")) want[w++] = 'd'; else if (!strcmp(t, "mat12")) { want[w++] = 'd'; want[w++] = 'd'; } else want[w++] = 'i';
-            if (strlen(proto) + 40 < sizeof proto) { if (k) strcat(proto, ", "); strcat(proto, cTypeOf(t)); }
+        char want[256]; size_t w = 0; char proto[1024] = ""; int okp = 1;
+        for (int k = 0; k < ps->n && w < sizeof want - 12; k++) {
+            PTy t; char pb[256];
+            if (ps->items[k]->k != J_STR || !ptParse(ps->items[k]->str, &t)) { okp = 0; break; }
+            /* wasm 인자: float → f64 (d) · 나머지 (int · bit · 글자 주소 · 리스트 주소 · 개수) → i32 (i) */
+            if (t.k == PK_LIST && !t.var) for (int q = 0; q < t.n && w < sizeof want - 12; q++) want[w++] = t.el[q] == PK_FLOAT ? 'd' : 'i';
+            else if (t.k == PK_FLOAT || t.k == PK_MAT12) for (int q = 0; q < ptSlots(&t); q++) want[w++] = 'd';
+            else for (int q = 0; q < ptSlots(&t); q++) want[w++] = 'i';
+            ptProto(&t, pb, sizeof pb);
+            if (strlen(proto) + strlen(pb) + 3 < sizeof proto) { if (k) strcat(proto, ", "); strcat(proto, pb); }
         }
         if (!okp) continue;
         want[w++] = '>'; want[w] = 0; if (!ps->n) strcpy(proto, "void");
@@ -526,6 +601,9 @@ static const char *TPL_C =
 "// 값: 코드에서  별칭.count   (명령어는 값을 돌려주지 않습니다 — 돌려줄 것은 값으로)\n"
 "JDH_VALUE(int, count) { return count; }\n"
 "\n"
+"// 리스트 · 행렬 인자: jdl.json 에 \"[int, ...]\" · \"[float, string]\" · \"matrix[2, 3]\" 처럼 쓰고, C 에서 받는 꼴은 jdh.h 맨 위에 있습니다.\n"
+"//   예)  \"avg\": { \"params\": [\"[float, ...]\"] }   →   JDH_COMMAND(avg, const double *items, int n) { … }\n"
+"//\n"
 "// 선택: JDH_INIT() { }  실행을 시작할 때 · JDH_FRAME(dt) { }  프레임마다 (dt = 지난 시간 ms) · JDH_STOP() { }  끝날 때\n"
 "//\n"
 "// 엔진 기능 (그리기 · 오브젝트 읽기 · 쓰기 · 프로젝트 파일 읽기) 은 jdh.h 에 있습니다.\n"
@@ -535,7 +613,7 @@ static const char *TPL_JDL =
 "  \"jdl\": 1,\n"
 "  \"id\": \"%s\",\n"
 "  \"version\": \"0.1.0\",\n"
-"  \"requires\": { \"engine\": \">=1.2\", \"libs\": [] },\n"
+"  \"requires\": { \"engine\": \">=1.3\", \"libs\": [] },\n"
 "  \"permissions\": [],\n"
 "  \"commands\": {\n"
 "    \"hello\": { \"params\": [\"string\"], \"doc\": { \"ko\": \"이름을 받아 인사를 로그에 찍음\" } },\n"
@@ -670,6 +748,7 @@ static int run(const char *cmd) {
 }
 static const char *ctyOf(const char *t) { return !strcmp(t, "float") ? "double" : !strcmp(t, "string") || !strcmp(t, "color") ? "const char *" : "int"; }
 static int tcode(const char *t) { return !strcmp(t, "int") ? 1 : !strcmp(t, "float") ? 2 : !strcmp(t, "string") ? 3 : !strcmp(t, "bit") ? 4 : !strcmp(t, "color") ? 5 : !strcmp(t, "mat12") ? 6 : 0; }
+static const char *slotOf(int k) { return k == PK_FLOAT ? "d" : k == PK_STRING || k == PK_COLOR ? "s" : "i"; }
 static char *cstrLit(const char *s) {   /* C 문자열 상수 (따옴표 포함) */
     char *o = xalloc(strlen(s) * 4 + 3), *w = o; *w++ = '"';
     for (; *s; s++) { unsigned char c = (unsigned char)*s; if (c == '"' || c == '\\') { *w++ = '\\'; *w++ = (char)c; } else if (c < 32) { w += sprintf(w, "\\%03o", c); } else *w++ = (char)c; }
@@ -772,16 +851,29 @@ static int cmdBuildExe(const char *projArg, const char *outArg) {
             if (np > 8) die("라이브러리 '%s' 의 명령어 '%s': 인자는 8개까지입니다", id, cm->keys[q]);
             char *proto = xdup(""), *call = xdup(""), *codes = xdup(""); int k = 0;
             for (int a = 0; a < np; a++) {
-                const char *t = ps->items[a]->k == J_STR ? ps->items[a]->str : "int"; int tc = tcode(t);
-                if (!tc) die("라이브러리 '%s' 의 명령어 '%s': 알 수 없는 인자 형식 '%s'", id, cm->keys[q], t);
-                codes = catf(codes, "%s%d", a ? ", " : "", tc);
-                if (tc == 6) { proto = catf(proto, "%sdouble, double", k ? ", " : ""); call = catf(call, "%sa[%d].d, a[%d].d", k ? ", " : "", k, k + 1); k += 2; }
-                else { proto = catf(proto, "%s%s", k ? ", " : "", ctyOf(t)); call = catf(call, "%sa[%d].%s", k ? ", " : "", k, tc == 2 ? "d" : tc == 3 || tc == 5 ? "s" : "i"); k++; }
+                const char *t = ps->items[a]->k == J_STR ? ps->items[a]->str : "int"; PTy pt;
+                if (!ptParse(t, &pt)) die("라이브러리 '%s' 의 명령어 '%s': 알 수 없는 인자 형식 '%s'", id, cm->keys[q], t);
+                if (k + ptSlots(&pt) > 64) die("라이브러리 '%s' 의 명령어 '%s': 인자가 C 에서 64칸을 넘습니다", id, cm->keys[q]);
+                /* 표: {형식, 항목 수, 몇 개든, {항목 형식}, 행, 열} — 실행기의 JdhPT */
+                char els[64] = "0"; if (pt.k == PK_LIST) { els[0] = 0; for (int e = 0; e < pt.n; e++) snprintf(els + strlen(els), sizeof els - strlen(els), "%s%d", e ? ", " : "", pt.el[e]); }
+                codes = catf(codes, "%s{%d, %d, %d, {%s}, %d, %d}", a ? ", " : "", pt.k, pt.n, pt.var, els, pt.r, pt.c);
+                const char *sep = k ? ", " : "";
+                if (pt.k == PK_MAT12) { proto = catf(proto, "%sdouble, double", sep); call = catf(call, "%sa[%d].d, a[%d].d", sep, k, k + 1); k += 2; }
+                else if (pt.k == PK_LIST && pt.var) {
+                    const char *pty = pt.el[0] == PK_FLOAT ? "const double *" : pt.el[0] == PK_STRING ? "const char *const *" : "const int *";
+                    proto = catf(proto, "%s%s, int", sep, pty); call = catf(call, "%s(%s)a[%d].p, a[%d].i", sep, pty, k, k + 1); k += 2;
+                } else if (pt.k == PK_LIST) for (int e = 0; e < pt.n; e++) {
+                    proto = catf(proto, "%s%s", k ? ", " : "", ptCty(pt.el[e])); call = catf(call, "%sa[%d].%s", k ? ", " : "", k, slotOf(pt.el[e])); k++;
+                } else if (pt.k == PK_MAT) {
+                    proto = catf(proto, "%sconst double *", sep); call = catf(call, "%s(const double *)a[%d].p", sep, k); k++;
+                    if (!pt.r) { proto = catf(proto, ", int"); call = catf(call, ", a[%d].i", k); k++; }
+                    if (!pt.c) { proto = catf(proto, ", int"); call = catf(call, ", a[%d].i", k); k++; }
+                } else { proto = catf(proto, "%s%s", sep, ptCty(pt.k)); call = catf(call, "%sa[%d].%s", sep, k, slotOf(pt.k)); k++; }
             }
             if (!np) proto = catf(proto, "void");
             gen = catf(gen, "void jdh_x%d_cmd_%s(%s);\nstatic void c_%d_%d(const JdhArg *a) { (void)a; jdh_x%d_cmd_%s(%s); }\n", li, cm->keys[q], proto, li, q, li, cm->keys[q], call);
             char *nm = cstrLit(cm->keys[q]);
-            ct = catf(ct, "    {%s, %d, {%s}, c_%d_%d},\n", nm, np, np ? codes : "0", li, q);
+            ct = catf(ct, "    {%s, %d, {%s}, c_%d_%d},\n", nm, np, np ? codes : "{0}", li, q);
             free(nm); free(proto); free(call); free(codes);
         }
         for (int q = 0; q < nv; q++) {
