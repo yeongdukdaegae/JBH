@@ -4,7 +4,7 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.5.1"
+#define JDH_VERSION "0.6.0"
 #define JDH_ENGINE_MAJOR 1
 #define JDH_ENGINE_MINOR 3   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
@@ -25,8 +25,11 @@
 #endif
 
 /* ---------- 작은 도구 ---------- */
+static int DIE_PAUSE = 0;   /* 오류로 끝날 때 Enter 를 기다림 (jbdev 가 띄운 창이 바로 닫히지 않게) */
 static void die(const char *fmt, ...) {
-    va_list ap; va_start(ap, fmt); fputs("✖ ", stderr); vfprintf(stderr, fmt, ap); fputc('\n', stderr); va_end(ap); exit(1);
+    va_list ap; va_start(ap, fmt); fputs("✖ ", stderr); vfprintf(stderr, fmt, ap); fputc('\n', stderr); va_end(ap);
+    if (DIE_PAUSE) { fputs("Enter 를 누르면 닫힙니다…", stderr); fflush(stderr); getchar(); }
+    exit(1);
 }
 static void *xalloc(size_t n) { void *p = malloc(n ? n : 1); if (!p) die("메모리가 부족합니다"); return p; }
 static char *xdup(const char *s) { size_t n = strlen(s); char *r = xalloc(n + 1); memcpy(r, s, n + 1); return r; }
@@ -936,6 +939,379 @@ static int cmdBuildExe(const char *projArg, const char *outArg) {
     printf("✔ 만들었습니다: %s (%.1f MB)\n", out, total / 1048576.0);
     return 0;
 }
+/* ---------- 업데이트 ----------
+ *   새 버전은 GitHub 릴리스에: jdh-latest.txt (버전 · 목록의 SHA-256) · jdh-manifest.txt (파일 목록) · jdh-*.pack (파일을 이어 붙인 묶음)
+ *   방식 (무결성 검사): 목록의 파일마다 설치된 파일의 크기 · SHA-256 을 대조 → 다른 파일만 묶음에서 그 자리(Range)만 받음
+ *     → 받은 파일을 다시 SHA-256 으로 검사 → 모두 맞을 때만 한꺼번에 바꿈 (하나라도 틀리면 아무것도 바꾸지 않음 · 바꾸다 실패하면 되돌림)
+ *   같은 버전이어도 파일이 깨졌으면 같은 방법으로 고침.
+ *   jdh-latest.txt:   "JDHUPDATE 1" · "version 0.6.0" · "manifest <크기> <sha256>"
+ *   jdh-manifest.txt: "JDHUPDATE 1" · "version 0.6.0" · "file <묶음> <시작> <크기> <sha256> <경로>" …
+ *   JDH_UPDATE_URL = 받는 곳을 바꿈 (http(s) 주소 또는 폴더 · 시험용) · JDH_NO_UPDATE=1 = 시작할 때 확인하지 않음
+ */
+#define JDH_UPDATE_BASE "https://github.com/yeongdukdaegae/JBH/releases"
+#define UPD_GAP 65536   /* 받을 파일 사이가 이만큼 이하면 한 번에 이어 받음 */
+/* SHA-256 */
+typedef struct { uint32_t h[8]; uint64_t len; unsigned char buf[64]; size_t n; } Sha;
+static const uint32_t SHA_K[64] = {
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2 };
+#define ROR(x, n) (((x) >> (n)) | ((x) << (32 - (n))))
+static void shaBlock(Sha *s, const unsigned char *p) {
+    uint32_t w[64], a[8];
+    for (int i = 0; i < 16; i++) w[i] = (uint32_t)p[i * 4] << 24 | (uint32_t)p[i * 4 + 1] << 16 | (uint32_t)p[i * 4 + 2] << 8 | p[i * 4 + 3];
+    for (int i = 16; i < 64; i++) { uint32_t x = w[i - 15], y = w[i - 2]; w[i] = w[i - 16] + (ROR(x, 7) ^ ROR(x, 18) ^ (x >> 3)) + w[i - 7] + (ROR(y, 17) ^ ROR(y, 19) ^ (y >> 10)); }
+    memcpy(a, s->h, sizeof a);
+    for (int i = 0; i < 64; i++) {
+        uint32_t t1 = a[7] + (ROR(a[4], 6) ^ ROR(a[4], 11) ^ ROR(a[4], 25)) + ((a[4] & a[5]) ^ (~a[4] & a[6])) + SHA_K[i] + w[i];
+        uint32_t t2 = (ROR(a[0], 2) ^ ROR(a[0], 13) ^ ROR(a[0], 22)) + ((a[0] & a[1]) ^ (a[0] & a[2]) ^ (a[1] & a[2]));
+        a[7] = a[6]; a[6] = a[5]; a[5] = a[4]; a[4] = a[3] + t1; a[3] = a[2]; a[2] = a[1]; a[1] = a[0]; a[0] = t1 + t2;
+    }
+    for (int i = 0; i < 8; i++) s->h[i] += a[i];
+}
+static void shaInit(Sha *s) {
+    static const uint32_t H0[8] = { 0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19 };
+    memcpy(s->h, H0, sizeof H0); s->len = 0; s->n = 0;
+}
+static void shaAdd(Sha *s, const unsigned char *p, size_t n) {
+    s->len += n;
+    while (n) { size_t k = 64 - s->n; if (k > n) k = n; memcpy(s->buf + s->n, p, k); s->n += k; p += k; n -= k; if (s->n == 64) { shaBlock(s, s->buf); s->n = 0; } }
+}
+static void shaHex(Sha *s, char out[65]) {
+    uint64_t bits = s->len * 8; unsigned char pad[72]; size_t k = (s->n < 56 ? 56 : 120) - s->n;
+    memset(pad, 0, sizeof pad); pad[0] = 0x80;
+    for (int i = 0; i < 8; i++) pad[k + i] = (unsigned char)(bits >> (56 - 8 * i));
+    shaAdd(s, pad, k + 8);
+    for (int i = 0; i < 8; i++) sprintf(out + i * 8, "%08x", s->h[i]);
+}
+static void shaMem(const unsigned char *p, size_t n, char out[65]) { Sha s; shaInit(&s); shaAdd(&s, p, n); shaHex(&s, out); }
+static int shaFile(const char *path, char out[65], uint64_t *size) {
+    FILE *f = fopen(path, "rb"); if (!f) return 0;
+    static unsigned char b[65536]; Sha s; shaInit(&s); size_t r; uint64_t t = 0;
+    while ((r = fread(b, 1, sizeof b, f)) > 0) { shaAdd(&s, b, r); t += r; }
+    int bad = ferror(f); fclose(f); if (bad) return 0;
+    shaHex(&s, out); if (size) *size = t; return 1;
+}
+static uint64_t fileSize(const char *p) { struct stat st; return stat(p, &st) ? 0 : (uint64_t)st.st_size; }
+
+/* 받기: url 의 [off, off + len) 을 sink 로 (len = 0 이면 전부) — http(s) 주소 (Windows) 또는 파일 경로 */
+typedef int (*Sink)(void *ud, const unsigned char *b, size_t n);   /* 0 = 계속 */
+static int isHttp(const char *u) { return !strncmp(u, "http://", 7) || !strncmp(u, "https://", 8); }
+#ifdef _WIN32
+#include <winhttp.h>
+static int httpFetch(const char *url, uint64_t off, uint64_t len, int tmo, Sink sink, void *ud, char *err, size_t en) {
+    wchar_t wurl[2048], host[256], path[1800], hdr[96]; int ok = 0; HINTERNET s = NULL, c = NULL, r = NULL;
+    if (!MultiByteToWideChar(CP_UTF8, 0, url, -1, wurl, 2048)) { snprintf(err, en, "주소가 너무 깁니다"); return 0; }
+    URL_COMPONENTS uc; memset(&uc, 0, sizeof uc); uc.dwStructSize = sizeof uc;
+    uc.lpszHostName = host; uc.dwHostNameLength = 256; uc.lpszUrlPath = path; uc.dwUrlPathLength = 1800;
+    if (!WinHttpCrackUrl(wurl, 0, 0, &uc)) { snprintf(err, en, "주소를 읽을 수 없습니다: %s", url); return 0; }
+    s = WinHttpOpen(L"jdh/" L"" JDH_VERSION, WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    if (s) { WinHttpSetTimeouts(s, tmo, tmo, tmo, tmo); c = WinHttpConnect(s, host, uc.nPort, 0); }
+    if (c) r = WinHttpOpenRequest(c, L"GET", path, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, uc.nScheme == INTERNET_SCHEME_HTTPS ? WINHTTP_FLAG_SECURE : 0);
+    if (!r) { snprintf(err, en, "연결할 수 없습니다 (오류 %lu)", GetLastError()); goto done; }
+    if (len) _snwprintf(hdr, 96, L"Range: bytes=%I64u-%I64u\r\n", (unsigned long long)off, (unsigned long long)(off + len - 1));
+    if (!WinHttpSendRequest(r, len ? hdr : WINHTTP_NO_ADDITIONAL_HEADERS, len ? (DWORD)-1L : 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) || !WinHttpReceiveResponse(r, NULL)) {
+        snprintf(err, en, "서버에 닿지 못했습니다 (오류 %lu)", GetLastError()); goto done;
+    }
+    DWORD st = 0, sz = sizeof st;
+    WinHttpQueryHeaders(r, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX, &st, &sz, WINHTTP_NO_HEADER_INDEX);
+    if (st != 200 && st != 206) { snprintf(err, en, "서버가 %lu 을(를) 돌려주었습니다", st); goto done; }
+    uint64_t skip = len && st == 200 ? off : 0, left = len;   /* 서버가 Range 를 무시하면 (200) 앞부분을 버림 */
+    static unsigned char buf[65536];
+    for (;;) {
+        DWORD got = 0;
+        if (!WinHttpReadData(r, buf, sizeof buf, &got)) { snprintf(err, en, "받다가 끊겼습니다 (오류 %lu)", GetLastError()); goto done; }
+        if (!got) break;
+        unsigned char *p = buf; size_t n = got;
+        if (skip) { size_t k = skip < n ? (size_t)skip : n; p += k; n -= k; skip -= k; }
+        if (len) { if (n > left) n = (size_t)left; left -= n; }
+        if (n && sink(ud, p, n)) { snprintf(err, en, "받은 것을 쓰지 못했습니다"); goto done; }
+        if (len && !left) break;
+    }
+    if (len && left) { snprintf(err, en, "받은 크기가 모자랍니다"); goto done; }
+    ok = 1;
+done:
+    if (r) WinHttpCloseHandle(r);
+    if (c) WinHttpCloseHandle(c);
+    if (s) WinHttpCloseHandle(s);
+    return ok;
+}
+#endif
+static int fetch(const char *url, uint64_t off, uint64_t len, int tmo, Sink sink, void *ud, char *err, size_t en) {
+    if (isHttp(url)) {
+#ifdef _WIN32
+        return httpFetch(url, off, len, tmo, sink, ud, err, en);
+#else
+        (void)tmo; snprintf(err, en, "인터넷에서 받는 것은 Windows 에서만 됩니다"); return 0;
+#endif
+    }
+    FILE *f = fopen(url, "rb"); if (!f) { snprintf(err, en, "파일이 없습니다: %s", url); return 0; }
+    if (off > 0x7fffffff || fseek(f, (long)off, SEEK_SET)) { fclose(f); snprintf(err, en, "읽을 위치가 잘못되었습니다"); return 0; }
+    static unsigned char b[65536]; uint64_t left = len; int ok = 1;
+    for (;;) {
+        size_t want = sizeof b; if (len && left < want) want = (size_t)left;
+        if (!want) break;
+        size_t r = fread(b, 1, want, f); if (!r) break;
+        if (sink(ud, b, r)) { snprintf(err, en, "받은 것을 쓰지 못했습니다"); ok = 0; break; }
+        left -= len ? r : 0;
+    }
+    if (ok && len && left) { snprintf(err, en, "받은 크기가 모자랍니다"); ok = 0; }
+    fclose(f); return ok;
+}
+typedef struct { unsigned char *b; size_t n, cap, max; } MemSink;
+static int memSink(void *ud, const unsigned char *p, size_t n) {
+    MemSink *m = ud; if (m->n + n > m->max) return 1;
+    if (m->n + n + 1 > m->cap) { m->cap = (m->n + n + 1) * 2; m->b = realloc(m->b, m->cap); if (!m->b) return 1; }
+    memcpy(m->b + m->n, p, n); m->n += n; m->b[m->n] = 0; return 0;
+}
+static char *updUrl(const char *ver, const char *name) {   /* ver = NULL: 가장 새 릴리스 */
+    const char *o = getenv("JDH_UPDATE_URL");
+    if (o && *o) return fmtdup("%s/%s", o, name);
+    return ver ? fmtdup(JDH_UPDATE_BASE "/download/v%s/%s", ver, name) : fmtdup(JDH_UPDATE_BASE "/latest/download/%s", name);
+}
+/* 버전 비교 (a.b.c) */
+static int verOk(const char *v) { int dots = 0; if (!isdigit((unsigned char)*v)) return 0; for (const char *p = v; *p; p++) { if (*p == '.') { dots++; if (!isdigit((unsigned char)p[1])) return 0; } else if (!isdigit((unsigned char)*p)) return 0; } return dots <= 3 && strlen(v) < 24; }
+static int verCmp(const char *a, const char *b) {
+    for (int i = 0; i < 4; i++) {
+        long x = strtol(a, (char **)&a, 10), y = strtol(b, (char **)&b, 10);
+        if (x != y) return x < y ? -1 : 1;
+        if (*a == '.') a++;
+        if (*b == '.') b++;
+    }
+    return 0;
+}
+/* 목록 */
+typedef struct { char *path, *pack; uint64_t off, size; char sha[65]; int need; } UFile;
+typedef struct { char ver[24]; UFile *f; int n; uint64_t msize; char msha[65]; } UMan;
+static int shaOk(const char *s) { if (strlen(s) != 64) return 0; for (; *s; s++) if (!isxdigit((unsigned char)*s) || isupper((unsigned char)*s)) return 0; return 1; }
+static int packNameOk(const char *s) { if (!*s || *s == '.' || strlen(s) > 64) return 0; for (; *s; s++) if (!(isalnum((unsigned char)*s) || *s == '.' || *s == '-' || *s == '_')) return 0; return 1; }
+static int updPathOk(const char *p) {   /* 설치 폴더 안의 상대 경로만 */
+    if (!okRelPath(p) || strchr(p, '\\') || strlen(p) > 400) return 0;
+    for (const char *q = p; *q; q++) if ((unsigned char)*q < 32 || (*q == '/' && (q[1] == '/' || !q[1]))) return 0;
+    return !endsWith(p, ".old-jdh") && strncmp(p, ".jdh-update/", 12) && strcmp(p, "jdh-manifest.txt");
+}
+/* 글을 읽어 목록으로 (틀리면 0) — latest 와 manifest 가 같은 꼴 */
+static int manParse(char *text, UMan *m) {
+    memset(m, 0, sizeof *m); int cap = 0, head = 0;
+    for (char *ln = text; ln && *ln; ) {
+        char *nl = strchr(ln, '\n'); if (nl) *nl = 0;
+        size_t L = strlen(ln); if (L && ln[L - 1] == '\r') ln[--L] = 0;
+        if (!head) { if (strcmp(ln, "JDHUPDATE 1")) return 0; head = 1; }
+        else if (!strncmp(ln, "version ", 8)) { if (!verOk(ln + 8)) return 0; strcpy(m->ver, ln + 8); }
+        else if (!strncmp(ln, "manifest ", 9)) { char sh[80]; unsigned long long sz; if (sscanf(ln + 9, "%llu %79s", &sz, sh) != 2 || !shaOk(sh)) return 0; m->msize = sz; strcpy(m->msha, sh); }
+        else if (!strncmp(ln, "file ", 5)) {
+            char pk[80], sh[80]; unsigned long long off, sz; int used = 0;
+            if (sscanf(ln + 5, "%79s %llu %llu %79s %n", pk, &off, &sz, sh, &used) != 4 || !used) return 0;
+            const char *path = ln + 5 + used;
+            if (!packNameOk(pk) || !shaOk(sh) || !updPathOk(path) || off > 0x7fffffff || sz > 0x7fffffff) return 0;
+            if (m->n == cap) { cap = cap ? cap * 2 : 256; m->f = realloc(m->f, sizeof(UFile) * cap); }
+            UFile *f = &m->f[m->n++]; memset(f, 0, sizeof *f); f->path = xdup(path); f->pack = xdup(pk); f->off = off; f->size = sz; strcpy(f->sha, sh);
+        } else if (L) return 0;
+        ln = nl ? nl + 1 : NULL;
+    }
+    return head && m->ver[0];
+}
+static int cmpUPath(const void *a, const void *b) { return strcmp(((const UFile *)a)->path, ((const UFile *)b)->path); }
+static int cmpUPack(const void *a, const void *b) {
+    const UFile *x = a, *y = b; int c = strcmp(x->pack, y->pack);
+    return c ? c : x->off < y->off ? -1 : x->off > y->off ? 1 : strcmp(x->path, y->path);
+}
+static void rmTree(const char *dir) {
+    DIR *d = opendir(dir); if (!d) return; struct dirent *e;
+    while ((e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        char *p = fmtdup("%s/%s", dir, e->d_name);
+        if (isDir(p)) rmTree(p); else remove(p);
+        free(p);
+    }
+    closedir(d);
+#ifdef _WIN32
+    _rmdir(dir);
+#else
+    rmdir(dir);
+#endif
+}
+/* 배포 폴더 → 업데이트 파일 (jdh-latest.txt · jdh-manifest.txt · jdh-core.pack · jdh-zig.pack) — CI 가 씀 */
+static void walkAll(const char *root, const char *rel, PList *pl) {
+    char *dir = *rel ? fmtdup("%s/%s", root, rel) : xdup(root); DIR *d = opendir(dir); if (!d) { free(dir); return; }
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        char *r2 = *rel ? fmtdup("%s/%s", rel, e->d_name) : xdup(e->d_name), *f2 = fmtdup("%s/%s", root, r2);
+        if (isDir(f2)) { walkAll(root, r2, pl); free(r2); }
+        else if (isFile(f2)) { pl->path = realloc(pl->path, sizeof(char*) * (pl->n + 1)); pl->path[pl->n++] = r2; }
+        else free(r2);
+        free(f2);
+    }
+    closedir(d); free(dir);
+}
+static int cmdPackUpdate(const char *dist, const char *out, const char *ver) {
+    if (!isDir(dist)) die("폴더가 없습니다: %s", dist);
+    if (!verOk(ver)) die("버전은 0.6.0 꼴로 씁니다 (받은 값: %s)", ver);
+    PList pl = { NULL, 0 }; walkAll(dist, "", &pl);
+    qsort(pl.path, pl.n, sizeof(char*), cmpStr);
+    mkdirs(out);
+    const char *packs[2] = { "jdh-core.pack", "jdh-zig.pack" }; FILE *pf[2]; uint64_t pos[2] = { 0, 0 };
+    for (int k = 0; k < 2; k++) { char *p = fmtdup("%s/%s", out, packs[k]); pf[k] = fopen(p, "wb"); if (!pf[k]) die("파일을 쓸 수 없습니다: %s", p); free(p); }
+    char *man = fmtdup("JDHUPDATE 1\nversion %s\n", ver); int nf = 0;
+    for (int i = 0; i < pl.n; i++) {
+        if (!strcmp(pl.path[i], "jdh-manifest.txt")) continue;
+        if (!updPathOk(pl.path[i])) die("업데이트에 넣을 수 없는 경로입니다: %s", pl.path[i]);
+        int k = !strncmp(pl.path[i], "toolchain/", 10);
+        char *fp = fmtdup("%s/%s", dist, pl.path[i]); size_t len; unsigned char *b = readAll(fp, &len);
+        if (!b) die("파일을 읽을 수 없습니다: %s", fp);
+        char sh[65]; shaMem(b, len, sh);
+        if (pos[k] + len > 0x7fffffff) die("묶음이 너무 큽니다 (2GB 까지): %s", packs[k]);
+        if (len && fwrite(b, 1, len, pf[k]) != len) die("묶음을 쓰다가 실패했습니다: %s", packs[k]);
+        man = catf(man, "file %s %llu %llu %s %s\n", packs[k], (unsigned long long)pos[k], (unsigned long long)len, sh, pl.path[i]);
+        pos[k] += len; nf++; free(b); free(fp);
+    }
+    for (int k = 0; k < 2; k++) if (fclose(pf[k])) die("묶음을 쓰다가 실패했습니다: %s", packs[k]);
+    char msh[65]; shaMem((unsigned char *)man, strlen(man), msh);
+    char *mp = fmtdup("%s/jdh-manifest.txt", out), *lp = fmtdup("%s/jdh-latest.txt", out);
+    char *lat = fmtdup("JDHUPDATE 1\nversion %s\nmanifest %llu %s\n", ver, (unsigned long long)strlen(man), msh);
+    writeAll(mp, man, strlen(man)); writeAll(lp, lat, strlen(lat));
+    printf("✔ 업데이트 파일을 만들었습니다: %s — 버전 %s · 파일 %d개 (core %.1f MB · zig %.1f MB)\n", out, ver, nf, pos[0] / 1048576.0, pos[1] / 1048576.0);
+    return 0;
+}
+/* 묶음의 한 구간을 받아 파일들로 나눠 씀 */
+typedef struct { UFile *f; int i, end; uint64_t pos; FILE *out; const char *stage; uint64_t *done; uint64_t total; int lastPct; } CutSink;
+static char *stagePath(const char *stage, const UFile *f) { return fmtdup("%s/%s", stage, f->path); }
+static int cutSink(void *ud, const unsigned char *p, size_t n) {
+    CutSink *c = ud;
+    while (n) {
+        while (c->i < c->end && (!c->f[c->i].need || !c->f[c->i].size)) c->i++;
+        if (c->i >= c->end) return 0;
+        UFile *f = &c->f[c->i];
+        if (c->pos < f->off) { uint64_t k = f->off - c->pos; if (k > n) k = n; p += k; n -= (size_t)k; c->pos += k; continue; }
+        if (!c->out) { char *sp = stagePath(c->stage, f); char *sl = strrchr(sp, '/'); *sl = 0; mkdirs(sp); *sl = '/'; c->out = fopen(sp, "wb"); free(sp); if (!c->out) return 1; }
+        uint64_t k = f->off + f->size - c->pos; if (k > n) k = n;
+        if (fwrite(p, 1, (size_t)k, c->out) != k) return 1;
+        p += k; n -= (size_t)k; c->pos += k; *c->done += k;
+        if (c->pos == f->off + f->size) { if (fclose(c->out)) { c->out = NULL; return 1; } c->out = NULL; c->i++; }
+        int pct = c->total ? (int)(*c->done * 100 / c->total) : 100;
+        if (pct != c->lastPct) { c->lastPct = pct; printf("\r  받는 중… %3d%%", pct); fflush(stdout); }
+    }
+    return 0;
+}
+/* jdh update [--check | --yes] [--pause]
+ *   --check: 새 버전이 있으면 그 버전을 찍고 10 을 돌려줌 (없거나 확인하지 못하면 0 · 아무것도 찍지 않음) — jbdev 가 시작할 때 씀 */
+static int cmdUpdate(int check, int yes) {
+    char err[256] = ""; char *root = homeDir();
+    if (!root) { if (check) return 0; die("JDH 설치 폴더를 찾을 수 없습니다"); }
+    if (check) {   /* 지난 업데이트 때 쓰고 있어서 못 지운 파일 */
+        const char *olds[] = { "bin/jdh.exe.old-jdh", "bin/jbdev.exe.old-jdh" };
+        for (int i = 0; i < 2; i++) { char *p = fmtdup("%s/%s", root, olds[i]); remove(p); free(p); }
+        const char *no = getenv("JDH_NO_UPDATE"); if (no && *no && strcmp(no, "0")) return 0;
+    }
+    char *lu = updUrl(NULL, "jdh-latest.txt"); MemSink ms = { NULL, 0, 0, 4096 }; UMan lat;
+    if (!fetch(lu, 0, 0, check ? 4000 : 20000, memSink, &ms, err, sizeof err) || !ms.b || !manParse((char *)ms.b, &lat) || !lat.msha[0]) {
+        if (check) return 0;
+        die("새 버전을 확인하지 못했습니다 — %s", err[0] ? err : "받은 내용을 읽을 수 없습니다");
+    }
+    int vc = verCmp(lat.ver, JDH_VERSION);
+    if (check) { if (vc > 0) { printf("%s\n", lat.ver); return 10; } return 0; }
+    if (vc < 0) { printf("✔ 설치된 버전 (%s) 이 게시된 버전 (%s) 보다 새 것입니다 — 바꾸지 않았습니다\n", JDH_VERSION, lat.ver); return 0; }
+    printf("지금 버전: %s · 게시된 버전: %s\n", JDH_VERSION, lat.ver);
+    /* 1. 파일 목록 (jdh-latest.txt 에 적힌 크기 · SHA-256 과 같아야 함) */
+    char *mu = updUrl(lat.ver, "jdh-manifest.txt"); MemSink mm = { NULL, 0, 0, 64u << 20 }; UMan man; char sh[65];
+    if (!fetch(mu, 0, 0, 30000, memSink, &mm, err, sizeof err) || !mm.b) die("파일 목록을 받지 못했습니다 — %s", err);
+    shaMem(mm.b, mm.n, sh);
+    if (mm.n != lat.msize || strcmp(sh, lat.msha)) die("파일 목록이 손상되었습니다 (SHA-256 이 다름) — 아무것도 바꾸지 않았습니다");
+    char *mtext = xalloc(mm.n + 1); memcpy(mtext, mm.b, mm.n + 1);
+    if (!manParse((char *)mm.b, &man) || strcmp(man.ver, lat.ver) || !man.n) die("파일 목록을 읽을 수 없습니다 — 아무것도 바꾸지 않았습니다");
+    qsort(man.f, man.n, sizeof(UFile), cmpUPath);
+    for (int i = 1; i < man.n; i++) if (!strcmp(man.f[i].path, man.f[i - 1].path)) die("파일 목록에 같은 경로가 두 번 있습니다 — 아무것도 바꾸지 않았습니다");
+    /* 2. 대조: 설치된 파일의 크기 · SHA-256 */
+    printf("  설치된 파일 %d개를 검사합니다…\n", man.n); fflush(stdout);
+    int need = 0; uint64_t total = 0;
+    for (int i = 0; i < man.n; i++) {
+        UFile *f = &man.f[i]; char *p = fmtdup("%s/%s", root, f->path); char cur[65];
+        f->need = !(isFile(p) && fileSize(p) == f->size && shaFile(p, cur, NULL) && !strcmp(cur, f->sha));
+        if (f->need) { need++; total += f->size; }
+        free(p);
+    }
+    char *lmp = fmtdup("%s/jdh-manifest.txt", root);
+    if (!need) {
+        if (vc) writeAll(lmp, mtext, strlen(mtext));
+        printf("✔ 최신 버전이고 파일이 모두 온전합니다 (%s)\n", lat.ver); return 0;
+    }
+    printf("  %s: 파일 %d개 · %.1f MB\n", vc ? "바뀐 것" : "손상되었거나 없는 것", need, total / 1048576.0);
+    if (!yes) {
+        printf("%s [y/N] ", vc ? "업데이트하시겠습니까?" : "고치시겠습니까?"); fflush(stdout);
+        char ans[16]; if (!fgets(ans, sizeof ans, stdin) || (ans[0] != 'y' && ans[0] != 'Y')) { puts("그만두었습니다 — 아무것도 바꾸지 않았습니다"); return 0; }
+    }
+    /* 3. 받기: 다른 파일만 · 묶음에서 그 자리만 (가까이 붙은 것은 한 번에) → 임시 폴더 */
+    char *stage = fmtdup("%s/.jdh-update", root); rmTree(stage); mkdirs(stage);
+    qsort(man.f, man.n, sizeof(UFile), cmpUPack);
+    uint64_t done = 0; int lastPct = -1;
+    for (int i = 0; i < man.n; i++) if (man.f[i].need && !man.f[i].size) { char *sp = stagePath(stage, &man.f[i]); char *sl = strrchr(sp, '/'); *sl = 0; mkdirs(sp); *sl = '/'; writeAll(sp, "", 0); free(sp); }   /* 빈 파일 */
+    for (int i = 0; i < man.n; ) {
+        UFile *f = &man.f[i];
+        if (!f->need) { i++; continue; }
+        if (!f->size) { i++; continue; }
+        int j = i + 1; uint64_t end = f->off + f->size;
+        for (int k = j; k < man.n && !strcmp(man.f[k].pack, f->pack); k++) {
+            if (!man.f[k].need || !man.f[k].size) continue;
+            if (man.f[k].off < end || man.f[k].off - end > UPD_GAP) break;
+            end = man.f[k].off + man.f[k].size; j = k + 1;
+        }
+        CutSink cs = { man.f, i, j, f->off, NULL, stage, &done, total, lastPct };
+        char *pu = updUrl(lat.ver, f->pack);
+        int ok = fetch(pu, f->off, end - f->off, 30000, cutSink, &cs, err, sizeof err);
+        if (cs.out) fclose(cs.out);
+        lastPct = cs.lastPct;
+        if (!ok) { putchar('\n'); rmTree(stage); die("받지 못했습니다 (%s) — %s · 아무것도 바꾸지 않았습니다", f->pack, err); }
+        free(pu); i = j;
+    }
+    printf("\r  받는 중… 100%%\n");
+    /* 4. 받은 파일 검사 — 하나라도 틀리면 아무것도 바꾸지 않음 */
+    for (int i = 0; i < man.n; i++) {
+        UFile *f = &man.f[i]; if (!f->need) continue;
+        char *sp = stagePath(stage, f); char cur[65]; uint64_t sz = 0;
+        if (!shaFile(sp, cur, &sz) || sz != f->size || strcmp(cur, f->sha)) { rmTree(stage); die("받은 파일이 손상되었습니다 (SHA-256 이 다름): %s — 아무것도 바꾸지 않았습니다", f->path); }
+        free(sp);
+    }
+    /* 5. 바꾸기: 원래 파일을 옆으로 치우고 새 파일을 넣음 (쓰는 중인 실행 파일도 됨) · 실패하면 되돌림 */
+    int applied = 0, fail = -1;
+    for (int i = 0; i < man.n && fail < 0; i++) {
+        UFile *f = &man.f[i]; if (!f->need) continue;
+        char *tp = fmtdup("%s/%s", root, f->path), *old = fmtdup("%s.old-jdh", tp), *sp = stagePath(stage, f);
+        char *sl = strrchr(tp, '/'); *sl = 0; mkdirs(tp); *sl = '/';
+        remove(old);
+        int had = isFile(tp);
+        if (had && rename(tp, old)) fail = i;
+        else if (rename(sp, tp)) { if (had) rename(old, tp); fail = i; }
+        else { f->need = had ? 2 : 3; applied++; }   /* 2 = 바꿈 (옛 파일이 옆에 있음) · 3 = 새로 넣음 */
+        free(tp); free(old); free(sp);
+    }
+    if (fail >= 0) {
+        for (int i = 0; i < man.n; i++) {
+            UFile *f = &man.f[i]; if (f->need < 2) continue;
+            char *tp = fmtdup("%s/%s", root, f->path), *old = fmtdup("%s.old-jdh", tp);
+            remove(tp); if (f->need == 2) rename(old, tp);
+            free(tp); free(old);
+        }
+        rmTree(stage);
+        die("파일을 바꾸지 못했습니다: %s — 되돌렸습니다 (JawBreaker Dev. 나 jdh 가 그 파일을 쓰고 있으면 닫고 다시 해 보세요)", man.f[fail].path);
+    }
+    for (int i = 0; i < man.n; i++) if (man.f[i].need == 2) { char *old = fmtdup("%s/%s.old-jdh", root, man.f[i].path); remove(old); free(old); }
+    rmTree(stage);
+    /* 6. 새 버전에서 없어진 파일 지우기 (지난 목록에는 있고 새 목록에는 없는 것) · 새 목록을 기억 */
+    size_t ol; unsigned char *ot = readAll(lmp, &ol); UMan om; int gone = 0;
+    qsort(man.f, man.n, sizeof(UFile), cmpUPath);
+    if (ot && manParse((char *)ot, &om)) for (int i = 0; i < om.n; i++) {
+        if (bsearch(&om.f[i], man.f, man.n, sizeof(UFile), cmpUPath)) continue;
+        char *p = fmtdup("%s/%s", root, om.f[i].path); if (!remove(p)) gone++; free(p);
+    }
+    writeAll(lmp, mtext, strlen(mtext));
+    if (vc) printf("✔ 업데이트했습니다: %s → %s (파일 %d개", JDH_VERSION, lat.ver, applied);
+    else printf("✔ 고쳤습니다: %s (파일 %d개", lat.ver, applied);
+    if (gone) printf(" · 지운 것 %d개", gone);
+    puts(")");
+    return 0;
+}
 static int cmdOpen(void) {
 #ifdef _WIN32
     char exe[MAX_PATH]; DWORD n = GetModuleFileNameA(NULL, exe, MAX_PATH);
@@ -961,7 +1337,8 @@ static void usage(void) {
          "  jdh lib list [프로젝트]          적용된 라이브러리 보기\n"
          "  jdh lib remove <id> [프로젝트]   프로젝트에서 빼기\n"
          "  jdh build exe [프로젝트] [-o 파일]  Windows 실행 파일 만들기 (라이브러리 포함)\n"
-         "  jdh open                         JawBreaker Dev. 열기");
+         "  jdh open                         JawBreaker Dev. 열기\n"
+         "  jdh update [--yes]               새 버전 확인 · 업데이트 (설치된 파일을 검사해 바뀐 것만 받음 · 깨진 설치도 고침)");
 }
 int main(int argc, char **argv) {
 #ifdef _WIN32
@@ -974,6 +1351,12 @@ int main(int argc, char **argv) {
     const char *a = argv[1], *b = argc > 2 ? argv[2] : NULL;
     if (!strcmp(a, "version")) { puts("jdh " JDH_VERSION); return 0; }
     if (!strcmp(a, "open")) return cmdOpen();
+    if (!strcmp(a, "update")) {
+        int check = 0, yes = 0;
+        for (int i = 2; i < argc; i++) { if (!strcmp(argv[i], "--check")) check = 1; else if (!strcmp(argv[i], "--yes") || !strcmp(argv[i], "-y")) yes = 1; else if (!strcmp(argv[i], "--pause")) DIE_PAUSE = 1; else die("알 수 없는 옵션입니다: %s (jdh update [--check | --yes])", argv[i]); }
+        return cmdUpdate(check, yes);
+    }
+    if (!strcmp(a, "pack-update")) { if (argc < 5) die("jdh pack-update <배포 폴더> <만들 폴더> <버전>"); return cmdPackUpdate(argv[2], argv[3], argv[4]); }
     if (!strcmp(a, "new") && b) {
         if (argc < 4) die("이름이 필요합니다: jdh new %s <이름>", b);
         if (!strcmp(b, "lib")) return cmdNewLib(argv[3]);

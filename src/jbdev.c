@@ -2,10 +2,14 @@
  *   Microsoft Edge 의 앱 창 (주소창 · 탭 없음) 으로 editor\jbdev.html 을 띄움.
  *   저장 공간은 %APPDATA%\JDH\dev-profile — 평소 쓰는 브라우저와 따로.
  *   Edge 를 찾지 못하면 기본 브라우저로 엶.
+ *   열기 전에 새 버전이 있는지 확인 (jdh update --check · 5초 한도) → 있으면 "업데이트하시겠습니까?" 를 물음.
+ *     예 = jdh update --yes (바뀐 파일만 받아 SHA-256 으로 검사한 뒤 바꿈) · 아니요 = 그 버전은 다시 묻지 않음 · 취소 = 다음에 다시 물음
+ *     JDH_NO_UPDATE=1 이면 확인하지 않음.
  */
 #include <windows.h>
 #include <shellapi.h>
 #include <wchar.h>
+#include <string.h>
 
 static int fileExists(const wchar_t *p) { DWORD a = GetFileAttributesW(p); return a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY); }
 static void fail(const wchar_t *msg) { MessageBoxW(NULL, msg, L"JawBreaker Dev.", MB_OK | MB_ICONERROR); }
@@ -42,13 +46,80 @@ static void fileUrl(const wchar_t *path, wchar_t *out, size_t cch) {
     out[w] = 0;
 }
 
+/* bin\jdh.exe 를 실행 — show = 0: 창 없이 (출력을 out 에) · 1: 새 명령 창. 끝나면 1 (종료 코드는 code 에), 못 띄웠거나 시간이 넘으면 0 */
+static int runJdh(const wchar_t *dir, const wchar_t *args, int show, DWORD waitMs, char *out, DWORD outn, DWORD *code) {
+    wchar_t exe[MAX_PATH]; static wchar_t cmd[MAX_PATH + 128];
+    _snwprintf(exe, MAX_PATH, L"%ls\\jdh.exe", dir); exe[MAX_PATH - 1] = 0;
+    if (!fileExists(exe)) return 0;
+    _snwprintf(cmd, MAX_PATH + 128, L"\"%ls\" %ls", exe, args); cmd[MAX_PATH + 127] = 0;
+    SECURITY_ATTRIBUTES sa; sa.nLength = sizeof sa; sa.lpSecurityDescriptor = NULL; sa.bInheritHandle = TRUE;
+    HANDLE rd = NULL, wr = NULL, nul = NULL;
+    STARTUPINFOW si; PROCESS_INFORMATION pi; ZeroMemory(&si, sizeof si); si.cb = sizeof si; ZeroMemory(&pi, sizeof pi);
+    if (!show) {
+        if (!CreatePipe(&rd, &wr, &sa, 0)) return 0;
+        SetHandleInformation(rd, HANDLE_FLAG_INHERIT, 0);
+        nul = CreateFileW(L"NUL", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, OPEN_EXISTING, 0, NULL);
+        si.dwFlags = STARTF_USESTDHANDLES; si.hStdOutput = wr; si.hStdError = nul; si.hStdInput = nul;
+    }
+    BOOL ok = CreateProcessW(exe, cmd, NULL, NULL, show ? FALSE : TRUE, show ? CREATE_NEW_CONSOLE : CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+    if (wr) CloseHandle(wr);
+    if (nul && nul != INVALID_HANDLE_VALUE) CloseHandle(nul);
+    if (!ok) { if (rd) CloseHandle(rd); return 0; }
+    int done = WaitForSingleObject(pi.hProcess, waitMs) == WAIT_OBJECT_0;
+    if (!done) TerminateProcess(pi.hProcess, 1);
+    else if (code) GetExitCodeProcess(pi.hProcess, code);
+    if (rd) {
+        DWORD got = 0, avail = 0;
+        if (out && outn) { out[0] = 0; if (done && PeekNamedPipe(rd, NULL, 0, NULL, &avail, NULL) && avail && ReadFile(rd, out, outn - 1 < avail ? outn - 1 : avail, &got, NULL)) out[got] = 0; }
+        CloseHandle(rd);
+    }
+    CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
+    return done;
+}
+/* 새 버전이 있으면 묻고 업데이트 — 업데이트했으면 1 (새 jbdev.exe 로 다시 시작해야 함) */
+static int checkUpdate(const wchar_t *dir) {
+    wchar_t no[8]; DWORD nn = GetEnvironmentVariableW(L"JDH_NO_UPDATE", no, 8);
+    if (nn && nn < 8 && wcscmp(no, L"0")) return 0;
+    char out[64]; DWORD code = 0;
+    if (!runJdh(dir, L"update --check", 0, 5000, out, sizeof out, &code) || code != 10) return 0;
+    char ver[24]; int n = 0;
+    for (; n < 23 && ((out[n] >= '0' && out[n] <= '9') || out[n] == '.'); n++) ver[n] = out[n];
+    ver[n] = 0; if (!n) return 0;
+    /* "아니요" 로 건너뛴 버전: %APPDATA%\JDH\update-skip.txt */
+    wchar_t app[MAX_PATH], skip[MAX_PATH]; skip[0] = 0;
+    DWORD an = GetEnvironmentVariableW(L"APPDATA", app, MAX_PATH);
+    if (an && an < MAX_PATH - 32) {
+        _snwprintf(skip, MAX_PATH, L"%ls\\JDH", app); skip[MAX_PATH - 1] = 0; CreateDirectoryW(skip, NULL);
+        _snwprintf(skip, MAX_PATH, L"%ls\\JDH\\update-skip.txt", app); skip[MAX_PATH - 1] = 0;
+        HANDLE f = CreateFileW(skip, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+        if (f != INVALID_HANDLE_VALUE) { char old[24]; DWORD got = 0; ReadFile(f, old, 23, &got, NULL); old[got] = 0; CloseHandle(f); if (!strcmp(old, ver)) return 0; }
+    }
+    wchar_t wver[24], msg[512]; for (int i = 0; i <= n; i++) wver[i] = (wchar_t)ver[i];
+    _snwprintf(msg, 512, L"새 버전 %ls 이(가) 나왔습니다. 업데이트하시겠습니까?\n\n예: 지금 업데이트 — 바뀐 파일만 받아 검사한 뒤 바꿉니다\n아니요: 이 버전은 다시 묻지 않음\n취소: 다음에 다시 물음", wver); msg[511] = 0;
+    int r = MessageBoxW(NULL, msg, L"JawBreaker Dev. 업데이트", MB_YESNOCANCEL | MB_ICONQUESTION);
+    if (r == IDNO && skip[0]) {
+        HANDLE f = CreateFileW(skip, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (f != INVALID_HANDLE_VALUE) { DWORD w; WriteFile(f, ver, (DWORD)n, &w, NULL); CloseHandle(f); }
+    }
+    if (r != IDYES) return 0;
+    code = 1;
+    if (!runJdh(dir, L"update --yes --pause", 1, INFINITE, NULL, 0, &code) || code) { MessageBoxW(NULL, L"업데이트하지 못했습니다. 지금 버전으로 엽니다.", L"JawBreaker Dev.", MB_OK | MB_ICONWARNING); return 0; }
+    return 1;
+}
+
 int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int show) {
-    (void)hi; (void)hp; (void)cl; (void)show;
+    (void)hi; (void)hp; (void)show;
     wchar_t exe[MAX_PATH], dir[MAX_PATH], html[MAX_PATH];
     DWORD n = GetModuleFileNameW(NULL, exe, MAX_PATH);
     if (!n || n >= MAX_PATH) { fail(L"프로그램 위치를 알 수 없습니다."); return 1; }
     wcscpy(dir, exe);
     wchar_t *sl = wcsrchr(dir, L'\\'); if (sl) *sl = 0;
+    /* 새 버전 확인 — 업데이트했으면 (이 파일도 바뀌었을 수 있으니) 새 jbdev.exe 로 다시 시작 */
+    if (!strstr(cl ? cl : "", "--no-update") && checkUpdate(dir)) {
+        static wchar_t again[MAX_PATH + 32]; _snwprintf(again, MAX_PATH + 32, L"\"%ls\" --no-update", exe); again[MAX_PATH + 31] = 0;
+        STARTUPINFOW s2; PROCESS_INFORMATION p2; ZeroMemory(&s2, sizeof s2); s2.cb = sizeof s2; ZeroMemory(&p2, sizeof p2);
+        if (CreateProcessW(exe, again, NULL, NULL, FALSE, 0, NULL, NULL, &s2, &p2)) { CloseHandle(p2.hThread); CloseHandle(p2.hProcess); return 0; }
+    }
     /* 설치 폴더: bin\jbdev.exe · editor\jbdev.html */
     _snwprintf(html, MAX_PATH, L"%ls\\..\\editor\\jbdev.html", dir); html[MAX_PATH - 1] = 0;
     if (!fileExists(html)) { _snwprintf(html, MAX_PATH, L"%ls\\editor\\jbdev.html", dir); html[MAX_PATH - 1] = 0; }

@@ -5,9 +5,12 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    tags: ['v*']   # 버전 태그 (v0.6.0 꼴) 를 올리면 빌드 · 시험 뒤 릴리스로 게시 → 설치된 JDH 가 새 버전으로 알아봄
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write   # 릴리스 게시 (태그일 때만 씀)
     steps:
       - uses: actions/checkout@v4
       - name: llvm-mingw 받기
@@ -146,6 +149,50 @@ jobs:
           name: JDH-test-screens
           path: probe-exe.png
           if-no-files-found: ignore
+      - name: 업데이트 파일 만들기 (설치된 파일 목록 · 묶음) · 업데이트 시험
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          $ver = (dist\bin\jdh.exe version).Split(' ')[1]
+          if (Test-Path dist\jdh-manifest.txt) { Remove-Item dist\jdh-manifest.txt }
+          dist\bin\jdh.exe pack-update dist upd $ver; if ($LASTEXITCODE) { exit 1 }
+          # 시험: 지금 것을 "설치본" 으로 복사해 몇 파일을 망가뜨리고, 가짜 새 버전 (99.0.0) 으로 업데이트 — HTTP (Range) 로 받음
+          dist\bin\jdh.exe pack-update dist upd99 99.0.0; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item upd\jdh-manifest.txt dist\jdh-manifest.txt
+          robocopy dist inst /e /nfl /ndl /njh /njs /np | Out-Null
+          $zf = (Get-ChildItem inst\toolchain\zig\lib -File -Recurse | Select-Object -First 1).FullName
+          $touched = @("$PWD\inst\editor\jbdev.html", "$PWD\inst\bin\jdh.exe", "$PWD\inst\bin\jbdev.exe", $zf)
+          foreach ($f in $touched) { Add-Content -Path $f -Value 'x' -NoNewline -Encoding ascii }
+          Remove-Item inst\sdk\jdh.h
+          $srv = Start-Process python -ArgumentList 'tests\range_server.py','upd99','8765' -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 2
+          $bad = 0
+          try {
+            $env:JDH_UPDATE_URL = 'http://127.0.0.1:8765'
+            $out = inst\bin\jdh.exe update --check
+            if ($LASTEXITCODE -ne 10 -or "$out".Trim() -ne '99.0.0') { Write-Host "✖ 새 버전을 알아보지 못했습니다 (exit=$LASTEXITCODE · $out)"; $bad++ }
+            inst\bin\jdh.exe update --yes; if ($LASTEXITCODE) { Write-Host '✖ 업데이트 실패'; $bad++ }
+            foreach ($f in $touched + "$PWD\inst\sdk\jdh.h") {
+              $o = $f.Replace("$PWD\inst\", "$PWD\dist\")
+              if (-not (Test-Path $f) -or (Get-FileHash $f).Hash -ne (Get-FileHash $o).Hash) { Write-Host "✖ 새 버전과 다릅니다: $f"; $bad++ }
+            }
+            # 다시 돌리면: 모든 파일을 검사해 "온전" 이라고 해야 함 · 쓰는 중이라 못 지웠던 옛 실행 파일도 정리
+            $again = inst\bin\jdh.exe update --yes; Write-Host $again
+            if ("$again" -notmatch '모두 온전') { Write-Host '✖ 업데이트 뒤 검사에서 다른 파일이 남았습니다'; $bad++ }
+            inst\bin\jdh.exe update --check | Out-Null
+            if (Get-ChildItem inst -Recurse -Force | Where-Object { $_.Name -like '*.old-jdh' -or $_.Name -eq '.jdh-update' }) { Write-Host '✖ 임시 파일이 남았습니다'; $bad++ }
+            # 받는 도중 손상: 묶음을 망가뜨리면 아무것도 바꾸지 않아야 함
+            Set-Content inst\sdk\jdh.h -Value 'junk' -NoNewline -Encoding ascii
+              $len = (Get-Item upd99\jdh-core.pack).Length; [IO.File]::WriteAllBytes("$PWD\upd99\jdh-core.pack", (New-Object byte[] $len))
+            inst\bin\jdh.exe update --yes
+            if ($LASTEXITCODE -eq 0 -or (Get-Content inst\sdk\jdh.h -Raw) -ne 'junk') { Write-Host '✖ 손상된 묶음인데 파일을 바꿨습니다'; $bad++ }
+            # 실제 주소 (GitHub 릴리스): 확인만 — 릴리스가 없거나 닿지 못해도 조용히 0
+            $env:JDH_UPDATE_URL = ''
+            $real = inst\bin\jdh.exe update --check; Write-Host "실제 주소 확인: exit=$LASTEXITCODE $real"
+            if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 10) { Write-Host '✖ 실제 주소 확인이 비정상 종료'; $bad++ }
+          } finally { Stop-Process -Id $srv.Id -Force }
+          if ($bad) { exit 1 }
       - name: 설치 파일 만들기
         shell: cmd
         run: |
@@ -155,3 +202,14 @@ jobs:
         with:
           name: JDH-Setup
           path: installer/out/*.exe
+      - name: 릴리스 게시 (버전 태그를 올렸을 때만 — 설치 파일 · 업데이트 파일)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $env:JDH_HOME = ''
+          $ver = (dist\bin\jdh.exe version).Split(' ')[1]
+          if ($env:GITHUB_REF_NAME -ne "v$ver") { Write-Error "태그 ($env:GITHUB_REF_NAME) 와 jdh 의 버전 (v$ver) 이 다릅니다"; exit 1 }
+          gh release create $env:GITHUB_REF_NAME "installer\out\JDH-Setup-$ver.exe" upd\jdh-latest.txt upd\jdh-manifest.txt upd\jdh-core.pack upd\jdh-zig.pack --title "JDH $ver" --notes "JDH $ver — 처음 설치는 JDH-Setup-$ver.exe · 이미 설치했다면 JawBreaker Dev. 를 열 때 업데이트를 묻습니다 (또는 jdh update)."
+          if ($LASTEXITCODE) { exit 1 }

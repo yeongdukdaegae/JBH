@@ -2,13 +2,13 @@
 [Setup]
 AppId={{6B1E6C0E-5E0B-4B1B-9C0E-4A44483D4831}
 AppName=JDH (JawBreaker Development Helper)
-AppVersion=0.5.1
+AppVersion=0.6.0
 DefaultDirName={localappdata}\Programs\JDH
 DefaultGroupName=JawBreaker
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=out
-OutputBaseFilename=JDH-Setup-0.5.1
+OutputBaseFilename=JDH-Setup-0.6.0
 Compression=lzma2
 SolidCompression=yes
 ChangesEnvironment=yes
@@ -24,6 +24,17 @@ Source: "..\dist\sdk\jdh.h"; DestDir: "{app}\sdk"; Flags: ignoreversion
 Source: "..\dist\sdk\runtime\*"; DestDir: "{app}\sdk\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\sdk\SDL2\*"; DestDir: "{app}\sdk\SDL2"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\toolchain\zig\*"; DestDir: "{app}\toolchain\zig"; Flags: ignoreversion recursesubdirs createallsubdirs
+; 설치된 파일 목록 (jdh update 가 지난 버전의 파일을 정리할 때 씀 · CI 가 만듦)
+Source: "..\dist\jdh-manifest.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+
+[UninstallDelete]
+; jdh update 가 넣은 파일은 설치 기록에 없으므로 폴더째 지움
+Type: filesandordirs; Name: "{app}\bin"
+Type: filesandordirs; Name: "{app}\editor"
+Type: filesandordirs; Name: "{app}\sdk"
+Type: filesandordirs; Name: "{app}\toolchain"
+Type: filesandordirs; Name: "{app}\.jdh-update"
+Type: files; Name: "{app}\jdh-manifest.txt"
 
 [Icons]
 Name: "{group}\JawBreaker Dev."; Filename: "{app}\bin\jbdev.exe"
