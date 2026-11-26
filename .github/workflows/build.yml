@@ -66,6 +66,32 @@ jobs:
           type out.txt
           type err.txt
           findstr /c:"count=2" out.txt || exit /b 1
+      - name: EXE 결과물 시험 (크기 · 아이콘 · 고해상도 화면 설정)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          $bad = 0
+          $b = [IO.File]::ReadAllBytes("$PWD\Game.exe"); $t = [Text.Encoding]::GetEncoding(28591).GetString($b)
+          Write-Host ("Game.exe {0:N1} MB" -f ($b.Length / 1MB))
+          if ($t.IndexOf('PerMonitorV2') -lt 0) { Write-Host '✖ 고해상도 화면 설정 (manifest) 이 없습니다'; $bad++ }
+          if (Test-Path Game.pdb) { Write-Host '✖ Game.pdb 가 남았습니다'; $bad++ }
+          # 아이콘: 기본 아이콘이 들어갔는지 · 프로젝트의 icon.ico 로 바뀌는지 (Windows 가 실행 파일에서 아이콘을 꺼내 줌)
+          Add-Type -AssemblyName System.Drawing
+          $i1 = [System.Drawing.Icon]::ExtractAssociatedIcon("$PWD\Game.exe")
+          if (-not $i1) { Write-Host '✖ 아이콘이 없습니다'; $bad++ }
+          $bmp = New-Object System.Drawing.Bitmap 32, 32
+          $g = [System.Drawing.Graphics]::FromImage($bmp); $g.Clear([System.Drawing.Color]::FromArgb(255, 255, 0, 255)); $g.Dispose()
+          $fs = [IO.File]::Create("$PWD\Game\icon.ico"); [System.Drawing.Icon]::FromHandle($bmp.GetHicon()).Save($fs); $fs.Close()
+          dist\bin\jdh.exe build exe Game -o GameIcon.exe; if ($LASTEXITCODE) { exit 1 }
+          $px = [System.Drawing.Icon]::ExtractAssociatedIcon("$PWD\GameIcon.exe").ToBitmap().GetPixel(16, 16)
+          Write-Host "프로젝트 아이콘의 가운데 색: $px"
+          if (-not ($px.R -gt 200 -and $px.G -lt 60 -and $px.B -gt 200)) { Write-Host '✖ 프로젝트의 icon.ico 가 쓰이지 않았습니다'; $bad++ }
+          Remove-Item Game\icon.ico
+          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+          $p = Start-Process .\GameIcon.exe -RedirectStandardOutput gi-out.txt -RedirectStandardError gi-err.txt -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
+          if (-not (Select-String -Path gi-out.txt -SimpleMatch 'count=2' -Quiet)) { Write-Host '✖ 줄인 실행 파일이 제대로 실행되지 않았습니다'; Get-Content gi-err.txt; $bad++ }
+          if ($bad) { exit 1 }
       - name: 엔진 기능 시험 (그리기 · 오브젝트 · 파일 — 웹 시험 tests/dev.mjs 와 같은 main.jb · 같은 결과)
         shell: pwsh
         run: |

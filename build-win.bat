@@ -21,6 +21,9 @@ if not exist dist\sdk mkdir dist\sdk
 copy /y sdk\jdh.h dist\sdk\jdh.h >nul || exit /b 1
 xcopy /e /i /q /y runtime\src dist\sdk\runtime\src >nul || exit /b 1
 xcopy /e /i /q /y runtime\vendor dist\sdk\runtime\vendor >nul || exit /b 1
+if not exist dist\sdk\runtime\win mkdir dist\sdk\runtime\win
+copy /y runtime\win\app.manifest dist\sdk\runtime\win\app.manifest >nul || exit /b 1
+copy /y runtime\win\icon.ico dist\sdk\runtime\win\icon.ico >nul || exit /b 1
 echo.
 echo 빌드 끝: dist\bin\jdh.exe · dist\bin\jbdev.exe · dist\editor\jbdev.html
-echo 설치 파일: Inno Setup 으로 installer\jdh.iss 를 컴파일하면 installer\out\JDH-Setup-0.5.0.exe
+echo 설치 파일: Inno Setup 으로 installer\jdh.iss 를 컴파일하면 installer\out\JDH-Setup-0.5.1.exe

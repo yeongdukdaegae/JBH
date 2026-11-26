@@ -36,6 +36,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - 권한은 컴파일된 `lib.wasm` 이 가져다 쓰는 host 함수로 확인한다: `jdh lib check` · `jdh build exe` · 에디터 (불러올 때) 세 곳 모두 거부한다.
   - 웹에서는 엔진이 바뀐 오브젝트를 명령 묶음과 화면 프레임마다 워커로 보내고, 쓰기 · 그리기는 명령 묶음 · 프레임이 끝날 때 엔진으로 온다 (한 박자 늦을 수 있음 — 값과 같은 규칙). EXE 는 바로.
   - 시험: `tests/libs/Probe` (모든 기능) · `tests/libs/NoPerm` (권한 없이 씀 → 거부) · `tests/fixtures/probe-main.jb` 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌려 같은 줄이 나오는지 본다.
+- `jdh build exe` 결과물: 디버그 정보를 뺀다 (`-s` · `.pdb` 도 안 생김). 아이콘과 고해상도 화면 설정 (`runtime/win/app.manifest` · PerMonitorV2) 을 리소스로 넣는다. 아이콘은 프로젝트 폴더의 `icon.ico` 가 있으면 그것, 없으면 `runtime/win/icon.ico`. 설치본에는 `sdk/runtime/win/` 으로 들어간다.
 - 실행이 끝난 뒤: 웹은 라이브러리를 끄고 그리기 층은 다음 실행까지 화면에 남긴다. EXE 는 창이 열려 있는 동안 `JDH_FRAME` 이 계속 불린다 (웹은 멈춤 — 차이로 남아 있음).
 - 명령어 인자 형식 (`jdl.json` 의 `params`): `int` · `float` · `string` · `bit` · `color` · `mat12` · 리스트 · 행렬 (리스트 · 행렬은 엔진 1.3 부터). 규칙은 `src/jdh.c` 의 `ptParse` 와 에디터의 `jbxPT` 를 같게 둔다.
   - 리스트 `"[int, string]"`: 항목 수가 정해짐 (8개까지 · 항목은 int · float · string · bit) → C 에서는 항목마다 인자 하나 (`int a, const char *b`).
@@ -61,10 +62,9 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 
 ## 남은 일 (순서대로)
 
-1. `jdh build exe` 결과물: 크기 줄이기 (`-s`), 아이콘 · 고해상도 화면 설정 (`runtime/win/app.rc`)
-2. 창을 띄우는 게임 (DisPlayer) 을 `jdh build exe` 로 만든 EXE 의 실제 화면 확인 (CI 는 dummy 화면에서 실행 · 화면 저장까지만)
-3. APK 에서의 라이브러리 동작 확인
-4. `jbdev.exe` 설치 후 실제 PC 에서의 동작 확인 (설치 · PATH · 바로 가기 · 창)
+1. 창을 띄우는 게임 (DisPlayer) 을 `jdh build exe` 로 만든 EXE 의 실제 화면 확인 (CI 는 dummy 화면에서 실행 · 화면 저장까지만)
+2. APK 에서의 라이브러리 동작 확인
+3. `jbdev.exe` 설치 후 실제 PC 에서의 동작 확인 (설치 · PATH · 바로 가기 · 창)
 
 ## 아직 확인하지 못한 것
 

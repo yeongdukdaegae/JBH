@@ -4,7 +4,7 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.5.0"
+#define JDH_VERSION "0.5.1"
 #define JDH_ENGINE_MAJOR 1
 #define JDH_ENGINE_MINOR 3   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
@@ -910,10 +910,25 @@ static int cmdBuildExe(const char *projArg, const char *outArg) {
     if (!nrt) die("실행기 소스가 비어 있습니다: %s", rtsrc);
     char *sdla = fmtdup("%s/lib/libSDL2.a", sdl);
     if (!isFile(sdla)) die("SDL2 가 없습니다: %s — JDH 를 다시 설치해 주세요", sdla);
+    /* 아이콘 · 고해상도 화면 설정 (리소스): 프로젝트 폴더에 icon.ico 가 있으면 그것을, 없으면 기본 아이콘 */
+    char *rcarg = xdup("");
+    {
+        char *mf = fmtdup("%s/win/app.manifest", rt), *di = fmtdup("%s/win/icon.ico", rt), *pi = fmtdup("%s/icon.ico", pd);
+        const char *ic = isFile(pi) ? pi : di; size_t ml, il;
+        unsigned char *mb = isFile(mf) ? readAll(mf, &ml) : NULL, *ib = isFile(ic) ? readAll(ic, &il) : NULL;
+        if (mb && ib) {
+            if (il < 6 || ib[0] || ib[1] || ib[2] != 1 || ib[3]) die("아이콘 파일이 .ico 형식이 아닙니다: %s", ic);
+            char *p1 = fmtdup("%s/app.manifest", bd), *p2 = fmtdup("%s/icon.ico", bd), *p3 = fmtdup("%s/app.rc", bd);
+            const char *rc = "1 24 \"app.manifest\"\n1 ICON \"icon.ico\"\n";
+            writeAll(p1, mb, ml); writeAll(p2, ib, il); writeAll(p3, rc, strlen(rc));
+            free(rcarg); rcarg = fmtdup(" \"%s\"", p3);
+            printf("  아이콘: %s\n", ic == pi ? "프로젝트의 icon.ico" : "기본 아이콘");
+        } else printf("  ⚠ 아이콘 · 화면 설정 파일이 없어 넣지 않았습니다 (%s/win) — JDH 를 다시 설치해 주세요\n", rt);
+    }
     remove(out);
     printf("  실행기를 컴파일합니다 (처음에는 1분쯤 걸릴 수 있습니다)…\n");
-    char *cmd = fmtdup("%s cc %s -O2 -mwindows -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32",
-        zig, tg, rt, sdl, rtsrc, sdk, out, srcs, genp, objs, sdla);
+    char *cmd = fmtdup("%s cc %s -O2 -s -mwindows -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32",
+        zig, tg, rt, sdl, rtsrc, sdk, out, srcs, genp, objs, rcarg, sdla);
     if (run(cmd) || !isFile(out)) die("실행 파일을 만들지 못했습니다 (위 메시지를 확인하세요)");
     /* 3. 프로젝트 붙이기 */
     appendPayload(out, pd);
