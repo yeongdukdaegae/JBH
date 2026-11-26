@@ -25,9 +25,13 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 - 사용자 라이브러리는 **C 로 한 번만** 쓴다. 웹 (Dev. 실행 · HTML · APK) 에서는 `jdh lib build` 가 WebAssembly 로 컴파일한 것을 격리된 워커에서 돌리고, EXE 에서는 `jdh build exe` 가 같은 C 소스를 실행기와 함께 컴파일한다.
 - 컴파일러는 zig (`zig cc`). 웹은 `wasm32-wasi`, EXE 는 `x86_64-windows-gnu`.
 - 웹에서 라이브러리는 에디터 · 저장 공간에 닿지 못한다. 프로젝트 파일은 선언에 `files.read` 권한이 있고 사용자가 허락한 경우에만, 그 프로젝트의 파일을 읽기 전용으로 연다 (쓰기는 없음 · `ext/` 는 못 읽음). 허락은 신뢰 확인 창에서 고른다. 내보낸 HTML · APK 는 에디터에서 허락한 것을 그대로 가진다. EXE 는 격리가 없으므로 선언만 있으면 읽는다.
-- 네트워크: 웹에서는 쓸 수 없다 (라이브러리가 부를 수 있는 host 함수가 `log` · `error` 뿐이고 네트워크용은 만들지 않음). 따로 막는 장치를 두지는 않는다. EXE 에서는 C 코드가 격리되지 않으므로 소켓을 직접 쓸 수 있다. 네트워크 host 함수는 요청이 있을 때 추가한다.
+- 네트워크 (`network` 권한 · 엔진 1.5 부터): HTTP 요청 (`jdh_http_*`) 과 WebSocket (`jdh_ws_*`). 모두 기다리지 않는다 — 걸어 두고 다음 명령 · `JDH_FRAME` 에서 상태를 물어본다.
+  - 웹에서는 선언에 `network` 가 있고 사용자가 신뢰 확인 창에서 허락한 경우에만 접속한다 (허락하지 않으면 시작하지 못함 = 0). 허락하면 어느 서버든 접속할 수 있다 — 창에 "읽은 것을 밖으로 보낼 수 있음" 을 알린다. 허락은 `jawbreaker.jbx.trust` 의 `net` 에 기억하고, 내보낸 HTML · APK 는 에디터에서 허락한 것을 그대로 가진다 (`PROJECT.extNet` · APK 는 INTERNET 권한을 넣음). EXE 는 격리가 없으므로 선언만 있으면 된다.
+  - 웹은 워커 안에서 `fetch` · `WebSocket` 을 쓴다 (`JBX_BOOT` 의 `HOST`). 그래서 브라우저 규칙을 따른다: HTTP 는 서버가 CORS 를 허용해야 응답을 읽고, https 페이지에서는 http · ws 에 접속하지 못한다. EXE (`runtime/src/net.c` · WinHTTP · 스레드) 에는 이 제한이 없다 — 차이로 남아 있음.
+  - 한도: 동시에 64개 · 응답 본문과 WebSocket 에 쌓인 메시지는 16MB.
+  - 시험: `tests/libs/Net` · `tests/fixtures/net-main.jb` · `tests/net_server.py` (HTTP + WebSocket) 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌린다. Windows 가 아닌 빌드의 `net.c` 는 소켓으로 http · ws 만 한다 (시험용).
 - `jdh_log` 는 `print` 와 같은 디버그 출력이다. 에디터에서는 로그 패널에, EXE 에서는 표준 출력에 나온다 (창 프로그램이라 화면에는 안 보임).
-- 엔진 버전은 1.4 (에디터의 `JB_VER` · `JBX_ENGINE` · `src/jdh.c` 의 `JDH_ENGINE_*` 를 같이 올린다). 라이브러리 선언의 `requires.engine` (">=1.2" 꼴) 을 `jdh lib check` 와 에디터가 검사한다.
+- 엔진 버전은 1.5 (에디터의 `JB_VER` · `JBX_ENGINE` · `src/jdh.c` 의 `JDH_ENGINE_*` 를 같이 올린다). 라이브러리 선언의 `requires.engine` (">=1.2" 꼴) 을 `jdh lib check` 와 에디터가 검사한다.
 - 신뢰 확인 (Dev.): `.jbx` 내용의 SHA-256 마다 한 번 묻고 `localStorage` 의 `jawbreaker.jbx.trust` 에 기억한다 (다시 구우면 다시 물음). 창에는 버전 · 명령어 · 값 개수 · 쓰는 권한 · "EXE 에서는 격리 없음" 을 보여 주고, files.read 가 있으면 허락 여부도 고른다. 묻는 때: 「라이브러리 불러오기 (.jbx)」 메뉴 · 파일로 넣을 때 (불러오기 · 끌어 놓기) · 프로젝트 zip 등으로 들어온 것은 처음 실행할 때. 신뢰하지 않은 라이브러리를 쓰는 프로그램은 실행하지 않는다. 코드는 에디터 쪽 DEV 구간 (`jbxTrustRun` · `jbxImport` · `jbxDocText` · `jbxAcMembers`) — 내보낸 게임에는 없다.
 - `ext/*.jbx` 를 열면 설명서 (선언 · 권한 · `doc/` 파일) 를 읽기 전용으로 보여 준다. 자동완성은 `Use ` · `별칭.` · 문자열 안 `%별칭.값%` 에서 라이브러리의 명령어 · 값을 낸다.
 - 엔진 기능 (host 함수) 은 `sdk/jdh.h` 에 선언하고 웹 (`JBX_BOOT` 의 `HOST` · `JBEXT`) 과 EXE (`runtime/src/gfx.c` · `render.c` · `run.c` 의 `jdh_*`) 에 같은 뜻으로 구현한다. 함수 → 권한 표는 `src/jdh.c` 의 `HOSTFN` 과 에디터의 `JBX_HOST` 를 같게 둔다.
@@ -77,4 +81,5 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 - 설치 파일을 실제 PC 에서 실행한 적이 없다.
 - 격리 방식 (권한을 뺀 프레임 안의 워커) 은 헤드리스 Chrome 에서만 확인했다. Edge 앱 창 · Android WebView 는 미확인.
 - 번역 (ja · zh-CN · zh-TW) 은 원어민 검수를 받지 않았다.
+- 네트워크: https · wss (실제 인터넷의 서버) 는 확인하지 못했다 (시험은 로컬의 http · ws 서버). APK 에서의 네트워크 (INTERNET 권한) 도 미확인.
 - 업데이트: 실제 GitHub 릴리스에서 받는 것 · `jbdev.exe` 의 "업데이트하시겠습니까?" 창은 확인하지 못했다 (CI 는 로컬 HTTP 서버로 `jdh update` 만 시험 · 릴리스를 게시한 적이 없음).

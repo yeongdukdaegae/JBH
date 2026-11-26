@@ -1,0 +1,36 @@
+Use jawbreaker call jaw;
+Use Net call net;
+
+run{
+    net.get("http://127.0.0.1:8770/hello");
+    jaw.wait(700);
+    print("get status=%net.status% size=%net.size% body=%net.body%");
+    net.post("http://127.0.0.1:8770/echo", "tag7", "한글 body");
+    jaw.wait(700);
+    print("post status=%net.status% body=%net.body%");
+    net.get("http://127.0.0.1:8770/missing");
+    jaw.wait(700);
+    print("missing status=%net.status% body=%net.body%");
+    net.big("http://127.0.0.1:8770/big");
+    jaw.wait(900);
+    print("big status=%net.status% size=%net.size% sum=%net.sum%");
+    net.get("http://127.0.0.1:8779/closed");
+    jaw.wait(4000);
+    print("refused status=%net.status%");
+    net.get("ftp://127.0.0.1/x");
+    jaw.wait(200);
+    print("badurl started=%net.started% status=%net.status%");
+    net.wsopen("ws://127.0.0.1:8771/");
+    jaw.wait(700);
+    print("ws state=%net.ws% msgs=%net.msgs%");
+    net.wssend("one");
+    net.wssend("둘");
+    jaw.wait(700);
+    print("ws n=%net.nmsg% msgs=%net.msgs%");
+    net.wssend("bye");
+    jaw.wait(700);
+    print("ws closed by server state=%net.ws%");
+    net.wsopen("ws://127.0.0.1:8779/");
+    jaw.wait(4000);
+    print("ws refused state=%net.ws%");
+}

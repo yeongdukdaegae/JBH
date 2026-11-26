@@ -169,6 +169,28 @@ jobs:
           }
           $bmp.Dispose()
           if ($bad) { exit 1 }
+      - name: 네트워크 시험 (HTTP · WebSocket — 웹 시험과 같은 main.jb · 같은 줄 · tests/net_server.py 에 접속)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          dist\bin\jdh.exe lib build tests\libs\Net; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe new project NetGame; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib add tests\libs\Net\Net-0.1.0.jbx NetGame; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\net-main.jb NetGame\main.jb -Force
+          dist\bin\jdh.exe build exe NetGame -o Net.exe; if ($LASTEXITCODE) { exit 1 }
+          $srv = Start-Process python -ArgumentList 'tests\net_server.py','8770','8771' -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 2
+          $bad = 0
+          try {
+            $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+            $p = Start-Process .\Net.exe -RedirectStandardOutput net-out.txt -RedirectStandardError net-err.txt -PassThru
+            if (-not $p.WaitForExit(90000)) { $p.Kill(); Write-Host '✖ 90초 안에 끝나지 않았습니다'; $bad++ }
+            Get-Content net-out.txt -Encoding utf8; Get-Content net-err.txt -Encoding utf8
+            $expect = @('get status=200 size=9 body=hello net', 'post status=200 body=tag7:한글 body', 'missing status=404 body=nope', 'big status=200 size=200000 sum=995134', 'refused status=0', 'badurl started=0 status=0',
+              'ws state=1 msgs=welcome', 'ws n=3 msgs=welcome|echo:one|echo:둘', 'ws closed by server state=2', 'ws refused state=-1')
+            foreach ($e in $expect) { if (-not (Select-String -Path net-out.txt -SimpleMatch $e -Quiet -Encoding utf8)) { Write-Host "✖ 없음: $e"; $bad++ } }
+          } finally { Stop-Process -Id $srv.Id -Force }
+          if ($bad) { exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

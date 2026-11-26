@@ -4,9 +4,9 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.6.1"
+#define JDH_VERSION "0.6.2"
 #define JDH_ENGINE_MAJOR 1
-#define JDH_ENGINE_MINOR 4   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
+#define JDH_ENGINE_MINOR 5   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -212,7 +212,7 @@ static char *ptProto(const PTy *t, char *b, size_t n) {
     return b;
 }
 static const char *VT[] = { "int", "float", "string", "bit", NULL };
-static const char *PERMS[] = { "draw", "objects.read", "objects.write", "files.read", NULL };
+static const char *PERMS[] = { "draw", "objects.read", "objects.write", "files.read", "network", NULL };
 static const char *BUILTIN[] = { "jawbreaker", "DisPlayer", "colliders", "Canvas", "Magellan", "soundMaster", "SeongBin", NULL };
 static const char *HOSTKEYS[] = { "values", NULL };
 /* 이름 규칙: 영문 · 숫자 · _ (첫 글자는 숫자 아님) · UTF-8 글자(한글 등)도 허용 */
@@ -271,7 +271,7 @@ static void libCheck(Lib *L) {
     if (pm) {
         if (pm->k != J_ARR) lerr(L, "\"permissions\" 는 [ ] 목록이어야 합니다");
         else for (int i = 0; i < pm->n; i++) {
-            if (pm->items[i]->k != J_STR || !inSet(pm->items[i]->str, PERMS)) lerr(L, "알 수 없는 권한입니다: %s (쓸 수 있는 것: draw · objects.read · objects.write · files.read)", pm->items[i]->k == J_STR ? pm->items[i]->str : "(문자열 아님)");
+            if (pm->items[i]->k != J_STR || !inSet(pm->items[i]->str, PERMS)) lerr(L, "알 수 없는 권한입니다: %s (쓸 수 있는 것: draw · objects.read · objects.write · files.read · network)", pm->items[i]->k == J_STR ? pm->items[i]->str : "(문자열 아님)");
         }
     }
     { const char *en = jgets(jget(j, "requires"), "engine");
@@ -410,6 +410,8 @@ static const char *HOSTFN[][2] = {
     {"obj_exists", "objects.read"}, {"obj_pos", "objects.read"}, {"obj_scale", "objects.read"}, {"obj_vel", "objects.read"}, {"obj_color", "objects.read"}, {"obj_text", "objects.read"},
     {"obj_set_pos", "objects.write"}, {"obj_set_scale", "objects.write"}, {"obj_set_vel", "objects.write"}, {"obj_set_color", "objects.write"}, {"obj_set_text", "objects.write"},
     {"file_size", "files.read"}, {"file_read", "files.read"},
+    {"http_request", "network"}, {"http_status", "network"}, {"http_size", "network"}, {"http_read", "network"}, {"http_close", "network"},
+    {"ws_open", "network"}, {"ws_state", "network"}, {"ws_send", "network"}, {"ws_peek", "network"}, {"ws_recv", "network"}, {"ws_close", "network"},
     {NULL, NULL}
 };
 /* 가져다 쓰는 host 함수가 모두 있는 것이고 그 권한이 선언에 있는지 — 문제마다 msg 를 부름 */
@@ -609,14 +611,14 @@ static const char *TPL_C =
 "//\n"
 "// 선택: JDH_INIT() { }  실행을 시작할 때 · JDH_FRAME(dt) { }  프레임마다 (dt = 지난 시간 ms) · JDH_STOP() { }  끝날 때\n"
 "//\n"
-"// 엔진 기능 (그리기 · 오브젝트 읽기 · 쓰기 · 프로젝트 파일 읽기) 은 jdh.h 에 있습니다.\n"
-"//   쓰려면 jdl.json 의 \"permissions\" 에 \"draw\" · \"objects.read\" · \"objects.write\" · \"files.read\" 중 필요한 것을 적습니다.\n";
+"// 엔진 기능 (그리기 · 오브젝트 읽기 · 쓰기 · 프로젝트 파일 읽기 · 네트워크) 은 jdh.h 에 있습니다.\n"
+"//   쓰려면 jdl.json 의 \"permissions\" 에 \"draw\" · \"objects.read\" · \"objects.write\" · \"files.read\" · \"network\" 중 필요한 것을 적습니다.\n";
 static const char *TPL_JDL =
 "{\n"
 "  \"jdl\": 1,\n"
 "  \"id\": \"%s\",\n"
 "  \"version\": \"0.1.0\",\n"
-"  \"requires\": { \"engine\": \">=1.4\", \"libs\": [] },\n"
+"  \"requires\": { \"engine\": \">=1.5\", \"libs\": [] },\n"
 "  \"permissions\": [],\n"
 "  \"commands\": {\n"
 "    \"hello\": { \"params\": [\"string\"], \"doc\": { \"ko\": \"이름을 받아 인사를 로그에 찍음\" } },\n"
@@ -930,7 +932,7 @@ static int cmdBuildExe(const char *projArg, const char *outArg) {
     }
     remove(out);
     printf("  실행기를 컴파일합니다 (처음에는 1분쯤 걸릴 수 있습니다)…\n");
-    char *cmd = fmtdup("%s cc %s -O2 -s -mwindows -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32",
+    char *cmd = fmtdup("%s cc %s -O2 -s -mwindows -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32 -lwinhttp",
         zig, tg, rt, sdl, rtsrc, sdk, out, srcs, genp, objs, rcarg, sdla);
     if (run(cmd) || !isFile(out)) die("실행 파일을 만들지 못했습니다 (위 메시지를 확인하세요)");
     /* 3. 프로젝트 붙이기 */

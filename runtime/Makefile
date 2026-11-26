@@ -6,7 +6,7 @@ SRC = $(wildcard src/*.c)
 
 ifeq ($(OS),Windows_NT)
   SDL_CFLAGS ?= $(shell sdl2-config --cflags 2>/dev/null)
-  SDL_LIBS ?= -lmingw32 -lSDL2 -lcomdlg32 -mconsole
+  SDL_LIBS ?= -lmingw32 -lSDL2 -lcomdlg32 -lwinhttp -mconsole
   EXE = jawbreaker.exe
 else
   SDL_CFLAGS ?= $(shell sdl2-config --cflags 2>/dev/null || pkg-config --cflags sdl2)

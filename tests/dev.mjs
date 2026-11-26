@@ -171,6 +171,28 @@ const lay=await pg.evaluate(()=>{const cv=document.querySelector('#display canva
 L=await run('Use jawbreaker call jaw;\nUse Layers call ly;\nrun{\n    ly.bad();\n    jaw.wait(300);\n}\n',600);
 ok(L.some(x=>x.includes('jdh_draw_layer 의 층은 JDH_LAYER_OWN · JDH_LAYER_OBJECT · JDH_LAYER_UI 중 하나입니다 (받은 값: 7)')),'layers: unknown layer → error');
 await pg.evaluate(()=>{delete files['ext/Layers.jbx'];});
+// ---- 네트워크 (HTTP · WebSocket) — tests/libs/Net · tests/net_server.py · 실행기(EXE) 와 같은 줄이어야 함 ----
+{const {spawn}=await import('child_process');
+ const srv=spawn('python3',[ROOT+'/tests/net_server.py','8770','8771'],{stdio:'ignore'});await pg.waitForTimeout(1200);
+ try{
+  await pg.evaluate(a=>{files['ext/Net.jbx']=bytesToDataUrl('Net.jbx',new Uint8Array(a));},[...fs.readFileSync(ROOT+'/tests/fixtures/dev-Net.jbx')]);
+  const NET=fs.readFileSync(ROOT+'/tests/fixtures/net-main.jb','utf8');
+  A=await runAsk(NET,'신뢰 · 네트워크 허락',14500);L=A.L;console.log(L.map(x=>'    | '+x).join('\n'));
+  ok(/네트워크/.test(A.msg)&&/밖으로 보낼 수 있습니다/.test(A.msg),'trust window: network permission and its warning');
+  const NEXPECT=['get status=200 size=9 body=hello net','post status=200 body=tag7:한글 body','missing status=404 body=nope','big status=200 size=200000 sum=995134','refused status=0','badurl started=0 status=0',
+    'ws state=1 msgs=welcome','ws n=3 msgs=welcome|echo:one|echo:둘','ws closed by server state=2','ws refused state=-1'];
+  for(const e of NEXPECT)ok(L.includes(e),'net: '+e);
+  // 내보낸 HTML: 에디터에서 허락한 네트워크를 그대로
+  {const h2=await pg.evaluate(()=>gameHtml(readProject(files),'main.jb'));fs.writeFileSync(ROOT+'/tests/out/net.html',h2);
+   const g2=await ctx.newPage();const gl2=[];g2.on('console',m=>gl2.push(m.text()));
+   await g2.goto('file://'+ROOT+'/tests/out/net.html');await g2.waitForTimeout(15500);
+   const miss=NEXPECT.filter(e=>!gl2.includes(e));ok(!miss.length,'net: exported HTML gives the same lines (network grant carried)'+(miss.length?' — missing '+miss.join(' | '):''));await g2.close();}
+  // 허락하지 않으면: 시작하지 못함 (0) · 접속하지 않음
+  await pg.evaluate(async()=>{const h=await jbxHash(files['ext/Net.jbx']);jbxTrustSet(h,{id:'Net',version:'0.1.0',files:0,net:0});});
+  L=await run('Use jawbreaker call jaw;\nUse Net call net;\nrun{\n    net.get("http://127.0.0.1:8770/hello");\n    jaw.wait(600);\n    print("nogrant started=%net.started% status=%net.status%");\n    net.wsopen("ws://127.0.0.1:8771/");\n    jaw.wait(600);\n    print("nogrant ws=%net.ws%");\n}\n',1800);
+  ok(L.includes('nogrant started=0 status=0')&&L.includes('nogrant ws=-1')&&L.some(x=>/네트워크를 허락하지 않아/.test(x)),'net: without the grant nothing connects');
+ }finally{srv.kill();await pg.evaluate(()=>{delete files['ext/Net.jbx'];});}
+}
 await pg.evaluate(()=>{delete files['ext/Probe.jbx'];});
 console.log(errs.length?errs.join('\n'):'no page errors');
 await b.close();

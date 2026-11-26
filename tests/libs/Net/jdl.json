@@ -1,0 +1,12 @@
+{"jdl":1,"id":"Net","version":"0.1.0","requires":{"engine":">=1.5"},
+ "permissions":["network"],
+ "commands":{
+  "get":{"params":["string"]},
+  "post":{"params":["string","string","string"]},
+  "big":{"params":["string"]},
+  "wsopen":{"params":["string"]},
+  "wssend":{"params":["string"]},
+  "wsclose":{"params":[]}
+ },
+ "values":{"status":"int","body":"string","size":"int","sum":"int","ws":"int","msgs":"string","nmsg":"int","started":"int"},
+ "native":["native/net.c"]}

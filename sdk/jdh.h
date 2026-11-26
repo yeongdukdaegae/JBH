@@ -86,6 +86,26 @@ JDH__IMPORT(obj_set_text) void jdh_obj_set_text(const char *id, const char *text
 JDH__IMPORT(file_size) int jdh_file_size(const char *path);                 /* 바이트 수 · 없으면 -1 */
 JDH__IMPORT(file_read) int jdh_file_read(const char *path, void *buf, int n);   /* 앞에서부터 n 바이트까지 · 읽은 바이트 수 · 없으면 -1 */
 
+/* "network" — HTTP 요청과 WebSocket (엔진 1.5 부터)
+ *   모두 기다리지 않습니다: 걸어 두고, 다음 명령이나 JDH_FRAME 에서 상태를 물어봅니다 (같은 명령 안에서는 아직 진행 중).
+ *   웹 (Dev. · HTML · APK) 에서는 사용자가 허락한 경우에만 됩니다 (허락하지 않았으면 0 을 돌려줌 = 실패).
+ *   웹에서 HTTP 는 브라우저 규칙을 따릅니다: 서버가 다른 곳에서의 요청을 허용 (CORS · Access-Control-Allow-Origin) 해야 응답을 읽을 수 있고,
+ *     https 로 연 페이지에서는 http · ws 주소에 접속할 수 없습니다.  EXE 에는 이 제한이 없습니다.
+ *   한도: 동시에 64개 · 응답 본문과 WebSocket 에 쌓인 메시지는 16MB 까지.  다 쓴 것은 close 로 돌려줍니다. */
+/* HTTP: 요청을 시작하고 번호를 받음 (0 = 시작하지 못함). headers 는 "이름: 값\n이름: 값" (없으면 NULL) · body 는 n 바이트 (없으면 NULL, 0) */
+JDH__IMPORT(http_request) int jdh_http_request(const char *method, const char *url, const char *headers, const void *body, int n);
+JDH__IMPORT(http_status) int jdh_http_status(int id);     /* -1 = 진행 중 · 0 = 실패 (연결하지 못함 · 막힘) · 그 밖 = HTTP 상태 (200 · 404 …) */
+JDH__IMPORT(http_size) int jdh_http_size(int id);         /* 응답 본문의 바이트 수 (끝나기 전에는 0) */
+JDH__IMPORT(http_read) int jdh_http_read(int id, int offset, void *buf, int n);   /* 본문의 offset 부터 n 바이트까지 복사 · 복사한 바이트 수 */
+JDH__IMPORT(http_close) void jdh_http_close(int id);      /* 이 요청을 잊음 (진행 중이면 결과를 버림) */
+/* WebSocket: 연결을 시작하고 번호를 받음 (0 = 시작하지 못함) */
+JDH__IMPORT(ws_open) int jdh_ws_open(const char *url);    /* "ws://…" · "wss://…" */
+JDH__IMPORT(ws_state) int jdh_ws_state(int id);           /* 0 = 연결 중 · 1 = 열림 · 2 = 닫힘 · -1 = 실패 */
+JDH__IMPORT(ws_send) int jdh_ws_send(int id, const void *data, int n, int text);   /* text = 1: 글자 (UTF-8) · 0: 바이트 — 보냈으면 1 */
+JDH__IMPORT(ws_peek) int jdh_ws_peek(int id);             /* 다음 메시지의 바이트 수 · 없으면 -1 */
+JDH__IMPORT(ws_recv) int jdh_ws_recv(int id, void *buf, int n);   /* 다음 메시지를 꺼냄 (n 바이트까지 복사 · 넘는 부분은 버림) — 메시지의 바이트 수 · 없으면 -1 */
+JDH__IMPORT(ws_close) void jdh_ws_close(int id);          /* 닫고 잊음 (닫힌 뒤에도 남은 메시지는 close 전까지 읽을 수 있음) */
+
 #ifdef __wasm__
 #define JDH_COMMAND(name, ...) JDH__EXPORT(jdh_cmd_##name) void jdh_cmd_##name(__VA_ARGS__)
 #define JDH_VALUE(type, name) JDH__EXPORT(jdh_val_##name) type jdh_val_##name(void)
