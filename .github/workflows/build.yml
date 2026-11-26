@@ -211,5 +211,8 @@ jobs:
           $env:JDH_HOME = ''
           $ver = (dist\bin\jdh.exe version).Split(' ')[1]
           if ($env:GITHUB_REF_NAME -ne "v$ver") { Write-Error "태그 ($env:GITHUB_REF_NAME) 와 jdh 의 버전 (v$ver) 이 다릅니다"; exit 1 }
-          gh release create $env:GITHUB_REF_NAME "installer\out\JDH-Setup-$ver.exe" upd\jdh-latest.txt upd\jdh-manifest.txt upd\jdh-core.pack upd\jdh-zig.pack --title "JDH $ver" --notes "JDH $ver — 처음 설치는 JDH-Setup-$ver.exe · 이미 설치했다면 JawBreaker Dev. 를 열 때 업데이트를 묻습니다 (또는 jdh update)."
+          # 웹에서 릴리스를 먼저 만들었으면 (태그와 함께) 거기에 파일을 올리고, 태그만 올렸으면 릴리스를 만듦
+          gh release view $env:GITHUB_REF_NAME *> $null
+          if ($LASTEXITCODE -eq 0) { gh release upload $env:GITHUB_REF_NAME "installer\out\JDH-Setup-$ver.exe" upd\jdh-latest.txt upd\jdh-manifest.txt upd\jdh-core.pack upd\jdh-zig.pack --clobber }
+          else { gh release create $env:GITHUB_REF_NAME "installer\out\JDH-Setup-$ver.exe" upd\jdh-latest.txt upd\jdh-manifest.txt upd\jdh-core.pack upd\jdh-zig.pack --title "JDH $ver" --notes "JDH $ver — 처음 설치는 JDH-Setup-$ver.exe · 이미 설치했다면 JawBreaker Dev. 를 열 때 업데이트를 묻습니다 (또는 jdh update)." }
           if ($LASTEXITCODE) { exit 1 }
