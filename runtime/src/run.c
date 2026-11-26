@@ -151,6 +151,7 @@ static Value chkd(Value v, Node *n) { return n->chk ? dynChk(v, n) : v; }
 #include "jdh_native.h"
 static const char *EXT_CUR = "";   /* 지금 불리고 있는 라이브러리 (jdh_log · jdh_error 가 누구 것인지) */
 static Node *EXT_NODE = NULL;
+/* 디버그 로그: print 와 같은 곳 (표준 출력) — 내보낸 EXE 는 창 프로그램이라 화면에는 안 보이고,  game.exe > log.txt  처럼 받아야 보임 */
 void jdh_log(const char *text) { printf("[%s] %s\n", EXT_CUR, text ? text : ""); fflush(stdout); }
 void jdh_error(const char *text) {
     if (EXT_NODE) jb_fail(EXT_NODE->file, EXT_NODE->line, "라이브러리 '%s': %s", EXT_CUR, text ? text : "");

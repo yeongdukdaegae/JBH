@@ -29,7 +29,7 @@ extern "C" {
 #endif
 
 /* 엔진이 주는 것 */
-JDH__IMPORT(log) void jdh_log(const char *text);       /* 디버그 로그에 한 줄 */
+JDH__IMPORT(log) void jdh_log(const char *text);       /* 디버그 로그에 한 줄 (print 와 같은 곳 · 내보낸 EXE 에서는 화면에 안 보임) */
 JDH__IMPORT(error) void jdh_error(const char *text);   /* 오류로 실행을 멈춤 */
 
 #ifdef __wasm__

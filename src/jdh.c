@@ -4,7 +4,9 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.3.0"
+#define JDH_VERSION "0.3.1"
+#define JDH_ENGINE_MAJOR 1
+#define JDH_ENGINE_MINOR 2   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -206,6 +208,14 @@ static void libCheck(Lib *L) {
             if (pm->items[i]->k != J_STR || !inSet(pm->items[i]->str, PERMS)) lerr(L, "알 수 없는 권한입니다: %s (쓸 수 있는 것: draw · objects.read · objects.write · files.read)", pm->items[i]->k == J_STR ? pm->items[i]->str : "(문자열 아님)");
         }
     }
+    { const char *en = jgets(jget(j, "requires"), "engine");
+      JV *enj = jget(jget(j, "requires"), "engine");
+      if (enj && !en) lerr(L, "requires.engine 은 \">=1.2\" 꼴의 문자열이어야 합니다");
+      if (en) {
+          int ma = 0, mi = 0; const char *q = en; while (*q == ' ') q++;
+          if (strncmp(q, ">=", 2) || sscanf(q + 2, " %d.%d", &ma, &mi) != 2) lerr(L, "requires.engine 은 \">=1.2\" 꼴로 씁니다 (받은 값: %s)", en);
+          else if (ma > JDH_ENGINE_MAJOR || (ma == JDH_ENGINE_MAJOR && mi > JDH_ENGINE_MINOR)) lerr(L, "requires.engine 이 이 JDH 의 엔진(%d.%d)보다 높습니다: %s", JDH_ENGINE_MAJOR, JDH_ENGINE_MINOR, en);
+      } }
     /* 필요한 내장 라이브러리 */
     JV *rq = jget(jget(j, "requires"), "libs");
     if (rq) {
@@ -693,6 +703,7 @@ static int cmdBuildExe(const char *projArg, const char *outArg) {
         char *mt = xalloc(me->len + 1); memcpy(mt, me->data, me->len); mt[me->len] = 0;
         const char *err; int line; JV *j = jparse(mt, &err, &line); if (!j) die("%s 의 선언을 읽을 수 없습니다 — %s", jbx[li], err);
         const char *id = jgets(j, "id"); if (!id) die("%s 의 선언에 id 가 없습니다", jbx[li]);
+        if (!we) die("%s 에 컴파일된 구현(lib.wasm)이 없습니다 — jdh lib build 로 다시 구워 주세요", jbx[li]);
         int hasInit = 0, hasFrame = 0, hasStop = 0;
         if (we) { int nx; WExp *ex = wasmExports(we->data, we->len, &nx); for (int q = 0; q < nx; q++) { if (!strcmp(ex[q].name, "jdh_init")) hasInit = 1; if (!strcmp(ex[q].name, "jdh_frame")) hasFrame = 1; if (!strcmp(ex[q].name, "jdh_stop")) hasStop = 1; } }
         int nsrc = 0;
