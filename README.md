@@ -1,4 +1,4 @@
-# JDH (JawBreaker Development Helper) 0.6.2 — 소스
+# JDH (JawBreaker Development Helper) 0.7.0 — 소스
 
 | 경로 | 내용 |
 |---|---|
@@ -17,13 +17,13 @@
 
 1. GitHub 에 새 저장소를 만들고 이 폴더의 내용을 그대로 올립니다.
 2. 저장소의 **Actions** 탭 → **JDH build** → **Run workflow**.
-3. 끝나면 그 실행 화면 아래 **Artifacts** 에서 `JDH-Setup` 을 받습니다. 안에 `JDH-Setup-0.6.2.exe` 가 있습니다.
+3. 끝나면 그 실행 화면 아래 **Artifacts** 에서 `JDH-Setup` 을 받습니다. 안에 `JDH-Setup-0.7.0.exe` 가 있습니다.
 
 ## 빌드 방법 2 — Windows PC 에서 직접
 
 1. llvm-mingw 를 받습니다: https://github.com/mstorsjo/llvm-mingw/releases 에서 이름이 `ucrt-x86_64.zip` 으로 끝나는 파일. 풀어서 이 폴더 안에 `llvm-mingw` 라는 이름으로 둡니다.
 2. `build-win.bat` 를 실행합니다. `dist\` 에 `jdh.exe` · `jbdev.exe` · `jbdev.html` 이 나옵니다.
-3. Inno Setup 6 (https://jrsoftware.org/isdl.php) 을 설치하고 `installer\jdh.iss` 를 열어 Compile 을 누릅니다. `installer\out\JDH-Setup-0.6.2.exe` 가 나옵니다.
+3. Inno Setup 6 (https://jrsoftware.org/isdl.php) 을 설치하고 `installer\jdh.iss` 를 열어 Compile 을 누릅니다. `installer\out\JDH-Setup-0.7.0.exe` 가 나옵니다.
 
 ## 새 버전 게시 · 업데이트
 
