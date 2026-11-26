@@ -2298,7 +2298,7 @@ function jbxArg(cmd,i,t,v,err){
   }
   return v;
 }
-const JBX_ENGINE='1.3';   // 엔진 버전 (편집기의 JB_VER 와 같게)
+const JBX_ENGINE='1.4';   // 엔진 버전 (편집기의 JB_VER 와 같게)
 const JBX_CACHE=new Map();   // 경로 → {src, lib}
 function jbxRead(d,path){
   const bad=m=>new JBError(`${path}: ${m}`,1,path);
@@ -2383,6 +2383,7 @@ function outS(s,p,n){const b=te.encode(s);if(p&&n>0){const k=Math.min(b.length,n
 function fileOf(p){const path=cstr(p);return F&&!/^ext\\//.test(path)?F.get(path)||null:null;}
 const HOST={
   draw_clear(){ops.push([0]);dn=0;},
+  draw_layer(k,n){if(k!==0&&k!==1&&k!==2)throw new Error('jdh_draw_layer 의 층은 JDH_LAYER_OWN · JDH_LAYER_OBJECT · JDH_LAYER_UI 중 하나입니다 (받은 값: '+k+')');ops.push([5,k,k===1?n|0:0]);},
   draw_rect(x,y,w,h,c){const k=col(c);if(fin(x,y,w,h))drawAdd([1,x,y,w,h,k]);},
   draw_circle(x,y,w,h,c){const k=col(c);if(fin(x,y,w,h))drawAdd([2,x,y,w,h,k]);},
   draw_line(x1,y1,x2,y2,w,c){const k=col(c);if(fin(x1,y1,x2,y2,w))drawAdd([3,x1,y1,x2,y2,w,k]);},
@@ -2483,7 +2484,7 @@ self.onmessage=async e=>{
 `;
 const JBX_FRAME='<!doctype html><meta charset="utf-8"><script>onmessage=function(e){if(e.source!==parent||!e.data||!e.data.code)return;var w=new Worker(URL.createObjectURL(new Blob([e.data.code],{type:"text/javascript"})));w.postMessage(e.data.init,e.data.xfer);onmessage=null;};<\/script>';
 // host 함수 → 필요한 권한 ('' = 늘 쓸 수 있음) — jdh 의 HOSTFN 과 같게
-const JBX_HOST={log:'',error:'',draw_clear:'draw',draw_rect:'draw',draw_circle:'draw',draw_line:'draw',draw_text:'draw',
+const JBX_HOST={log:'',error:'',draw_clear:'draw',draw_layer:'draw',draw_rect:'draw',draw_circle:'draw',draw_line:'draw',draw_text:'draw',
   obj_exists:'objects.read',obj_pos:'objects.read',obj_scale:'objects.read',obj_vel:'objects.read',obj_color:'objects.read',obj_text:'objects.read',
   obj_set_pos:'objects.write',obj_set_scale:'objects.write',obj_set_vel:'objects.write',obj_set_color:'objects.write',obj_set_text:'objects.write',
   file_size:'files.read',file_read:'files.read'};
@@ -2509,7 +2510,7 @@ const JBEXT={
     for(const lib of prog.exts.values()){
       const ch=new MessageChannel(),fr=document.createElement('iframe');
       const L={lib,fr,port:ch.port1,q:[],vals:Object.create(null),ready:false,n:0,pend:new Map(),dead:false,sched:false,
-        read:lib.perms.includes('objects.read'),sent:new Map(),layer:[],onErr};
+        read:lib.perms.includes('objects.read'),sent:new Map(),layer:[],lw:0,ln:0,onErr};   // lw · ln: 지금 그리는 것이 놓이는 곳 (jdh_draw_layer) — 0 자체 · 1 오브젝트 (레이어 ln) · 2 UI
       fr.setAttribute('sandbox','allow-scripts');fr.setAttribute('aria-hidden','true');
       fr.style.cssText='position:absolute;width:0;height:0;border:0;visibility:hidden';
       fr.srcdoc=JBX_FRAME;
@@ -2569,10 +2570,11 @@ const JBEXT={
       for(const o of ops){
         const k=o[0];
         if(k===0){L.layer=[];drew=true;}
-        else if(k===1)L.layer.push({k,x:o[1],y:o[2],w:o[3],h:o[4],color:o[5]}),drew=true;
-        else if(k===2)L.layer.push({k,x:o[1],y:o[2],w:o[3],h:o[4],color:o[5]}),drew=true;
-        else if(k===3)L.layer.push({k,x:o[1],y:o[2],x2:o[3],y2:o[4],w:o[5],color:o[6]}),drew=true;
-        else if(k===4)L.layer.push({k,x:o[1],y:o[2],size:o[3],text:o[4],color:o[5],outline:0}),drew=true;
+        else if(k===5){L.lw=o[1];L.ln=o[2];}
+        else if(k===1)L.layer.push({k,x:o[1],y:o[2],w:o[3],h:o[4],color:o[5],lw:L.lw,ln:L.ln}),drew=true;
+        else if(k===2)L.layer.push({k,x:o[1],y:o[2],w:o[3],h:o[4],color:o[5],lw:L.lw,ln:L.ln}),drew=true;
+        else if(k===3)L.layer.push({k,x:o[1],y:o[2],x2:o[3],y2:o[4],w:o[5],color:o[6],lw:L.lw,ln:L.ln}),drew=true;
+        else if(k===4)L.layer.push({k,x:o[1],y:o[2],size:o[3],text:o[4],color:o[5],outline:0,lw:L.lw,ln:L.ln}),drew=true;
         else if(H)H.set(k,o[1],o[2],o[3]);
       }
     }catch(e){this.kill(L);L.onErr(new JBError(`라이브러리 '${L.lib.id}': ${e.message}`,1,L.lib.path));}
@@ -7754,21 +7756,30 @@ const disUI=(()=>{
       c.restore();curF=null;curA=-1;
     };
     view(false);
-    for(const o of objs)if(!o.ui)drawO(o);
-    /*DEV-START*/if(typeof JBEXT!=='undefined'){   // 사용자 라이브러리의 그리기 층 (draw) — 오브젝트 위 · UI 아래 · 실행기(EXE) 의 render.c xpaint 와 같은 모양
-      const sc=d*(k?k.z:1);
-      for(const lay of JBEXT.layers())for(const it of lay){
-        c.globalAlpha=1;c.fillStyle=it.color;
-        if(it.k===1)c.fillRect(it.x-Math.abs(it.w)/2,it.y-Math.abs(it.h)/2,Math.abs(it.w),Math.abs(it.h));
-        else if(it.k===2){c.beginPath();c.ellipse(it.x,it.y,Math.abs(it.w)/2,Math.abs(it.h)/2,0,0,Math.PI*2);c.fill();}
-        else if(it.k===3){const dx=it.x2-it.x,dy=it.y2-it.y,L=Math.hypot(dx,dy),hw=Math.abs(it.w)/2;if(L>0&&hw>0){const nx=-dy/L*hw,ny=dx/L*hw;c.beginPath();c.moveTo(it.x+nx,it.y+ny);c.lineTo(it.x2+nx,it.y2+ny);c.lineTo(it.x2-nx,it.y2-ny);c.lineTo(it.x-nx,it.y-ny);c.closePath();c.fill();}}
-        else if(it.k===4&&it.text){const tc=textImg(it,sc);if(tc)c.drawImage(tc.cv,it.x-tc.w/2,it.y-tc.h/2,tc.w,tc.h);}
-      }
+    /*DEV-START*/// 사용자 라이브러리의 그리기 층 (draw) — 실행기(EXE) 의 render.c (xdraw · xpaint · rd_paint) 와 같은 모양 · 같은 순서
+    //   놓이는 곳 (it.lw): 0 = 자체 (오브젝트 위 · UI 아래) · 1 = 오브젝트 (레이어 it.ln 이하인 오브젝트 위) · 2 = UI (화면에 고정 · UI 오브젝트 위)
+    const xdraw=(it,sc)=>{
+      c.globalAlpha=1;c.fillStyle=it.color;
+      if(it.k===1)c.fillRect(it.x-Math.abs(it.w)/2,it.y-Math.abs(it.h)/2,Math.abs(it.w),Math.abs(it.h));
+      else if(it.k===2){c.beginPath();c.ellipse(it.x,it.y,Math.abs(it.w)/2,Math.abs(it.h)/2,0,0,Math.PI*2);c.fill();}
+      else if(it.k===3){const dx=it.x2-it.x,dy=it.y2-it.y,L=Math.hypot(dx,dy),hw=Math.abs(it.w)/2;if(L>0&&hw>0){const nx=-dy/L*hw,ny=dx/L*hw;c.beginPath();c.moveTo(it.x+nx,it.y+ny);c.lineTo(it.x2+nx,it.y2+ny);c.lineTo(it.x2-nx,it.y2-ny);c.lineTo(it.x-nx,it.y-ny);c.closePath();c.fill();}}
+      else if(it.k===4&&it.text){const tc=textImg(it,sc);if(tc)c.drawImage(tc.cv,it.x-tc.w/2,it.y-tc.h/2,tc.w,tc.h);}
       curF=null;curA=-1;
-    }/*DEV-END*/
-    if(objs.some(o=>o.ui)){   // can.setUi: 카메라에 고정 — 위치 = 화면 좌표 (배율 1) · 맨 위
+    };
+    const xl=typeof JBEXT!=='undefined'?JBEXT.layers():[],xw=[[],[],[]];
+    for(const lay of xl)for(const it of lay)xw[it.lw||0].push(it);
+    const xo=xw[1].map((it,i)=>[it,i]).sort((a,b)=>(a[0].ln-b[0].ln)||(a[1]-b[1])).map(a=>a[0]);let xi=0;
+    const xsc=d*(k?k.z:1);/*DEV-END*/
+    for(const o of objs)if(!o.ui){
+      /*DEV-START*/while(xi<xo.length&&xo[xi].ln<(o.layer||0))xdraw(xo[xi++],xsc);/*DEV-END*/
+      drawO(o);
+    }
+    /*DEV-START*/while(xi<xo.length)xdraw(xo[xi++],xsc);
+    for(const it of xw[0])xdraw(it,xsc);/*DEV-END*/
+    if(objs.some(o=>o.ui)/*DEV-START*/||xw[2].length/*DEV-END*/){   // can.setUi: 카메라에 고정 — 위치 = 화면 좌표 (배율 1) · 맨 위
       c.setTransform(d,0,0,-d,CX,CY);view(true);
       for(const o of objs)if(o.ui)drawO(o);
+      /*DEV-START*/for(const it of xw[2])xdraw(it,d);/*DEV-END*/
       {const z=k?k.z:1;c.setTransform(d*z,0,0,-d*z,CX-(k?k.x:0)*z*d,CY+(k?k.y:0)*z*d);}
     }
     c.globalAlpha=1;
@@ -9477,7 +9488,7 @@ function setLang(l){
   applyLang();
 }
 /* ===================== 설정 (☰ → 설정): 언어 · 램 한도 · UI ===================== */
-const JB_VER='1.3';
+const JB_VER='1.4';
 const LSU='jawbreaker.ui',LSM='jawbreaker.ram';
 // 램 한도: 게임 실행 중 풀어 둔 이미지 · 소리 · 글자 그림이 쓰는 램의 상한 (JBMEM) — 넘으면 오래 안 쓴 것부터 비움
 const RAM_OPTS=[['auto','자동 (기기에 맞춤)'],['256','256 MB'],['512','512 MB'],['1024','1 GB'],['2048','2 GB'],['0','무제한']];

@@ -1,0 +1,5 @@
+{"jdl":1,"id":"Layers","version":"0.1.0","requires":{"engine":">=1.4"},
+ "permissions":["draw"],
+ "commands":{"paint":{"params":[]},"bad":{"params":[]}},
+ "values":{},
+ "native":["native/layers.c"]}

@@ -152,6 +152,25 @@ for(const [body,want] of LERR){
   ok(last.includes('main.jb:5')&&last.includes(want),'lists error: '+want+(last.includes(want)?'':' — got: '+last));
 }
 await pg.evaluate(()=>{delete files['ext/Lists.jbx'];});
+// ---- 그리기가 놓이는 곳 (jdh_draw_layer: 자체 · 오브젝트 레이어 · UI) — tests/libs/Layers · 실행기(EXE) 와 같은 화면이어야 함 ----
+await pg.evaluate(a=>{files['ext/Layers.jbx']=bytesToDataUrl('Layers.jbx',new Uint8Array(a));},[...fs.readFileSync(ROOT+'/tests/fixtures/dev-Layers.jbx')]);
+A=await runAsk(fs.readFileSync(ROOT+'/tests/fixtures/layers-main.jb','utf8'),'신뢰하고 쓰기',1500);L=A.L;
+ok(L.includes('layers painted'),'layers: program ran');
+await pg.locator('#display canvas').screenshot({path:ROOT+'/tests/out/layers-web.png'});
+// 색마다 넓이와 가운데: 가려지는 순서가 맞으면 넓이의 비가 정해짐 (파랑 300² − 200² · 회색 200² − 150² · 빨강 150² − 100² · 흰색 100² − 10² · 초록 10² · 노랑 40²)
+const lay=await pg.evaluate(()=>{const cv=document.querySelector('#display canvas'),c=cv.getContext('2d'),W=cv.width,d=c.getImageData(0,0,W,cv.height).data;
+  const P={blue:[0,0,255],grey:[128,128,128],red:[255,0,0],white:[255,255,255],green:[0,255,0],yellow:[255,255,0]},o={};
+  for(const k in P)o[k]={n:0,x:0,minx:1e9,maxx:-1};
+  for(let i=0;i<d.length;i+=4)for(const k in P){const q=P[k];if(Math.abs(d[i]-q[0])<24&&Math.abs(d[i+1]-q[1])<24&&Math.abs(d[i+2]-q[2])<24){const x=(i/4)%W,e=o[k];e.n++;e.x+=x;if(x<e.minx)e.minx=x;if(x>e.maxx)e.maxx=x;}}
+  for(const k in o)o[k].x/=o[k].n||1;return o;});
+{const b=lay.blue.n,r=k=>lay[k].n/b,near=(v,w)=>Math.abs(v-w)<w*0.12+0.002,u=(lay.blue.maxx-lay.blue.minx+1)/300;
+ console.log('  layers: grey '+r('grey').toFixed(3)+' · red '+r('red').toFixed(3)+' · white '+r('white').toFixed(3)+' · green '+r('green').toFixed(4)+' · yellow '+r('yellow').toFixed(3)+' · yellow x '+((lay.yellow.x-lay.blue.x)/u).toFixed(1));
+ ok(b>1000&&near(r('grey'),17500/50000)&&near(r('red'),12500/50000)&&near(r('white'),9900/50000),'layers: object layer numbers order the drawing between objects (below layer 0 · between 0 and 5)');
+ ok(near(r('green'),100/50000),'layers: own layer is above objects');
+ ok(near(r('yellow'),1600/50000)&&Math.abs((lay.yellow.x-lay.blue.x)/u-(-150))<6,'layers: UI layer is fixed to the screen (camera moved by 50)');}
+L=await run('Use jawbreaker call jaw;\nUse Layers call ly;\nrun{\n    ly.bad();\n    jaw.wait(300);\n}\n',600);
+ok(L.some(x=>x.includes('jdh_draw_layer 의 층은 JDH_LAYER_OWN · JDH_LAYER_OBJECT · JDH_LAYER_UI 중 하나입니다 (받은 값: 7)')),'layers: unknown layer → error');
+await pg.evaluate(()=>{delete files['ext/Layers.jbx'];});
 await pg.evaluate(()=>{delete files['ext/Probe.jbx'];});
 console.log(errs.length?errs.join('\n'):'no page errors');
 await b.close();

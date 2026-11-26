@@ -507,11 +507,15 @@ static void strokeBox(Obj *o, const double *off, const double *size, SDL_Color c
     SDL_SetRenderDrawColor(ren, c.r, c.g, c.b, c.a); SDL_RenderDrawLinesF(ren, p, 5);
 }
 /* ---------- 사용자 라이브러리 (JDH) 의 그리기 층 — "draw" (에디터의 JBEXT 와 같은 뜻) ----------
- *   라이브러리마다 하나 · 지울 때까지 남음 · 오브젝트 위 · UI 아래 · 화면 단위 (카메라를 따름) */
+ *   라이브러리마다 하나 · 지울 때까지 남음 · 화면 단위
+ *   놓이는 곳 (jdh_draw_layer · 그 뒤에 그리는 것부터): 0 = 자체 (오브젝트 위 · UI 아래 · 기본) · 1 = 오브젝트 (레이어 번호 n 의 오브젝트들 바로 위 — dis.setObjLayer 와 같은 번호)
+ *     · 2 = UI (화면에 고정: 카메라를 따르지 않음 · 배율 1 · UI 오브젝트 위) */
 enum { XD_RECT, XD_CIRCLE, XD_LINE, XD_TEXT };
-typedef struct { int k; double a[5]; char color[8]; char *text; TextImg ti; } XItem;
-typedef struct { const char *lib; XItem *v; int n, cap; } XLayer;
+enum { XW_OWN, XW_OBJ, XW_UI };
+typedef struct { int k; double a[5]; char color[8]; char *text; TextImg ti; int where, ln; } XItem;
+typedef struct { const char *lib; XItem *v; int n, cap; int where, ln; } XLayer;
 static XLayer *XL; static int NXL;
+static int XN[3];   /* 놓이는 곳마다 지금 있는 개수 */
 #define XD_MAX 20000   /* 층 하나에 그릴 수 있는 것 */
 extern const char *jdh__cur(void);
 extern void jdh__fail(const char *fmt, ...);
@@ -531,22 +535,26 @@ static XItem *xadd(int k, const char *color) {
     XLayer *L = xlayer();
     if (L->n >= XD_MAX) jdh__fail("그리기 층에 그린 것이 너무 많습니다 (%d개까지 · jdh_draw_clear 로 지우세요)", XD_MAX);
     if (L->n == L->cap) { L->cap = L->cap ? L->cap * 2 : 64; L->v = jb_realloc(L->v, sizeof(XItem) * L->cap); }
-    XItem *it = &L->v[L->n++]; memset(it, 0, sizeof *it); it->k = k; xcolor(color, it->color); jdh__redraw(); return it;
+    XItem *it = &L->v[L->n++]; memset(it, 0, sizeof *it); it->k = k; xcolor(color, it->color); it->where = L->where; it->ln = L->ln; XN[it->where]++; jdh__redraw(); return it;
 }
 static void xfree(XItem *it) { free(it->text); free(it->ti.key); if (it->ti.tex) SDL_DestroyTexture(it->ti.tex); }
-void jdh_draw_clear(void) { XLayer *L = xlayer(); if (!L->n) return; for (int i = 0; i < L->n; i++) xfree(&L->v[i]); L->n = 0; jdh__redraw(); }
+void jdh_draw_clear(void) { XLayer *L = xlayer(); if (!L->n) return; for (int i = 0; i < L->n; i++) { XN[L->v[i].where]--; xfree(&L->v[i]); } L->n = 0; jdh__redraw(); }
+void jdh_draw_layer(int kind, int n) {
+    if (kind < XW_OWN || kind > XW_UI) jdh__fail("jdh_draw_layer 의 층은 JDH_LAYER_OWN · JDH_LAYER_OBJECT · JDH_LAYER_UI 중 하나입니다 (받은 값: %d)", kind);
+    XLayer *L = xlayer(); L->where = kind; L->ln = kind == XW_OBJ ? n : 0;
+}
 static int fin(double a, double b, double c, double d) { return isfinite(a) && isfinite(b) && isfinite(c) && isfinite(d); }
 void jdh_draw_rect(double x, double y, double w, double h, const char *color) { if (!fin(x, y, w, h)) return; XItem *it = xadd(XD_RECT, color); it->a[0] = x; it->a[1] = y; it->a[2] = w; it->a[3] = h; }
 void jdh_draw_circle(double x, double y, double w, double h, const char *color) { if (!fin(x, y, w, h)) return; XItem *it = xadd(XD_CIRCLE, color); it->a[0] = x; it->a[1] = y; it->a[2] = w; it->a[3] = h; }
 void jdh_draw_line(double x1, double y1, double x2, double y2, double width, const char *color) { if (!fin(x1, y1, x2, y2) || !isfinite(width)) return; XItem *it = xadd(XD_LINE, color); it->a[0] = x1; it->a[1] = y1; it->a[2] = x2; it->a[3] = y2; it->a[4] = width; }
 void jdh_draw_text(double x, double y, double size, const char *text, const char *color) { if (!fin(x, y, size, 0)) return; XItem *it = xadd(XD_TEXT, color); it->a[0] = x; it->a[1] = y; it->a[2] = size; it->text = jb_strdup(text ? text : ""); }
-static void xpaint(double sc) {
-    for (int l = 0; l < NXL; l++) for (int i = 0; i < XL[l].n; i++) {
-        XItem *it = &XL[l].v[i]; SDL_Color c = col(it->color, 1); double *a = it->a;
+static void xdraw(XItem *it, double sc) {
+    {
+        SDL_Color c = col(it->color, 1); double *a = it->a;
         if (it->k == XD_RECT) fillRectW(a[0], a[1], fabs(a[2]), fabs(a[3]), 0, c);
         else if (it->k == XD_CIRCLE) fillEllipse(a[0], a[1], fabs(a[2]), fabs(a[3]), 0, c);
         else if (it->k == XD_LINE) {   /* 굵기만큼의 사각형 (끝은 자른 꼴) */
-            double dx = a[2] - a[0], dy = a[3] - a[1], L = hypot(dx, dy), hw = fabs(a[4]) / 2; if (L <= 0 || hw <= 0) continue;
+            double dx = a[2] - a[0], dy = a[3] - a[1], L = hypot(dx, dy), hw = fabs(a[4]) / 2; if (L <= 0 || hw <= 0) return;
             double nx = -dy / L * hw, ny = dx / L * hw, p[4][2] = {{a[0] + nx, a[1] + ny}, {a[2] + nx, a[3] + ny}, {a[2] - nx, a[3] - ny}, {a[0] - nx, a[1] - ny}};
             fillPoly((const double (*)[2])p, 4, c);
         } else if (it->k == XD_TEXT && it->text && *it->text) {
@@ -554,6 +562,19 @@ static void xpaint(double sc) {
             if (it->ti.tex) drawTexQuad(it->ti.tex, a[0], a[1], it->ti.w, it->ti.h, 0, 255);
         }
     }
+}
+static void xpaint(int where, double sc) {   /* 자체 · UI 층: 라이브러리 순서 · 그린 순서대로 */
+    if (!XN[where]) return;
+    for (int l = 0; l < NXL; l++) for (int i = 0; i < XL[l].n; i++) if (XL[l].v[i].where == where) xdraw(&XL[l].v[i], sc);
+}
+/* 오브젝트 층: 레이어 번호 순 (같은 번호는 라이브러리 순서 · 그린 순서) 으로 늘어놓음 */
+static XItem **XO; static int XOcap;
+static int xobjList(void) {
+    int n = 0;
+    if (XOcap < XN[XW_OBJ]) { XOcap = XN[XW_OBJ] + 64; XO = jb_realloc(XO, sizeof(XItem *) * XOcap); }
+    for (int l = 0; l < NXL; l++) for (int i = 0; i < XL[l].n; i++) if (XL[l].v[i].where == XW_OBJ) XO[n++] = &XL[l].v[i];
+    for (int i = 1; i < n; i++) { XItem *x = XO[i]; int j = i - 1; while (j >= 0 && XO[j]->ln > x->ln) { XO[j + 1] = XO[j]; j--; } XO[j + 1] = x; }   /* 안정 정렬 (대개 이미 순서대로) */
+    return n;
 }
 static double errShown;
 void rd_paint(void) {
@@ -565,11 +586,19 @@ void rd_paint(void) {
     setView(0, &dl);
     double vx = TX_cx, vy = TX_cy, vw = w / 2.0 / TX_d / TX_z, vh = h / 2.0 / TX_d / TX_z;
     int anyUi = 0;
-    for (int i = 0; i < dl.n; i++) { if (dl.v[i]->ui) { anyUi = 1; continue; } drawO(dl.v[i], vx, vy, vw, vh, 0); }
-    if (NXL) xpaint(TX_d * TX_z);   /* 사용자 라이브러리의 그리기 층: 오브젝트 위 · UI 아래 */
-    if (anyUi) {
+    /* 사용자 라이브러리의 오브젝트 층: 레이어 번호가 n 인 것은 번호가 n 이하인 오브젝트를 다 그린 뒤에 */
+    int xn = XN[XW_OBJ] ? xobjList() : 0, xi = 0;
+    for (int i = 0; i < dl.n; i++) {
+        if (dl.v[i]->ui) { anyUi = 1; continue; }
+        while (xi < xn && XO[xi]->ln < dl.v[i]->layer) xdraw(XO[xi++], TX_d * TX_z);
+        drawO(dl.v[i], vx, vy, vw, vh, 0);
+    }
+    while (xi < xn) xdraw(XO[xi++], TX_d * TX_z);
+    xpaint(XW_OWN, TX_d * TX_z);   /* 자체 층: 오브젝트 위 · UI 아래 */
+    if (anyUi || XN[XW_UI]) {
         setView(1, &dl); vx = 0; vy = 0; vw = w / 2.0 / TX_d; vh = h / 2.0 / TX_d;
         for (int i = 0; i < dl.n; i++) if (dl.v[i]->ui) drawO(dl.v[i], vx, vy, vw, vh, 1);
+        xpaint(XW_UI, TX_d);   /* UI 층: 화면에 고정 · UI 오브젝트 위 */
         setView(0, &dl);
     }
     if (GFX_SHOW_COL) {

@@ -156,11 +156,39 @@ jobs:
           $want = "main.jb:5  'join' 의 1번째 값의 2번째 항목은 string 형식이어야 합니다 (받은 값: 2)"
           if ($p.ExitCode -eq 0 -or -not (Select-String -Path lerr-err.txt -SimpleMatch $want -Quiet -Encoding utf8)) { Write-Host "✖ 오류 문구가 다릅니다 (기대: $want)"; $bad++ }
           if ($bad) { exit 1 }
+      - name: 그리기 층 시험 (jdh_draw_layer — 자체 · 오브젝트 레이어 · UI · 웹 시험과 같은 main.jb · 화면의 색으로 순서를 확인)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          dist\bin\jdh.exe lib build tests\libs\Layers; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe new project LayersGame; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib add tests\libs\Layers\Layers-0.1.0.jbx LayersGame; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\layers-main.jb LayersGame\main.jb -Force
+          dist\bin\jdh.exe build exe LayersGame -o Layers.exe; if ($LASTEXITCODE) { exit 1 }
+          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+          $p = Start-Process .\Layers.exe -ArgumentList '--shot','layers-exe.png','--shot-at','2000' -RedirectStandardOutput layers-out.txt -RedirectStandardError layers-err.txt -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
+          Get-Content layers-out.txt -Encoding utf8; Get-Content layers-err.txt -Encoding utf8
+          if (-not (Test-Path layers-exe.png)) { Write-Host '✖ 화면을 저장하지 못했습니다'; exit 1 }
+          # 화면 가운데 기준 (화면 단위 · 위쪽이 +) 의 점마다 기대하는 색 — 카메라가 [50, 0] 이라 세계는 왼쪽으로 50
+          Add-Type -AssemblyName System.Drawing
+          $bmp = New-Object System.Drawing.Bitmap "$PWD\layers-exe.png"; $u = $bmp.Height / 720.0
+          $pts = @(@(-50, -40, 255, 255, 255, '흰색 (레이어 5 오브젝트 — 빨강 위)'), @(-115, 0, 255, 0, 0, '빨강 (오브젝트 층 2 — 회색 위 · 흰색 아래)'), @(-140, 0, 128, 128, 128, '회색 (레이어 0 오브젝트 — 파랑 위)'),
+                   @(-180, 0, 0, 0, 255, '파랑 (오브젝트 층 -1 — 모든 오브젝트 아래)'), @(-20, 30, 0, 255, 0, '초록 (자체 층 — 오브젝트 위)'), @(-200, 150, 255, 255, 0, '노랑 (UI 층 — 화면에 고정)'))
+          $bad = 0
+          foreach ($q in $pts) {
+            $c = $bmp.GetPixel([int]($bmp.Width / 2 + $q[0] * $u), [int]($bmp.Height / 2 - $q[1] * $u))
+            if ([Math]::Abs($c.R - $q[2]) -gt 24 -or [Math]::Abs($c.G - $q[3]) -gt 24 -or [Math]::Abs($c.B - $q[4]) -gt 24) { Write-Host "✖ $($q[5]): ($($c.R), $($c.G), $($c.B))"; $bad++ }
+          }
+          $bmp.Dispose()
+          if ($bad) { exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: JDH-test-screens
-          path: probe-exe.png
+          path: |
+            probe-exe.png
+            layers-exe.png
           if-no-files-found: ignore
       - name: 업데이트 파일 만들기 (설치된 파일 목록 · 묶음) · 업데이트 시험
         shell: pwsh

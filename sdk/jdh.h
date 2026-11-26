@@ -50,7 +50,16 @@ JDH__IMPORT(error) void jdh_error(const char *text);   /* 오류로 실행을 �
  *     읽기 = 가장 최근에 받은 상태 · 쓰기 · 그리기 = 이 명령(또는 프레임)이 끝난 뒤 반영.  EXE 에서는 바로 반영됩니다.
  */
 
-/* "draw" — 라이브러리마다 그리기 층 하나: 오브젝트 위 · UI 아래. 지울 때까지 남아 있음 (매 프레임 다시 그리려면 JDH_FRAME 에서 clear 후 그림) */
+/* "draw" — 라이브러리마다 그리기 층 하나. 지울 때까지 남아 있음 (매 프레임 다시 그리려면 JDH_FRAME 에서 clear 후 그림)
+ *   그린 것이 놓이는 곳은 jdh_draw_layer 로 고릅니다 (그 뒤에 그리는 것부터 · 고르지 않으면 JDH_LAYER_OWN · 엔진 1.4 부터):
+ *     JDH_LAYER_OWN      오브젝트 위 · UI 아래 (n 은 쓰지 않음)
+ *     JDH_LAYER_OBJECT   오브젝트 사이: n = dis.setObjLayer 와 같은 레이어 번호 — 번호가 n 이하인 오브젝트 위 · n 보다 큰 오브젝트 아래
+ *     JDH_LAYER_UI       화면에 고정 (카메라를 따르지 않음 · 배율 1) · UI 오브젝트 위 (n 은 쓰지 않음)
+ *   한 층 안에서는 그린 순서대로 (나중 것이 위). jdh_draw_clear 는 어느 곳에 놓였든 이 라이브러리가 그린 것을 모두 지웁니다 (고른 곳은 그대로). */
+#define JDH_LAYER_OWN 0
+#define JDH_LAYER_OBJECT 1
+#define JDH_LAYER_UI 2
+JDH__IMPORT(draw_layer) void jdh_draw_layer(int layer, int n);
 JDH__IMPORT(draw_clear) void jdh_draw_clear(void);
 JDH__IMPORT(draw_rect) void jdh_draw_rect(double x, double y, double w, double h, const char *color);      /* 가운데 (x, y) · 너비 · 높이 */
 JDH__IMPORT(draw_circle) void jdh_draw_circle(double x, double y, double w, double h, const char *color);  /* 가운데 (x, y) · 타원 */

@@ -4,9 +4,9 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.6.0"
+#define JDH_VERSION "0.7.0"
 #define JDH_ENGINE_MAJOR 1
-#define JDH_ENGINE_MINOR 3   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
+#define JDH_ENGINE_MINOR 4   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -406,7 +406,7 @@ static char **WIMP; static int NWIMP;   /* 마지막으로 읽은 wasm 이 엔�
 /* host 함수 → 필요한 권한 (NULL = 늘 쓸 수 있음) — 에디터의 JBX_HOST 와 같게 */
 static const char *HOSTFN[][2] = {
     {"log", NULL}, {"error", NULL},
-    {"draw_clear", "draw"}, {"draw_rect", "draw"}, {"draw_circle", "draw"}, {"draw_line", "draw"}, {"draw_text", "draw"},
+    {"draw_clear", "draw"}, {"draw_layer", "draw"}, {"draw_rect", "draw"}, {"draw_circle", "draw"}, {"draw_line", "draw"}, {"draw_text", "draw"},
     {"obj_exists", "objects.read"}, {"obj_pos", "objects.read"}, {"obj_scale", "objects.read"}, {"obj_vel", "objects.read"}, {"obj_color", "objects.read"}, {"obj_text", "objects.read"},
     {"obj_set_pos", "objects.write"}, {"obj_set_scale", "objects.write"}, {"obj_set_vel", "objects.write"}, {"obj_set_color", "objects.write"}, {"obj_set_text", "objects.write"},
     {"file_size", "files.read"}, {"file_read", "files.read"},
@@ -616,7 +616,7 @@ static const char *TPL_JDL =
 "  \"jdl\": 1,\n"
 "  \"id\": \"%s\",\n"
 "  \"version\": \"0.1.0\",\n"
-"  \"requires\": { \"engine\": \">=1.3\", \"libs\": [] },\n"
+"  \"requires\": { \"engine\": \">=1.4\", \"libs\": [] },\n"
 "  \"permissions\": [],\n"
 "  \"commands\": {\n"
 "    \"hello\": { \"params\": [\"string\"], \"doc\": { \"ko\": \"이름을 받아 인사를 로그에 찍음\" } },\n"
