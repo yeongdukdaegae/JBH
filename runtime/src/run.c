@@ -157,6 +157,25 @@ void jdh_error(const char *text) {
     if (EXT_NODE) jb_fail(EXT_NODE->file, EXT_NODE->line, "라이브러리 '%s': %s", EXT_CUR, text ? text : "");
     jb_fail("", 0, "라이브러리 '%s': %s", EXT_CUR, text ? text : "");
 }
+/* host 함수 쪽 (gfx.c · render.c) 에서: 지금 불리고 있는 라이브러리 · 그 라이브러리 이름으로 오류 */
+const char *jdh__cur(void) { return EXT_CUR; }
+void jdh__fail(const char *fmt, ...) {
+    va_list ap; va_start(ap, fmt); char b[600]; vsnprintf(b, sizeof b, fmt, ap); va_end(ap);
+    jdh_error(b);
+}
+/* "files.read": 이 프로젝트의 파일 (ext/ 와 프로젝트 밖은 안 됨) — 텍스트 파일은 에디터처럼 줄바꿈이 \n */
+extern const unsigned char *proj_bytes(const char *path, size_t *len);
+static const unsigned char *xfile(const char *path, size_t *len) {
+    if (!path || !*path || path[0] == '/' || path[0] == '\\' || strstr(path, "..") || strchr(path, ':') || !strncmp(path, "ext/", 4)) return NULL;
+    return proj_bytes(path, len);
+}
+int jdh_file_size(const char *path) { size_t n; const unsigned char *b = xfile(path, &n); return b ? (int)(n > 0x7fffffff ? 0x7fffffff : n) : -1; }
+int jdh_file_read(const char *path, void *buf, int n) {
+    size_t L; const unsigned char *b = xfile(path, &L); if (!b) return -1;
+    if (n < 0) n = 0; size_t k = L < (size_t)n ? L : (size_t)n;
+    if (k && buf) memcpy(buf, b, k);
+    return (int)k;
+}
 static int ext_call(Node *c, Env *env) {
     const JdhCmd *cm = c->ext; JdhArg a[16]; char *tmp[8]; int nt = 0, k = 0;
     for (int i = 0; i < cm->np; i++) {

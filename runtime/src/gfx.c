@@ -1670,5 +1670,35 @@ static int gfxCallInner(Node *c, Env *env) {
 }
 #undef IS
 
+/* ---------- 사용자 라이브러리 (JDH) 의 오브젝트 접근 — "objects.read" · "objects.write" (에디터의 JBEXT 와 같은 뜻) ---------- */
+extern void jdh__fail(const char *fmt, ...);
+static Obj *xobj(const char *id) { if (!objOn || !id) return NULL; Obj *o = obj_get(jb_in(id)); if (o && o->kind == OK_TEXT) fitText(o); return o; }
+static Obj *xobjW(const char *id) { Obj *o = xobj(id); if (!o) jdh__fail("오브젝트 '%s' 이(가) 없습니다", id ? id : ""); return o; }
+static int xout(const double *m, double *a, double *b) { if (a) *a = m[0]; if (b) *b = m[1]; return 1; }
+static int xstr(const char *v, char *out, int n) { if (out && n > 0) snprintf(out, (size_t)n, "%s", v); return (int)strlen(v); }
+int jdh_obj_exists(const char *id) { return xobj(id) != NULL; }
+int jdh_obj_pos(const char *id, double *x, double *y) { Obj *o = xobj(id); return o ? xout(o->pos, x, y) : 0; }
+int jdh_obj_scale(const char *id, double *w, double *h) { Obj *o = xobj(id); return o ? xout(o->scale, w, h) : 0; }
+int jdh_obj_vel(const char *id, double *x, double *y) { Obj *o = xobj(id); return o ? xout(o->vel, x, y) : 0; }
+int jdh_obj_color(const char *id, char *out, int n) { Obj *o = xobj(id); return o ? xstr(o->color, out, n) : -1; }
+int jdh_obj_text(const char *id, char *out, int n) { Obj *o = xobj(id); return o && o->kind == OK_TEXT ? xstr(o->text ? o->text : "", out, n) : -1; }
+void jdh_obj_set_pos(const char *id, double x, double y) { Obj *o = xobjW(id); double m[2] = {x, y}; if (isfinite(x) && isfinite(y)) setPos(o, m); }
+void jdh_obj_set_scale(const char *id, double w, double h) { Obj *o = xobjW(id); double m[2] = {w, h}; if (isfinite(w) && isfinite(h)) setScale(o, m); }
+void jdh_obj_set_vel(const char *id, double x, double y) { Obj *o = xobjW(id); if (!isfinite(x) || !isfinite(y)) return; o->vel[0] = x; o->vel[1] = y; physKick(o); }
+void jdh_obj_set_color(const char *id, const char *c) {
+    Obj *o = xobjW(id);
+    if (!c || !jb_hex_ok(c)) jdh__fail("색은 헥스코드여야 합니다 (예: \"#ff8800\") — 받은 값: \"%s\"", c ? c : "");
+    const char *h = c[0] == '#' ? c + 1 : c; char cl[8];
+    if (strlen(h) == 3) snprintf(cl, 8, "#%c%c%c%c%c%c", h[0], h[0], h[1], h[1], h[2], h[2]); else snprintf(cl, 8, "#%s", h);
+    if (strcmp(cl, o->color)) { strcpy(o->color, cl); redraw(); }
+}
+void jdh_obj_set_text(const char *id, const char *t) {
+    Obj *o = xobjW(id);
+    if (o->kind != OK_TEXT) jdh__fail("'%s' 은(는) 글자 오브젝트가 아니라 Text 가 없습니다 (dis.setText 로 만든 오브젝트만)", o->id);
+    if (!t) t = "";
+    if (strcmp(o->text, t)) { free(o->text); o->text = jb_strdup(t); redraw(); }
+}
+void jdh__redraw(void) { redraw(); }
+
 void gfx_init(void) { ID_CAM_DEFAULT = jb_in("cam.default"); }
 void gfx_end(void) { au_stop_all(); }

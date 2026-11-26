@@ -23,4 +23,4 @@ xcopy /e /i /q /y runtime\src dist\sdk\runtime\src >nul || exit /b 1
 xcopy /e /i /q /y runtime\vendor dist\sdk\runtime\vendor >nul || exit /b 1
 echo.
 echo 빌드 끝: dist\bin\jdh.exe · dist\bin\jbdev.exe · dist\editor\jbdev.html
-echo 설치 파일: Inno Setup 으로 installer\jdh.iss 를 컴파일하면 installer\out\JDH-Setup-0.3.1.exe
+echo 설치 파일: Inno Setup 으로 installer\jdh.iss 를 컴파일하면 installer\out\JDH-Setup-0.4.0.exe

@@ -1,0 +1,12 @@
+{"jdl":1,"id":"Probe","version":"0.1.0","requires":{"engine":">=1.2"},
+ "permissions":["draw","objects.read","objects.write","files.read"],
+ "commands":{
+  "paint":{"params":[]},"unpaint":{"params":[]},
+  "look":{"params":["string"]},
+  "move":{"params":["string","mat12"]},"grow":{"params":["string","mat12"]},"push":{"params":["string","mat12"]},
+  "recolor":{"params":["string","color"]},"retext":{"params":["string","string"]},
+  "readf":{"params":["string"]},
+  "follow":{"params":["string","string"]}
+ },
+ "values":{"exists":"int","px":"float","py":"float","sw":"float","vx":"float","color":"string","text":"string","fsize":"int","fhead":"string","frames":"int"},
+ "native":["native/probe.c"]}

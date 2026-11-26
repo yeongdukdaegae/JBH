@@ -4,7 +4,7 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.3.1"
+#define JDH_VERSION "0.4.0"
 #define JDH_ENGINE_MAJOR 1
 #define JDH_ENGINE_MINOR 2   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
@@ -212,8 +212,17 @@ static void libCheck(Lib *L) {
       JV *enj = jget(jget(j, "requires"), "engine");
       if (enj && !en) lerr(L, "requires.engine 은 \">=1.2\" 꼴의 문자열이어야 합니다");
       if (en) {
-          int ma = 0, mi = 0; const char *q = en; while (*q == ' ') q++;
-          if (strncmp(q, ">=", 2) || sscanf(q + 2, " %d.%d", &ma, &mi) != 2) lerr(L, "requires.engine 은 \">=1.2\" 꼴로 씁니다 (받은 값: %s)", en);
+          /* 에디터와 같은 규칙: 앞뒤 빈칸 · ">=" · 빈칸 · 주.부[.수] 만 */
+          int ma = -1, mi = -1, okf = 0; const char *q = en; while (*q == ' ' || *q == '\t') q++;
+          if (!strncmp(q, ">=", 2)) {
+              q += 2; while (*q == ' ' || *q == '\t') q++;
+              if (isdigit((unsigned char)*q)) { ma = (int)strtol(q, (char **)&q, 10);
+                  if (*q == '.' && isdigit((unsigned char)q[1])) { mi = (int)strtol(q + 1, (char **)&q, 10);
+                      if (*q == '.' && isdigit((unsigned char)q[1])) { q++; while (isdigit((unsigned char)*q)) q++; }
+                      while (*q == ' ' || *q == '\t') q++;
+                      okf = !*q; } }
+          }
+          if (!okf) lerr(L, "requires.engine 은 \">=1.2\" 꼴로 씁니다 (받은 값: %s)", en);
           else if (ma > JDH_ENGINE_MAJOR || (ma == JDH_ENGINE_MAJOR && mi > JDH_ENGINE_MINOR)) lerr(L, "requires.engine 이 이 JDH 의 엔진(%d.%d)보다 높습니다: %s", JDH_ENGINE_MAJOR, JDH_ENGINE_MINOR, en);
       } }
     /* 필요한 내장 라이브러리 */
@@ -318,8 +327,30 @@ typedef struct { const unsigned char *p, *end; int bad; } WR;
 static uint32_t wleb(WR *r) { uint32_t v = 0; int sh = 0; for (;;) { if (r->p >= r->end) { r->bad = 1; return 0; } unsigned char b = *r->p++; v |= (uint32_t)(b & 0x7F) << sh; if (!(b & 0x80)) return v; sh += 7; if (sh > 35) { r->bad = 1; return 0; } } }
 static char wty(unsigned char t) { return t == 0x7F ? 'i' : t == 0x7C ? 'd' : t == 0x7E ? 'l' : t == 0x7D ? 'f' : '?'; }
 typedef struct { char *name; char *sig; } WExp;
+static char **WIMP; static int NWIMP;   /* 마지막으로 읽은 wasm 이 엔진(jdh)에서 가져다 쓰는 함수 */
+/* host 함수 → 필요한 권한 (NULL = 늘 쓸 수 있음) — 에디터의 JBX_HOST 와 같게 */
+static const char *HOSTFN[][2] = {
+    {"log", NULL}, {"error", NULL},
+    {"draw_clear", "draw"}, {"draw_rect", "draw"}, {"draw_circle", "draw"}, {"draw_line", "draw"}, {"draw_text", "draw"},
+    {"obj_exists", "objects.read"}, {"obj_pos", "objects.read"}, {"obj_scale", "objects.read"}, {"obj_vel", "objects.read"}, {"obj_color", "objects.read"}, {"obj_text", "objects.read"},
+    {"obj_set_pos", "objects.write"}, {"obj_set_scale", "objects.write"}, {"obj_set_vel", "objects.write"}, {"obj_set_color", "objects.write"}, {"obj_set_text", "objects.write"},
+    {"file_size", "files.read"}, {"file_read", "files.read"},
+    {NULL, NULL}
+};
+/* 가져다 쓰는 host 함수가 모두 있는 것이고 그 권한이 선언에 있는지 — 문제마다 msg 를 부름 */
+static int hostCheck(JV *perms, void (*msg)(void *, const char *, const char *), void *ud) {
+    int bad = 0;
+    for (int i = 0; i < NWIMP; i++) {
+        int k = 0; while (HOSTFN[k][0] && strcmp(HOSTFN[k][0], WIMP[i])) k++;
+        if (!HOSTFN[k][0]) { msg(ud, WIMP[i], NULL); bad++; continue; }
+        const char *need = HOSTFN[k][1]; if (!need) continue;
+        int has = 0; if (perms && perms->k == J_ARR) for (int q = 0; q < perms->n; q++) if (perms->items[q]->k == J_STR && !strcmp(perms->items[q]->str, need)) has = 1;
+        if (!has) { msg(ud, WIMP[i], need); bad++; }
+    }
+    return bad;
+}
 static WExp *wasmExports(const unsigned char *b, size_t len, int *count) {
-    *count = 0;
+    *count = 0; NWIMP = 0;
     if (len < 8 || memcmp(b, "\0asm", 4)) return NULL;
     char **types = NULL; int ntypes = 0; uint32_t *ftype = NULL; int nfunc = 0, nimp = 0; uint32_t *itype = NULL;
     WExp *ex = NULL; WR r = { b + 8, b + len, 0 };
@@ -340,10 +371,13 @@ static WExp *wasmExports(const unsigned char *b, size_t len, int *count) {
         } else if (id == 2) {
             uint32_t n = wleb(&s);
             for (uint32_t i = 0; i < n && !s.bad; i++) {
-                uint32_t a = wleb(&s); s.p += a; uint32_t c = wleb(&s); s.p += c;
+                uint32_t a = wleb(&s); const unsigned char *mod = s.p; s.p += a; uint32_t c = wleb(&s); const unsigned char *fn = s.p; s.p += c;
                 if (s.p >= s.end) { s.bad = 1; break; }
                 unsigned char kind = *s.p++;
-                if (kind == 0) { uint32_t t = wleb(&s); itype = realloc(itype, sizeof(uint32_t) * (nimp + 1)); itype[nimp++] = t; }
+                if (kind == 0) {
+                    uint32_t t = wleb(&s); itype = realloc(itype, sizeof(uint32_t) * (nimp + 1)); itype[nimp++] = t;
+                    if (a == 3 && !memcmp(mod, "jdh", 3) && c < 64) { char nm[64]; memcpy(nm, fn, c); nm[c] = 0; WIMP = realloc(WIMP, sizeof(char*) * (NWIMP + 1)); WIMP[NWIMP++] = xdup(nm); }
+                }
                 else if (kind == 1) { s.p++; uint32_t fl = wleb(&s); wleb(&s); if (fl & 1) wleb(&s); }
                 else if (kind == 2) { uint32_t fl = wleb(&s); wleb(&s); if (fl & 1) wleb(&s); }
                 else if (kind == 3) { s.p += 2; }
@@ -373,6 +407,11 @@ static const char *expSig(WExp *ex, int n, const char *prefix, const char *name)
     return NULL;
 }
 static const char *cTypeOf(const char *t) { return !strcmp(t, "float") ? "double" : !strcmp(t, "string") || !strcmp(t, "color") ? "const char *" : !strcmp(t, "mat12") ? "double x, double y" : "int"; }
+static void libHostMsg(void *ud, const char *fn, const char *perm) {
+    Lib *L = ud;
+    if (!perm) lerr(L, "jdh_%s 은(는) 엔진이 주는 함수가 아닙니다 (jdh.h 에 있는 것만 쓸 수 있습니다)", fn);
+    else lerr(L, "jdh_%s 을(를) 쓰려면 선언의 \"permissions\" 에 \"%s\" 가 있어야 합니다", fn, perm);
+}
 /* 컴파일된 것이 선언과 맞는지: 명령어 · 값이 모두 있고 인자 형식이 같은지 */
 static void checkWasm(Lib *L, const unsigned char *b, size_t len) {
     int n; WExp *ex = wasmExports(b, len, &n);
@@ -400,6 +439,8 @@ static void checkWasm(Lib *L, const unsigned char *b, size_t len) {
         if (!sig) lerr(L, "값 '%s' 이(가) C 구현에 없습니다 — JDH_VALUE(%s, %s) { return …; } 가 필요합니다", name, ct, name);
         else if (strcmp(sig, want)) lerr(L, "값 '%s' 의 형식이 선언과 다릅니다 — 선언대로라면 JDH_VALUE(%s, %s)", name, ct, name);
     }
+    /* 엔진 기능 (host 함수) 과 권한 */
+    hostCheck(jget(L->json, "permissions"), libHostMsg, L);
     /* 선언에 없는데 구현에만 있는 것 */
     for (int i = 0; i < n; i++) {
         if (!strncmp(ex[i].name, "jdh_cmd_", 8) && !(cm && cm->k == J_OBJ && jget(cm, ex[i].name + 8))) lwarn(L, "C 구현의 명령어 '%s' 이(가) 선언(jdl.json)에 없습니다 — 코드에서 쓸 수 없습니다", ex[i].name + 8);
@@ -485,7 +526,10 @@ static const char *TPL_C =
 "// 값: 코드에서  별칭.count   (명령어는 값을 돌려주지 않습니다 — 돌려줄 것은 값으로)\n"
 "JDH_VALUE(int, count) { return count; }\n"
 "\n"
-"// 선택: JDH_INIT() { }  실행을 시작할 때 · JDH_FRAME(dt) { }  프레임마다 (dt = 지난 시간 ms) · JDH_STOP() { }  끝날 때\n";
+"// 선택: JDH_INIT() { }  실행을 시작할 때 · JDH_FRAME(dt) { }  프레임마다 (dt = 지난 시간 ms) · JDH_STOP() { }  끝날 때\n"
+"//\n"
+"// 엔진 기능 (그리기 · 오브젝트 읽기 · 쓰기 · 프로젝트 파일 읽기) 은 jdh.h 에 있습니다.\n"
+"//   쓰려면 jdl.json 의 \"permissions\" 에 \"draw\" · \"objects.read\" · \"objects.write\" · \"files.read\" 중 필요한 것을 적습니다.\n";
 static const char *TPL_JDL =
 "{\n"
 "  \"jdl\": 1,\n"
@@ -678,6 +722,10 @@ static char *projName(const char *pd) {
     for (char *q = name; *q; q++) if (strchr("\\/:*?\"<>|", *q)) *q = '_';
     return name;
 }
+static void exeHostMsg(void *ud, const char *fn, const char *perm) {
+    if (!perm) fprintf(stderr, "  ✖ %s: jdh_%s 은(는) 엔진이 주는 함수가 아닙니다\n", (const char *)ud, fn);
+    else fprintf(stderr, "  ✖ %s: jdh_%s 은(는) \"%s\" 권한이 필요합니다\n", (const char *)ud, fn, perm);
+}
 static int cmdBuildExe(const char *projArg, const char *outArg) {
     const char *pd = projDir(projArg);
     char *home = homeDir(), *sdk = sdkDir();
@@ -705,7 +753,9 @@ static int cmdBuildExe(const char *projArg, const char *outArg) {
         const char *id = jgets(j, "id"); if (!id) die("%s 의 선언에 id 가 없습니다", jbx[li]);
         if (!we) die("%s 에 컴파일된 구현(lib.wasm)이 없습니다 — jdh lib build 로 다시 구워 주세요", jbx[li]);
         int hasInit = 0, hasFrame = 0, hasStop = 0;
-        if (we) { int nx; WExp *ex = wasmExports(we->data, we->len, &nx); for (int q = 0; q < nx; q++) { if (!strcmp(ex[q].name, "jdh_init")) hasInit = 1; if (!strcmp(ex[q].name, "jdh_frame")) hasFrame = 1; if (!strcmp(ex[q].name, "jdh_stop")) hasStop = 1; } }
+        if (we) { int nx; WExp *ex = wasmExports(we->data, we->len, &nx);
+            if (hostCheck(jget(j, "permissions"), exeHostMsg, jbx[li])) die("라이브러리 '%s' 가 선언하지 않은 권한의 기능을 씁니다 — jdh lib build 로 다시 구워 주세요", id);
+            for (int q = 0; q < nx; q++) { if (!strcmp(ex[q].name, "jdh_init")) hasInit = 1; if (!strcmp(ex[q].name, "jdh_frame")) hasFrame = 1; if (!strcmp(ex[q].name, "jdh_stop")) hasStop = 1; } }
         int nsrc = 0;
         for (int q = 0; q < ne; q++) {
             if (strncmp(en[q].name, "native/", 7) || !endsWith(en[q].name, ".c") || strchr(en[q].name + 7, '/') || strstr(en[q].name, "..")) continue;

@@ -2,13 +2,13 @@
 [Setup]
 AppId={{6B1E6C0E-5E0B-4B1B-9C0E-4A44483D4831}
 AppName=JDH (JawBreaker Development Helper)
-AppVersion=0.3.1
+AppVersion=0.4.0
 DefaultDirName={localappdata}\Programs\JDH
 DefaultGroupName=JawBreaker
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=out
-OutputBaseFilename=JDH-Setup-0.3.1
+OutputBaseFilename=JDH-Setup-0.4.0
 Compression=lzma2
 SolidCompression=yes
 ChangesEnvironment=yes

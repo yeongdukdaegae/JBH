@@ -1,0 +1,37 @@
+Use jawbreaker call jaw;
+Use DisPlayer call dis;
+Use Probe call p;
+
+run{
+    dis.setDisplay();
+    dis.setupObject();
+    dis.setObject([10, 20], "box", [80, 60], "#5c68ff");
+    dis.setText([0, -200], "hello", "lbl", 30, false, "#ffffff");
+    dis.setObject([0, 300], "tail", [20, 20], "#ff00ff");
+    p.look("box");
+    jaw.wait(100);
+    print("look exists=%p.exists% px=%p.px% py=%p.py% sw=%p.sw% color=%p.color% text=%p.text%");
+    p.look("lbl");
+    p.look("nope");
+    jaw.wait(100);
+    print("nope exists=%p.exists% color=%p.color%");
+    p.look("lbl");
+    jaw.wait(100);
+    print("lbl text=%p.text%");
+    p.move("box", [100, -50]);
+    p.recolor("box", "#f80");
+    p.retext("lbl", "bye");
+    p.grow("box", [40, 40]);
+    jaw.wait(100);
+    print("after pos=%obj.box.Position% color=%obj.box.Color% text=%obj.lbl.Text% scale=%obj.box.Scale%");
+    p.readf("data.txt");
+    jaw.wait(100);
+    print("file size=%p.fsize% head=%p.fhead%");
+    p.readf("ext/Probe.jbx");
+    jaw.wait(100);
+    print("ext size=%p.fsize%");
+    p.follow("box", "tail");
+    p.paint();
+    jaw.wait(300);
+    print("follow tail=%obj.tail.Position% frames>0=%p.frames%");
+}

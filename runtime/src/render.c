@@ -506,6 +506,55 @@ static void strokeBox(Obj *o, const double *off, const double *size, SDL_Color c
     for (int i = 0; i < 5; i++) { double x = off[0] + cs[i][0] * w / 2, y = off[1] + cs[i][1] * h / 2, X = o->pos[0] + x * cos(r) - y * sin(r), Y = o->pos[1] + x * sin(r) + y * cos(r); w2s(X, Y, &p[i].x, &p[i].y); }
     SDL_SetRenderDrawColor(ren, c.r, c.g, c.b, c.a); SDL_RenderDrawLinesF(ren, p, 5);
 }
+/* ---------- 사용자 라이브러리 (JDH) 의 그리기 층 — "draw" (에디터의 JBEXT 와 같은 뜻) ----------
+ *   라이브러리마다 하나 · 지울 때까지 남음 · 오브젝트 위 · UI 아래 · 화면 단위 (카메라를 따름) */
+enum { XD_RECT, XD_CIRCLE, XD_LINE, XD_TEXT };
+typedef struct { int k; double a[5]; char color[8]; char *text; TextImg ti; } XItem;
+typedef struct { const char *lib; XItem *v; int n, cap; } XLayer;
+static XLayer *XL; static int NXL;
+#define XD_MAX 20000   /* 층 하나에 그릴 수 있는 것 */
+extern const char *jdh__cur(void);
+extern void jdh__fail(const char *fmt, ...);
+extern void jdh__redraw(void);
+extern int jb_hex_ok(const char *);
+static XLayer *xlayer(void) {
+    const char *id = jdh__cur();
+    for (int i = 0; i < NXL; i++) if (!strcmp(XL[i].lib, id)) return &XL[i];
+    XL = jb_realloc(XL, sizeof(XLayer) * (NXL + 1)); memset(&XL[NXL], 0, sizeof(XLayer)); XL[NXL].lib = id; return &XL[NXL++];
+}
+static void xcolor(const char *c, char out[8]) {
+    if (!c || !jb_hex_ok(c)) jdh__fail("색은 헥스코드여야 합니다 (예: \"#ff8800\") — 받은 값: \"%s\"", c ? c : "");
+    const char *h = c[0] == '#' ? c + 1 : c;
+    if (strlen(h) == 3) snprintf(out, 8, "#%c%c%c%c%c%c", h[0], h[0], h[1], h[1], h[2], h[2]); else snprintf(out, 8, "#%s", h);
+}
+static XItem *xadd(int k, const char *color) {
+    XLayer *L = xlayer();
+    if (L->n >= XD_MAX) jdh__fail("그리기 층에 그린 것이 너무 많습니다 (%d개까지 · jdh_draw_clear 로 지우세요)", XD_MAX);
+    if (L->n == L->cap) { L->cap = L->cap ? L->cap * 2 : 64; L->v = jb_realloc(L->v, sizeof(XItem) * L->cap); }
+    XItem *it = &L->v[L->n++]; memset(it, 0, sizeof *it); it->k = k; xcolor(color, it->color); jdh__redraw(); return it;
+}
+static void xfree(XItem *it) { free(it->text); free(it->ti.key); if (it->ti.tex) SDL_DestroyTexture(it->ti.tex); }
+void jdh_draw_clear(void) { XLayer *L = xlayer(); if (!L->n) return; for (int i = 0; i < L->n; i++) xfree(&L->v[i]); L->n = 0; jdh__redraw(); }
+static int fin(double a, double b, double c, double d) { return isfinite(a) && isfinite(b) && isfinite(c) && isfinite(d); }
+void jdh_draw_rect(double x, double y, double w, double h, const char *color) { if (!fin(x, y, w, h)) return; XItem *it = xadd(XD_RECT, color); it->a[0] = x; it->a[1] = y; it->a[2] = w; it->a[3] = h; }
+void jdh_draw_circle(double x, double y, double w, double h, const char *color) { if (!fin(x, y, w, h)) return; XItem *it = xadd(XD_CIRCLE, color); it->a[0] = x; it->a[1] = y; it->a[2] = w; it->a[3] = h; }
+void jdh_draw_line(double x1, double y1, double x2, double y2, double width, const char *color) { if (!fin(x1, y1, x2, y2) || !isfinite(width)) return; XItem *it = xadd(XD_LINE, color); it->a[0] = x1; it->a[1] = y1; it->a[2] = x2; it->a[3] = y2; it->a[4] = width; }
+void jdh_draw_text(double x, double y, double size, const char *text, const char *color) { if (!fin(x, y, size, 0)) return; XItem *it = xadd(XD_TEXT, color); it->a[0] = x; it->a[1] = y; it->a[2] = size; it->text = jb_strdup(text ? text : ""); }
+static void xpaint(double sc) {
+    for (int l = 0; l < NXL; l++) for (int i = 0; i < XL[l].n; i++) {
+        XItem *it = &XL[l].v[i]; SDL_Color c = col(it->color, 1); double *a = it->a;
+        if (it->k == XD_RECT) fillRectW(a[0], a[1], fabs(a[2]), fabs(a[3]), 0, c);
+        else if (it->k == XD_CIRCLE) fillEllipse(a[0], a[1], fabs(a[2]), fabs(a[3]), 0, c);
+        else if (it->k == XD_LINE) {   /* 굵기만큼의 사각형 (끝은 자른 꼴) */
+            double dx = a[2] - a[0], dy = a[3] - a[1], L = hypot(dx, dy), hw = fabs(a[4]) / 2; if (L <= 0 || hw <= 0) continue;
+            double nx = -dy / L * hw, ny = dx / L * hw, p[4][2] = {{a[0] + nx, a[1] + ny}, {a[2] + nx, a[3] + ny}, {a[2] - nx, a[3] - ny}, {a[0] - nx, a[1] - ny}};
+            fillPoly((const double (*)[2])p, 4, c);
+        } else if (it->k == XD_TEXT && it->text && *it->text) {
+            textImgMake(&it->ti, it->text, fabs(a[2]), it->color, 0, sc);
+            if (it->ti.tex) drawTexQuad(it->ti.tex, a[0], a[1], it->ti.w, it->ti.h, 0, 255);
+        }
+    }
+}
 static double errShown;
 void rd_paint(void) {
     if (!opened || !ren) return;
@@ -517,6 +566,7 @@ void rd_paint(void) {
     double vx = TX_cx, vy = TX_cy, vw = w / 2.0 / TX_d / TX_z, vh = h / 2.0 / TX_d / TX_z;
     int anyUi = 0;
     for (int i = 0; i < dl.n; i++) { if (dl.v[i]->ui) { anyUi = 1; continue; } drawO(dl.v[i], vx, vy, vw, vh, 0); }
+    if (NXL) xpaint(TX_d * TX_z);   /* 사용자 라이브러리의 그리기 층: 오브젝트 위 · UI 아래 */
     if (anyUi) {
         setView(1, &dl); vx = 0; vy = 0; vw = w / 2.0 / TX_d; vh = h / 2.0 / TX_d;
         for (int i = 0; i < dl.n; i++) if (dl.v[i]->ui) drawO(dl.v[i], vx, vy, vw, vh, 1);

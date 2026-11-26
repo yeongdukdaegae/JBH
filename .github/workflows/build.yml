@@ -66,6 +66,34 @@ jobs:
           type out.txt
           type err.txt
           findstr /c:"count=2" out.txt || exit /b 1
+      - name: 엔진 기능 시험 (그리기 · 오브젝트 · 파일 — 웹 시험 tests/dev.mjs 와 같은 main.jb · 같은 결과)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          dist\bin\jdh.exe lib build tests\libs\Probe; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib check tests\libs\NoPerm
+          if ($LASTEXITCODE -eq 0) { Write-Error '권한 없이 엔진 기능을 쓰는 라이브러리가 검사를 통과했습니다'; exit 1 }
+          dist\bin\jdh.exe new project ProbeGame; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib add tests\libs\Probe\Probe-0.1.0.jbx ProbeGame; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\probe-main.jb ProbeGame\main.jb -Force
+          Copy-Item tests\fixtures\probe-data.txt ProbeGame\data.txt -Force
+          dist\bin\jdh.exe build exe ProbeGame -o Probe.exe; if ($LASTEXITCODE) { exit 1 }
+          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+          $p = Start-Process .\Probe.exe -ArgumentList '--shot','probe-exe.png','--shot-at','1200' -RedirectStandardOutput probe-out.txt -RedirectStandardError probe-err.txt -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
+          Get-Content probe-out.txt -Encoding utf8; Get-Content probe-err.txt -Encoding utf8
+          $expect = @('look exists=1 px=10 py=20 sw=80 color=#5c68ff text=-', 'nope exists=0 color=-', 'lbl text=hello',
+            'after pos=[100, -50] color=#ff8800 text=bye scale=[40, 40]', 'file size=18 head=line one/line two/', 'ext size=-1', 'follow tail=[200, -50] frames>0=')
+          $bad = 0
+          foreach ($e in $expect) { if (-not (Select-String -Path probe-out.txt -SimpleMatch $e -Quiet)) { Write-Host "✖ 없음: $e"; $bad++ } }
+          if (-not (Test-Path probe-exe.png)) { Write-Host '✖ 화면을 저장하지 못했습니다 (probe-exe.png)'; $bad++ }
+          if ($bad) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JDH-test-screens
+          path: probe-exe.png
+          if-no-files-found: ignore
       - name: 설치 파일 만들기
         shell: cmd
         run: |

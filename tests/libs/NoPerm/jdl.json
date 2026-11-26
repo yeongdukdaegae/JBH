@@ -1,0 +1,2 @@
+{"jdl":1,"id":"NoPerm","version":"0.1.0","permissions":["draw"],
+ "commands":{"peek":{"params":["string"]}},"values":{"x":"float"},"native":["native/noperm.c"]}

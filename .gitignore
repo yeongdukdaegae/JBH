@@ -5,3 +5,4 @@ llvm-mingw/
 /jdh
 tests/out/
 editor/out/
+tests/libs/*/*.jbx
