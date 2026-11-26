@@ -24,7 +24,25 @@ async function run(src,wait=1200){
   if(await pg.evaluate(()=>!document.getElementById('modal').hidden)){await pg.click('#m-btns button:nth-child(2)');}
   await r.catch(()=>{});await pg.waitForTimeout(wait);return logs();
 }
-let L=await run(null,1500);console.log(L.map(x=>'    | '+x).join('\n'));
+// 신뢰 확인 창: 신뢰하지 않은 라이브러리는 실행 전에 물음 — 취소하면 실행하지 않음
+const runAsk=async(src,pick,wait=1500)=>{   // pick: 신뢰 확인 창에서 누를 버튼 글자 (null = 창이 안 떠야 함)
+  if(src)await pg.evaluate(t=>{files['main.jb']=t;openFile('main.jb');},src);
+  await pg.evaluate(()=>{document.querySelector('#log').replaceChildren();});
+  const r=pg.evaluate(()=>doRun());await pg.waitForTimeout(500);
+  const tt=()=>pg.evaluate(()=>document.getElementById('modal').hidden?null:document.getElementById('m-title').textContent);
+  let title=await tt();
+  if(title==='저장하시겠습니까?'){await pg.locator('#m-btns button',{hasText:'저장하지 않고 실행'}).click();await pg.waitForTimeout(400);title=await tt();}
+  const msg=await pg.evaluate(()=>document.getElementById('m-msg').textContent);
+  if(title&&pick)await pg.locator('#m-btns button',{hasText:pick}).first().click();
+  await r.catch(()=>{});await pg.waitForTimeout(wait);return {title,msg,L:await logs()};
+};
+let A=await runAsk(null,'취소',300);
+ok(A.title==='라이브러리를 신뢰할까요?'&&/Counter 0\.2\.0/.test(A.msg)&&/쓰는 엔진 기능 없음/.test(A.msg)&&/격리 없이/.test(A.msg),'trust window before the first run: '+A.title);
+ok(A.L.some(x=>/신뢰하지 않아 실행하지 않았습니다/.test(x))&&!A.L.some(x=>/total=/.test(x)),'cancel → the program does not run');
+A=await runAsk(null,'신뢰하고 쓰기',1500);
+let L=A.L;console.log(L.map(x=>'    | '+x).join('\n'));
+ok(L.some(x=>x.includes('total=7')),'trust → runs');
+A=await runAsk(null,null,300);ok(A.title===null,'trusted library: not asked again');
 ok(L.some(x=>x.includes('total=7 name=hello')),'commands reach the library, values come back');
 ok(L.some(x=>x.includes('t=8 p=12.5')),'values usable in expressions (int · float)');
 ok(L.some(x=>x.includes('after reset=0')),'reset');ok(L.some(x=>/frames>0=[1-9]/.test(x)),'frame hook runs');
@@ -55,11 +73,9 @@ ok(gl.some(x=>x.includes('total=7 name=hello')),'exported game runs the library'
 
 // ---- 엔진 기능 (그리기 · 오브젝트 · 파일) — tests/libs/Probe · 실행기(EXE) 와 같은 결과여야 함 (CI 의 EXE 시험과 같은 main.jb) ----
 await pg.evaluate(a=>{files['ext/Probe.jbx']=bytesToDataUrl('Probe.jbx',new Uint8Array(a[0]));files['data.txt']=a[1];},[[...fs.readFileSync(ROOT+'/tests/fixtures/dev-Probe.jbx')],fs.readFileSync(ROOT+'/tests/fixtures/probe-data.txt','utf8')]);
-const grantKey=()=>pg.evaluate(()=>{const L=jbxRead(files['ext/Probe.jbx'],'ext/Probe.jbx');return 'jawbreaker.jbx.files:'+(readProject(files).name||'')+':'+L.id+'@'+L.version;});
-const GK=await grantKey();
-await pg.evaluate(k=>localStorage.setItem(k,'1'),GK);
 const PROBE=fs.readFileSync(ROOT+'/tests/fixtures/probe-main.jb','utf8');
-L=await run(PROBE,1500);console.log(L.map(x=>'    | '+x).join('\n'));
+A=await runAsk(PROBE,'신뢰 · 파일 읽기 허락',1500);L=A.L;
+ok(/화면에 그리기/.test(A.msg)&&/오브젝트 읽기/.test(A.msg)&&/오브젝트 바꾸기/.test(A.msg)&&/파일 읽기/.test(A.msg),'trust window lists the permissions');console.log(L.map(x=>'    | '+x).join('\n'));
 const EXPECT=['look exists=1 px=10 py=20 sw=80 color=#5c68ff text=-','nope exists=0 color=-','lbl text=hello','after pos=[100, -50] color=#ff8800 text=bye scale=[40, 40]','file size=18 head=line one/line two/','ext size=-1','follow tail=[200, -50] frames>0='];
 for(const e of EXPECT)ok(L.some(x=>x.startsWith(e)),'probe: '+e);
 // 그리기 층: 화면의 몇 점의 색 (빨간 사각형 · 초록 원 · 파란 선)
@@ -74,7 +90,7 @@ ok(colors.r>500&&colors.g>500&&colors.b>100,'draw layer is painted (red '+colors
  const miss=EXPECT.filter(e=>!gl2.some(x=>x.startsWith(e)));console.log('  exported probe:',miss.length?'missing '+miss.join(' | ')+' || '+gl2.join(' || ').slice(0,300):'all lines');
  ok(!miss.length,'exported HTML gives the same results (files.read grant carried)');await g2.close();}
 // 허락하지 않으면 파일이 없는 것처럼
-await pg.evaluate(k=>localStorage.setItem(k,'0'),GK);
+await pg.evaluate(async()=>{const h=await jbxHash(files['ext/Probe.jbx']);jbxTrustSet(h,{id:'Probe',version:'0.1.0',files:0});});
 L=await run('Use jawbreaker call jaw;\nUse Probe call p;\nrun{\n    p.readf("data.txt");\n    jaw.wait(200);\n    print("nogrant size=%p.fsize%");\n}\n',800);
 ok(L.some(x=>x.includes('nogrant size=-1')),'files.read without permission from the user: no files');
 // 없는 오브젝트에 쓰기 → 그 줄에서 멈춤
@@ -82,8 +98,41 @@ L=await run('Use jawbreaker call jaw;\nUse DisPlayer call dis;\nUse Probe call p
 ok(L.some(x=>/main\.jb:6/.test(x)&&/ghost/.test(x)),'writing a missing object stops at the calling line');
 // 권한 없이 엔진 기능을 쓰는 라이브러리 (jdh 가 굽지 않는 것을 손으로 만든 것) → 불러오지 않음
 await pg.evaluate(a=>{delete files['ext/Probe.jbx'];files['ext/NoPerm.jbx']=bytesToDataUrl('NoPerm.jbx',new Uint8Array(a));},[...fs.readFileSync(ROOT+'/tests/fixtures/dev-NoPerm.jbx')]);
-L=await run('Use jawbreaker call jaw;\nUse NoPerm call q;\nrun{\n    q.peek("x");\n    jaw.wait(300);\n}\n',800);console.log('  no permission:',L.slice(-1)[0]);
+L=(await runAsk('Use jawbreaker call jaw;\nUse NoPerm call q;\nrun{\n    q.peek("x");\n    jaw.wait(300);\n}\n','신뢰하고 쓰기',800)).L;console.log('  no permission:',L.slice(-1)[0]);
 ok(L.some(x=>/objects\.read/.test(x)&&/NoPerm/.test(x)),'host function without the declared permission is refused');
 await pg.evaluate(()=>{delete files['ext/NoPerm.jbx'];delete files['data.txt'];});
+
+// ---- 불러오기 · 설명서 · 자동완성 ----
+await pg.evaluate(()=>{localStorage.removeItem('jawbreaker.jbx.trust');delete files['ext/Probe.jbx'];document.querySelector('#log').replaceChildren();});
+ok(await pg.evaluate(()=>!!document.getElementById('m-importlib')),'menu has "라이브러리 불러오기 (.jbx)"');
+await pg.setInputFiles('#jbxin',{name:'Probe-0.1.0.jbx',mimeType:'application/octet-stream',buffer:fs.readFileSync(ROOT+'/tests/fixtures/dev-Probe.jbx')});
+await pg.waitForTimeout(500);
+let T=await pg.evaluate(()=>document.getElementById('modal').hidden?null:document.getElementById('m-title').textContent);
+ok(T==='라이브러리를 신뢰할까요?','import → trust window');
+await pg.locator('#m-btns button',{hasText:'취소'}).first().click();await pg.waitForTimeout(300);
+ok(await pg.evaluate(()=>!files['ext/Probe.jbx']),'cancel → not added');
+await pg.setInputFiles('#jbxin',{name:'Probe-0.1.0.jbx',mimeType:'application/octet-stream',buffer:fs.readFileSync(ROOT+'/tests/fixtures/dev-Probe.jbx')});
+await pg.waitForTimeout(500);await pg.locator('#m-btns button',{hasText:'파일 읽기는 막음'}).first().click();await pg.waitForTimeout(300);
+ok(await pg.evaluate(()=>!!files['ext/Probe.jbx']),'trust → added as ext/Probe.jbx (file name from the id)');
+console.log('  log:',(await logs()).slice(-1)[0]);
+// 프로젝트에 파일로 넣어도 (불러오기 · 끌어 놓기) 같은 창
+await pg.evaluate(()=>{delete files['ext/Probe.jbx'];});
+const imp=pg.evaluate(async a=>{await handleImport([new File([new Uint8Array(a)],'Probe.jbx')],'project');},[...fs.readFileSync(ROOT+'/tests/fixtures/dev-Probe.jbx')]);
+await pg.waitForTimeout(500);
+T=await pg.evaluate(()=>document.getElementById('modal').hidden?null:document.getElementById('m-title').textContent);
+ok(T===null,'same file already trusted → not asked again');await imp;
+ok(await pg.evaluate(()=>!!files['ext/Probe.jbx']),'import as a file → ext/Probe.jbx');
+// 설명서: ext/Probe.jbx 를 열면 읽기 전용 설명
+const doc=await pg.evaluate(()=>{openFile('ext/Probe.jbx');return {v:ta.value,ro:ta.readOnly,img:!document.getElementById('imgview').hidden};});
+console.log(doc.v.split('\n').slice(0,6).map(x=>'    | '+x).join('\n'));
+ok(doc.ro&&!doc.img&&/Probe 0\.1\.0/.test(doc.v)&&/별칭\.move\(string, mat12\);/.test(doc.v)&&/별칭\.px   float/.test(doc.v)&&/objects\.write/.test(doc.v),'opening ext/Probe.jbx shows its documentation (read only)');
+// 자동완성
+const ac=await pg.evaluate(()=>{
+  const at=src=>{files['main.jb']=src;openFile('main.jb');ta.value=src;ta.selectionStart=ta.selectionEnd=src.length;const r=acCompute();return r?r.items.map(i=>i.label+'|'+(i.detail||'')):[];};
+  return {mem:at('Use Probe call p;\nrun{\n    p.'),use:at('Use '),str:at('Use Probe call p;\nrun{\n    print("%p.')};});
+ok(ac.mem.includes('move|(string, mat12)')&&ac.mem.includes('px|float'),'autocomplete: alias. → commands and values');
+ok(ac.use.some(x=>x.startsWith('Probe|')),'autocomplete: Use → user library');
+ok(ac.str.some(x=>x.startsWith('p.fsize|')),'autocomplete: %alias.value% in strings');
+await pg.evaluate(()=>{delete files['ext/Probe.jbx'];});
 console.log(errs.length?errs.join('\n'):'no page errors');
 await b.close();
