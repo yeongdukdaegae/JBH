@@ -79,7 +79,7 @@ jobs:
           Copy-Item tests\fixtures\probe-data.txt ProbeGame\data.txt -Force
           dist\bin\jdh.exe build exe ProbeGame -o Probe.exe; if ($LASTEXITCODE) { exit 1 }
           $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
-          $p = Start-Process .\Probe.exe -ArgumentList '--shot','probe-exe.png','--shot-at','1200' -RedirectStandardOutput probe-out.txt -RedirectStandardError probe-err.txt -PassThru
+          $p = Start-Process .\Probe.exe -ArgumentList '--shot','probe-exe.png','--shot-at','4000' -RedirectStandardOutput probe-out.txt -RedirectStandardError probe-err.txt -PassThru
           if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
           Get-Content probe-out.txt -Encoding utf8; Get-Content probe-err.txt -Encoding utf8
           $expect = @('look exists=1 px=10 py=20 sw=80 color=#5c68ff text=-', 'nope exists=0 color=-', 'lbl text=hello',
