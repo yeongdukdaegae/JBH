@@ -30,7 +30,7 @@ typedef struct List List;
 typedef struct Mat Mat;
 typedef struct Data Data;
 typedef struct { int k; union { double n; char *s; Mat *m; List *l; Data *dt; } u; } Value;
-struct Data { unsigned char *b; size_t n; int dev, bind; };   /* dev: 0 = 바이트 · 1 = 카메라 · 2 = 마이크 (귀속 · 읽을 때마다 지금 바이트) */
+struct Data { unsigned char *b; size_t n; int dev, bind, rc; };   /* dev: 0 = 바이트 · 1 = 카메라 · 2 = 마이크 (귀속 · 읽을 때마다 지금 바이트) · rc: 같이 쓰는 값의 수 (복사 없이 나눠 씀 · 고칠 때 rc > 1 이면 새로 만듦) */
 struct Mat { int r, c; double *d; };
 struct List { int n, cap; Value *items; int comp; };
 
@@ -51,6 +51,7 @@ char *json_of(Value v);
 int json_parse(const char *s, Value *out);   /* 0 = JSON 아님 · -1 = { } 객체 */
 char *kind_txt(Value v);
 Value v_data(const unsigned char *b, size_t n);
+Value v_data_own(unsigned char *b, size_t n);
 Value to_data(Value v);                                       /* 무엇이든 → data */
 int from_data(Value d, int ty, const int *dims, Value *out);   /* data → 형식 · 안 맞으면 0 */
 unsigned char *data_bytes(Value v, size_t *n, int *own);

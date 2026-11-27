@@ -53,4 +53,7 @@ run{
     var data call num = "3";
     var int call three = num;
     print("three=%three%");
+    var data call jn = "[true, null, 2]";
+    var list call lb = jn;
+    print("lb=%lb%");
 }

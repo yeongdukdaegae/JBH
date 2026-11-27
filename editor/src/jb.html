@@ -1258,27 +1258,47 @@ function jbJson(v){
 //   넣을 때: 숫자 (int · float · bit) → 8바이트 실수 (big-endian) · 문자열 → UTF-8 · 행렬 · 리스트 · compound → JSON 글자의 UTF-8
 //   꺼낼 때: 받는 변수의 형식으로 억지로 읽음 · 안 맞으면 DATA_SKIP (대입을 건너뜀)
 //   카메라 · 마이크에 귀속된 data ({bytes:null, dev, snap}) 는 읽을 때마다 지금 순간의 바이트
+//   바이트 (Uint8Array) 는 고치지 않고 나눠 씀 (복사 없음 · EXE 의 rc 와 같은 뜻) — 나눠 준 것은 __sh 표시 · setPart 는 표시가 없을 때만 그 자리에서 고침
 const DATA_SKIP=Symbol('skip');
 const isData=v=>v!==null&&typeof v==='object'&&v.bytes!==undefined;
 const dataBytes=v=>v.dev?v.snap():v.bytes;
+const dataShare=b=>{b.__sh=true;return {bytes:b};};
+const bytesOf=v=>isData(v)?dataBytes(v):toData(v).bytes;   // 읽기만 할 때 (나눠 준 표시를 남기지 않음)
+// 올바른 UTF-8 (0 바이트 없음) 이면 그 글자 · 아니면 null — fromData (문자열) · 파일로 쓸 때 (글자 파일인지)
+const utf8Of=b=>{if(b.includes(0))return null;try{return new TextDecoder('utf-8',{fatal:true}).decode(b);}catch(e){return null;}};
+// 프로젝트 파일 ↔ 바이트: 그림 · 소리 등은 data: 주소 · 글자 파일은 UTF-8
+const IMG_MIME={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',bmp:'image/bmp',wav:'audio/wav',mp3:'audio/mpeg',ogg:'audio/ogg',m4a:'audio/mp4',ttf:'font/ttf',otf:'font/otf'};
+function bytesToDataUrl(name,u8){
+  let b='';for(let i=0;i<u8.length;i+=0x8000)b+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));
+  return 'data:'+(hget(IMG_MIME,(/\.(\w+)$/.exec(name)||['',''])[1].toLowerCase())||'application/octet-stream')+';base64,'+btoa(b);
+}
+function dataUrlToBytes(d){
+  const m=/^data:[^;,]*;base64,(.*)$/.exec(d||'');if(!m)return new Uint8Array(0);
+  const b=atob(m[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;
+}
+const fileBytes=t=>/^data:[^;,]*;base64,/.test(t)?dataUrlToBytes(t):new TextEncoder().encode(t);
+const bytesFile=(name,b)=>{const t=utf8Of(b);return t!==null?t:bytesToDataUrl(name,b);};
+// jaw.overWriteFile 로 쓸 수 없는 프로젝트 경로 (코드 · 프로젝트 파일 · 사용자 라이브러리) — 실행기 run.c 와 같음
+const noWritePath=p=>!p||p.startsWith('ext/')||/\.(jb|jbl|jbs|jbx)$/i.test(p);
 function toData(v){
-  if(isData(v))return {bytes:dataBytes(v).slice()};
+  if(isData(v))return v.dev?{bytes:v.snap()}:dataShare(v.bytes);
   if(typeof v==='number'){const b=new Uint8Array(8);new DataView(b.buffer).setFloat64(0,v,false);return {bytes:b};}
   return {bytes:new TextEncoder().encode(typeof v==='string'?v:jbJson(v))};
 }
 function fromData(v,ty,dims){
+  if(ty==='data')return toData(v);
   const b=dataBytes(v);
-  if(ty==='data')return {bytes:b.slice()};
   if(ty==='int'||ty==='float'||ty==='bit')return b.length===8?new DataView(b.buffer,b.byteOffset,8).getFloat64(0,false):DATA_SKIP;
-  let s;try{s=new TextDecoder('utf-8',{fatal:true}).decode(b);}catch(e){return DATA_SKIP;}
+  const s=utf8Of(b);if(s===null)return DATA_SKIP;
   if(ty==='string')return s;
-  let j;try{j=JSON.parse(s);}catch(e){return DATA_SKIP;}
-  if(!Array.isArray(j))return DATA_SKIP;
-  if(ty==='list')return j.every(x=>typeof x==='number'||typeof x==='string')?{items:j}:DATA_SKIP;
-  if(ty==='compound'){try{return jsonToJb(j);}catch(e){return DATA_SKIP;}}
+  // JSON: 맨 바깥이 [ ] 여야 함 · jsonToJb 로 바꾼 뒤 (true/false → 1/0 · null → 0 — 실행기의 json_parse 와 같음) 형식을 봄
+  let j;try{const p=JSON.parse(s);if(!Array.isArray(p))return DATA_SKIP;j=jsonToJb(p);}catch(e){return DATA_SKIP;}
+  const num=x=>typeof x==='number';
+  if(ty==='compound')return j;
+  if(ty==='list')return j.items.every(x=>num(x)||typeof x==='string')?{items:j.items}:DATA_SKIP;
   if(ty==='matrix'&&dims){   // 한 줄 [x, y] · 여러 줄 [[…], […]] — 크기가 맞아야 함
-    const [r,c]=dims,rows=r===1&&j.every(x=>typeof x==='number')?[j]:j;
-    if(rows.length!==r||!rows.every(w=>Array.isArray(w)&&w.length===c&&w.every(x=>typeof x==='number')))return DATA_SKIP;
+    const [r,c]=dims,rows=r===1&&j.items.every(num)?[j.items]:j.items.map(w=>w&&w.items);
+    if(rows.length!==r||!rows.every(w=>Array.isArray(w)&&w.length===c&&w.every(num)))return DATA_SKIP;
     return {r,c,d:rows.flat()};
   }
   return DATA_SKIP;
@@ -2977,10 +2997,6 @@ async function execProgram(prog,io,ctl){
     for(const [k,v] of PFILES){if(PFILES.size<=PF_MAX&&tot<=PF_BYTES)break;PFILES.delete(k);tot-=v.bytes.length;}return pfSeq;};
   const pfId=p=>{const m=/^permit\.([1-9]\d*)$/.exec(p);return m?+m[1]:0;};
   const pfGet=(raw,n)=>{const f=PFILES.get(pfId(raw));if(!f)throw rt(`허락받은 파일 '${raw}' 이(가) 없습니다 (jaw.getPermit("file"); 로 허락받은 차례대로 permit.1 · permit.2 … · 16개 · 256MB 를 넘으면 오래된 것부터 빠짐)`,n);return f;};
-  // 프로젝트 파일의 바이트: 그림 등은 data: 주소 · 글자 파일은 UTF-8
-  const fileBytes=t=>{const m=/^data:[^;,]*;base64,(.*)$/.exec(t);if(!m)return new TextEncoder().encode(t);const b=atob(m[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;};
-  const bytesFile=b=>{if(!b.includes(0))try{return new TextDecoder('utf-8',{fatal:true}).decode(b);}catch(e){}
-    let x='';for(let i=0;i<b.length;i+=0x8000)x+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return 'data:application/octet-stream;base64,'+btoa(x);};
   const permitStop=()=>{
     for(const k of ['cam','mic']){const p=PERMIT[k];if(p){try{p.stream.getTracks().forEach(t=>t.stop());}catch(e){}if(p.ctx)try{p.ctx.close();}catch(e){}}}
     PERMIT.cam=PERMIT.mic=null;PFILES.clear();camObjs.clear();if(camTick)cancelAnimationFrame(camTick);camTick=0;
@@ -3017,9 +3033,12 @@ async function execProgram(prog,io,ctl){
   const permitKind=(v,n)=>{const k=String(v);if(k!=='cam'&&k!=='mic'&&k!=='file')throw rt(`권한은 "cam" · "mic" · "file" 중 하나입니다 (받은 값: "${k}")`,n);return k;};
   // 카메라 영상을 입은 오브젝트: 화면 프레임마다 다시 그림
   // 장치에 귀속된 data (dem.recordCamAs · recordMicAs) — 읽을 때마다 지금 순간의 바이트 · objs: 그 영상을 입은 오브젝트
+  let snapCv=null,snapX=null;   // 카메라 프레임을 읽는 캔버스 (한 번 만들어 계속 씀)
   const camSnap=()=>{const v=PERMIT.cam&&PERMIT.cam.video,w=v&&v.videoWidth||0,h=v&&v.videoHeight||0,out=new Uint8Array(8+w*h*4),dv=new DataView(out.buffer);
     dv.setUint32(0,w,false);dv.setUint32(4,h,false);
-    if(w&&h){const cv=document.createElement('canvas');cv.width=w;cv.height=h;const x=cv.getContext('2d');x.drawImage(v,0,0);out.set(x.getImageData(0,0,w,h).data,8);}
+    if(w&&h){if(!snapCv){snapCv=document.createElement('canvas');snapX=snapCv.getContext('2d',{willReadFrequently:true});}
+      if(snapCv.width!==w||snapCv.height!==h){snapCv.width=w;snapCv.height=h;}
+      snapX.drawImage(v,0,0);out.set(snapX.getImageData(0,0,w,h).data,8);}
     return out;};   // 너비 · 높이 (4바이트 big-endian) · RGBA
   const micSnap=()=>{const m=PERMIT.mic;if(!m)return new Uint8Array(0);m.an.getFloatTimeDomainData(m.buf);const out=new Uint8Array(m.buf.length*4),dv=new DataView(out.buffer);m.buf.forEach((x,i)=>dv.setFloat32(i*4,x,false));return out;};   // 소리 조각 (4바이트 실수 big-endian)
   // 카메라에서 나온 바이트 (너비 · 높이 · RGBA) → 그림 · 아니면 null
@@ -3424,7 +3443,7 @@ async function execProgram(prog,io,ctl){
         if(e.canKey)return keyOn(ev(e.args[0],env));
         if(e.permit){const k=permitKind(ev(e.args[0],env),e.args[0]);return (k==='file'?PFILES.size:PERMIT[k])?1:0;}
         if(e.readF){   // jaw.readFile("경로") → data — "permit.번호" 는 허락받은 파일 (캐시) · 그 밖은 프로젝트 파일 (이번 실행에서 쓴 것도)
-          const raw=String(ev(e.args[0],env));if(pfId(raw))return {bytes:pfGet(raw,e.args[0]).bytes.slice()};
+          const raw=String(ev(e.args[0],env));if(pfId(raw))return dataShare(pfGet(raw,e.args[0]).bytes);
           const path=resolveTaskPath(raw,e.file),t=path&&!path.startsWith('ext/')?(jsonOut.has(path)?jsonOut.get(path):prog.files[path]):undefined;
           if(typeof t!=='string')throw rt(`프로젝트에 '${path||raw}' 파일이 없습니다`,e.args[0]);
           return {bytes:fileBytes(t)};
@@ -3953,8 +3972,10 @@ async function execProgram(prog,io,ctl){
       case 'var':if(s.pub)return;env.def(s.name,s.ty,s.init?dco(ev(s.init,env),s.ty,s.dims,dflt(s.ty,s.dims)):dflt(s.ty,s.dims));return;
       case 'assign':{const sl=slotOf(s.info,s.name,env,s);sl.v=dco(ev(s.expr,env),sl.ty,s.dims,sl.v);return;}
       case 'dset':{   // data.이름.setPart(시작, 끝, 값); — 장치에 귀속돼 있으면 먼저 풂 (그 순간의 바이트를 고침)
-        const sl=slotOf(s.info,s.name,env,s),v=dataBytes(toData(ev(s.args[2],env)));demUnbind(sl);
-        const b=sl.v.bytes,[a,e]=dRange(env,s.args,b.length),o=new Uint8Array(a+v.length+b.length-e);
+        const sl=slotOf(s.info,s.name,env,s),v=bytesOf(ev(s.args[2],env));demUnbind(sl);
+        const b=sl.v.bytes,[a,e]=dRange(env,s.args,b.length);
+        if(e-a===v.length&&!b.__sh&&b!==v){b.set(v,a);return;}   // 같은 길이 · 혼자 쓰는 바이트: 그 자리에서 (복사 없음)
+        const o=new Uint8Array(a+v.length+b.length-e);
         o.set(b.subarray(0,a));o.set(v,a);o.set(b.subarray(e),a+v.length);sl.v={bytes:o};return;
       }
       case 'eassign':{
@@ -4109,13 +4130,13 @@ async function execProgram(prog,io,ctl){
           return permitAsk(k).then(r=>{PERMIT[k]=r;io.sys&&io.sys(r?`🔓 ${k}: 허락됨`:`🔒 ${k}: 허락되지 않음`);});
         }
         case 'overWriteFile':{   // jaw.overWriteFile(값, "경로") — 값의 바이트로 덮어씀 · "permit.번호" = 허락받은 그 파일 (다 쓸 때까지 기다림) · 그 밖은 genJson 과 같은 곳
-          const b=dataBytes(toData(ev(c.args[0],env))),raw=String(ev(c.args[1],env));
+          const b=bytesOf(ev(c.args[0],env)),raw=String(ev(c.args[1],env));
           if(pfId(raw)){const f=pfGet(raw,c.args[1]);
             return (async()=>{try{const w=await f.h.createWritable();await w.write(b);await w.close();}catch(e){throw rt(`'${f.name}' 에 쓰지 못했습니다 (${e&&e.message||e})`,c.args[1]);}
-              f.bytes=b.slice();io.sys&&io.sys(`💾 ${raw} (${f.name}) ← ${b.length} B`);})();}
+              f.bytes=b;b.__sh=true;io.sys&&io.sys(`💾 ${raw} (${f.name}) ← ${b.length} B`);})();}
           const path=resolveTaskPath(raw,c.file);
-          if(!path||path.startsWith('ext/')||/\.(jb|jbl|jbs|jbx)$/i.test(path))throw rt(`overWriteFile 로 쓸 수 없는 경로입니다 — 코드 (.jb · .jbl) · project.jbs · ext/ 는 안 됨 (받은 값: "${raw}")`,c.args[1]);
-          const t=bytesFile(b);jsonOut.set(path,t);if(io.writeFile)io.writeFile(path,t);
+          if(noWritePath(path))throw rt(`overWriteFile 로 쓸 수 없는 경로입니다 — 코드 (.jb · .jbl) · project.jbs · ext/ 는 안 됨 (받은 값: "${raw}")`,c.args[1]);
+          const t=bytesFile(path,b);jsonOut.set(path,t);if(io.writeFile)io.writeFile(path,t);
           io.sys&&io.sys(`💾 ${path} ← ${b.length} B`);
           return;
         }
@@ -6543,16 +6564,7 @@ const DIR_RE=/^[\p{L}\p{N}_-]+$/u,FILE_RE={test:n=>/^[\p{L}\p{N}_-]+\.(jb|jbl|jb
 const IMG_EXT=/\.(png|jpe?g|gif|webp|bmp|wav|mp3|ogg|m4a|ttf|otf|jbx)$/i;   // 그림 · 소리 · 글꼴 (프로젝트에 data URL 로 들어 있는 파일)
 const isImg=p=>IMG_EXT.test(p||'');
 const isAud=p=>AUD_RE.test(p||'');
-const IMG_MIME={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',bmp:'image/bmp',wav:'audio/wav',mp3:'audio/mpeg',ogg:'audio/ogg',m4a:'audio/mp4',ttf:'font/ttf',otf:'font/otf'};
-function bytesToDataUrl(name,u8){
-  let b='';for(let i=0;i<u8.length;i+=0x8000)b+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));
-  return 'data:'+(hget(IMG_MIME,(/\.(\w+)$/.exec(name)||['',''])[1].toLowerCase())||'application/octet-stream')+';base64,'+btoa(b);
-}
 let fontPrevN=0;
-function dataUrlToBytes(d){
-  const m=/^data:[^;,]*;base64,(.*)$/.exec(d||'');if(!m)return new Uint8Array(0);
-  const b=atob(m[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;
-}
 function allDirs(){
   const s=new Set();
   const add=p=>{for(let d=dirOf(p);d;d=dirOf(d))s.add(d);};

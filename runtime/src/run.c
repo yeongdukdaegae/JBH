@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <math.h>
 #include <time.h>
 #include <errno.h>
@@ -37,13 +38,13 @@ typedef struct { char *path; char *text; size_t len; } Out;   /* text 는 끝에
 static const Out *outOf(const char *path);
 #define PF_MAX 16
 #define PF_BYTES ((size_t)256 << 20)
-typedef struct { int id; char *path; unsigned char *b; size_t n; } PFile;
+typedef struct { int id; char *path; Value v; } PFile;   /* v: 그 파일의 바이트 (data · readFile 은 복사 없이 나눠 씀) */
 static PFile PF[PF_MAX + 1]; static int nPF, pfSeq;
 static int pfAdd(const char *path, unsigned char *b, size_t n) {
     if (n > PF_BYTES) { free(b); return 0; }
-    PF[nPF].id = ++pfSeq; PF[nPF].path = jb_strdup(path); PF[nPF].b = b; PF[nPF].n = n; nPF++;
-    size_t tot = 0; for (int i = 0; i < nPF; i++) tot += PF[i].n;
-    while (nPF > PF_MAX || tot > PF_BYTES) { tot -= PF[0].n; free(PF[0].path); free(PF[0].b); memmove(PF, PF + 1, sizeof(PFile) * --nPF); }
+    PF[nPF].id = ++pfSeq; PF[nPF].path = jb_strdup(path); PF[nPF].v = v_data_own(b, n); nPF++;
+    size_t tot = 0; for (int i = 0; i < nPF; i++) tot += PF[i].v.u.dt->n;
+    while (nPF > PF_MAX || tot > PF_BYTES) { tot -= PF[0].v.u.dt->n; free(PF[0].path); v_free(&PF[0].v); memmove(PF, PF + 1, sizeof(PFile) * --nPF); }
     PERM[2] = nPF > 0; return pfSeq;
 }
 static int pfId(const char *p) {
@@ -77,7 +78,7 @@ static void demUnbind(Slot *sl) {
     if (sl->v.k != V_DATA || !sl->v.u.dt->dev) return;
     Data *d = sl->v.u.dt; size_t n; unsigned char *b = rt_dev_snap(d->dev, &n);
     if (d->dev == 1) gfx_cam_unbind(d->bind, b, n);
-    Value nv = v_data(b, n); free(b); v_free(&sl->v); sl->v = nv;
+    Value nv = v_data_own(b, n); v_free(&sl->v); sl->v = nv;
 }
 /* getPart · setPart 의 구간: 0 부터 · 끝은 빠짐 · 범위 밖은 잘라 냄 (끝 < 시작 이면 빈 구간) */
 static double dIdx(Node *a, Env *env) { Value v = chkd(ev(a, env), a); double x = v.k == V_NUM ? trunc(v.u.n) : 0; v_free(&v); return isfinite(x) ? x : 0; }
@@ -217,9 +218,10 @@ static Value chkd(Value v, Node *n) { return n->chk ? dynChk(v, n) : v; }
 /* data ↔ 다른 형식 (편집기의 dco 와 같음): 넣을 때 바이트로 · 꺼낼 때 억지로 읽고 안 맞으면 *skip = 1 */
 static Value dco(Value v, int ty, const int *dims, int *skip) {
     *skip = 0;
-    if (ty == TY_DATA) return to_data(v);
+    if (ty == TY_DATA) { Value r = to_data(v); v_free(&v); return r; }   /* v 는 ev 가 만든 값 (다 쓰면 놓음 — 나눠 쓰는 횟수가 남지 않게) */
     if (v.k == V_DATA) {
-        Value r; if (!from_data(v, ty, dims, &r)) { *skip = 1; return v_num(0); }
+        Value r; int ok = from_data(v, ty, dims, &r); v_free(&v);
+        if (!ok) { *skip = 1; return v_num(0); }
         if (ty == TY_MATRIX) return r;
         Value o = co(r, ty); v_free(&r); return o;
     }
@@ -434,7 +436,7 @@ Value ev(Node *e, Env *env) {
         }
         if (e->readF) {   /* jaw.readFile("경로") → data — "permit.번호" 는 허락받은 파일 (캐시) · 그 밖은 프로젝트 파일 (이번 실행에서 쓴 것도) */
             char *raw = evs(e->args.v[0], env);
-            if (pfId(raw)) { PFile *pf = pfGet(raw, e->args.v[0]); free(raw); return v_data(pf->b, pf->n); }
+            if (pfId(raw)) { PFile *pf = pfGet(raw, e->args.v[0]); free(raw); return v_copy(pf->v); }
             char *path = path_resolve(raw, e->file);
             const Out *o = path && strncmp(path, "ext/", 4) ? outOf(path) : NULL;
             if (o) { free(raw); free(path); return v_data((const unsigned char *)o->text, o->len); }
@@ -582,12 +584,21 @@ int exec(Node *s, Env *env) {
         env_def(env, s->name, s->ty, s->hasDims ? s->dims : NULL, s->expr ? dcoD(chkd(ev(s->expr, env), s->expr), s->ty, s->hasDims ? s->dims : NULL) : dflt(s->ty, s->dims));
         return S_OK;
     case N_DSET: {   /* data.이름.setPart(시작, 끝, 값); — 장치에 귀속돼 있으면 먼저 풂 (그 순간의 바이트를 고침) */
-        Value v = to_data(ev(s->args.v[2], env));
+        Value t = ev(s->args.v[2], env), v = to_data(t); v_free(&t);
         Slot *sl = slot_of(s->info, s->name, env, s); demUnbind(sl);
         Data *d = sl->v.u.dt; size_t a, e; dRange(s, env, d->n, &a, &e);
-        size_t m = a + v.u.dt->n + (d->n - e); unsigned char *o = jb_alloc(m ? m : 1);
-        memcpy(o, d->b, a); memcpy(o + a, v.u.dt->b, v.u.dt->n); memcpy(o + a + v.u.dt->n, d->b + e, d->n - e);
-        free(d->b); d->b = o; d->n = m; v_free(&v); return S_OK;
+        size_t k = v.u.dt->n, m = a + k + (d->n - e);
+        if (d->rc == 1 && v.u.dt != d) {   /* 혼자 쓰는 바이트: 그 자리에서 고침 (같은 길이면 복사 없음) */
+            if (m > d->n) d->b = jb_realloc(d->b, m);
+            if (m != d->n) memmove(d->b + a + k, d->b + e, d->n - e);
+            if (k) memcpy(d->b + a, v.u.dt->b, k);
+            d->n = m;
+        } else {   /* 다른 값과 나눠 쓰는 중: 새로 만듦 */
+            unsigned char *o = jb_alloc(m ? m : 1);
+            memcpy(o, d->b, a); if (k) memcpy(o + a, v.u.dt->b, k); memcpy(o + a + k, d->b + e, d->n - e);
+            v_free(&sl->v); sl->v = v_data_own(o, m);
+        }
+        v_free(&v); return S_OK;
     }
     case N_ASSIGN: {
         Slot *sl = slot_of(s->info, s->name, env, s);
@@ -796,6 +807,12 @@ static int jsonPathOk(const char *p) {   /* ^([\p{L}\p{N}_-]+/)*[\p{L}\p{N}_-]+\
     }
     return 1;
 }
+/* jaw.overWriteFile 로 쓸 수 없는 프로젝트 경로 (코드 · 프로젝트 파일 · 사용자 라이브러리) — 편집기의 noWritePath 와 같음 */
+static int noWritePath(const char *p) {
+    if (!p || !strncmp(p, "ext/", 4)) return 1;
+    const char *x = strrchr(p, '.'); if (!x || strchr(x, '/')) return 0;
+    return !strcasecmp(x, ".jb") || !strcasecmp(x, ".jbl") || !strcasecmp(x, ".jbs") || !strcasecmp(x, ".jbx");
+}
 static int writeOutB(const char *path, const unsigned char *b, size_t n) {   /* 1 = 파일에 씀 */
     int k = -1; for (int i = 0; i < nouts; i++) if (!strcmp(outs[i].path, path)) k = i;
     if (k < 0) { outs = jb_realloc(outs, sizeof(Out) * (nouts + 1)); k = nouts++; outs[k].path = jb_strdup(path); outs[k].text = NULL; }
@@ -954,19 +971,19 @@ int jaw_call(Node *c, Env *env) {
         free(k); return S_OK;
     }
     if (!strcmp(n, "overWriteFile")) {   /* jaw.overWriteFile(값, "경로") — 값의 바이트로 덮어씀 · "permit.번호" = 허락받은 그 파일 · 그 밖은 genJson 과 같은 곳 */
-        Value v = to_data(ev(c->args.v[0], env)); char *raw = evs(c->args.v[1], env);
+        Value t = ev(c->args.v[0], env), v = to_data(t); v_free(&t); char *raw = evs(c->args.v[1], env);
         if (pfId(raw)) {
             PFile *pf = pfGet(raw, c->args.v[1]);
             FILE *f = fopen(pf->path, "wb"); int ok = 0;
             if (f) { ok = fwrite(v.u.dt->b, 1, v.u.dt->n, f) == v.u.dt->n; ok &= fclose(f) == 0; }
             const char *nm = strrchr(pf->path, '/'), *nb = strrchr(pf->path, '\\'); if (nb > nm) nm = nb; nm = nm ? nm + 1 : pf->path;
             if (!ok) RT(c->args.v[1], "'%s' 에 쓰지 못했습니다 (%s)", nm, strerror(errno));
-            free(pf->b); pf->b = jb_alloc(v.u.dt->n ? v.u.dt->n : 1); memcpy(pf->b, v.u.dt->b, v.u.dt->n); pf->n = v.u.dt->n;
-            rt_sys("💾 %s (%s) ← %zu B", raw, nm, pf->n);
-            v_free(&v); free(raw); return S_OK;
+            size_t wn = v.u.dt->n; v_free(&pf->v); pf->v = v;   /* 캐시도 그 바이트 (나눠 씀) */
+            rt_sys("💾 %s (%s) ← %zu B", raw, nm, wn);
+            free(raw); return S_OK;
         }
-        char *path = path_resolve(raw, c->file); size_t L = path ? strlen(path) : 0;
-        if (!path || !strncmp(path, "ext/", 4) || (L > 3 && !strcmp(path + L - 3, ".jb")) || (L > 4 && (!strcmp(path + L - 4, ".jbl") || !strcmp(path + L - 4, ".jbs") || !strcmp(path + L - 4, ".jbx"))))
+        char *path = path_resolve(raw, c->file);
+        if (noWritePath(path))
             RT(c->args.v[1], "overWriteFile 로 쓸 수 없는 경로입니다 — 코드 (.jb · .jbl) · project.jbs · ext/ 는 안 됨 (받은 값: \"%s\")", raw);
         writeOutB(path, v.u.dt->b, v.u.dt->n);
         rt_sys("💾 %s ← %zu B", path, v.u.dt->n);

@@ -221,7 +221,7 @@ jobs:
           Get-Content data-out.txt -Encoding utf8; Get-Content data-err.txt -Encoding utf8
           $expect = @('d=406fe00000000000', 'n=255', 's=6869', 't=hi', 'k=7', 'k2=0', 'bad=keep', 'fd=3fe0000000000000 b=1 f2=0.5', 'md=5b5b312c325d2c5b332c345d5d',
             'm2=[1, 2 | 3, 4]', 'm3=[0 | 0 | 0]', 'ls=[1,"x",3] l2=[1, "x", 3]', 'c2=[1, "a", [2, 3]]', 'l3=[9]', 'e=[]',
-            'big=3031323334353637383930313233343536373839303132333435363738393031… (70 B)', 'd2=406fe00000000000 d=7a', 'three=0')
+            'big=3031323334353637383930313233343536373839303132333435363738393031… (70 B)', 'd2=406fe00000000000 d=7a', 'three=0', 'lb=[1, 0, 2]')
           $got = Get-Content data-out.txt -Encoding utf8; $bad = 0
           foreach ($e in $expect) { if ($got -notcontains $e) { Write-Host "✖ 없음: $e"; $bad++ } }
           if ($bad) { exit 1 }
@@ -238,7 +238,7 @@ jobs:
           $p = Start-Process .\DataFile.exe -RedirectStandardOutput datafile-out.txt -RedirectStandardError datafile-err.txt -PassThru
           if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
           Get-Content datafile-out.txt -Encoding utf8; Get-Content datafile-err.txt -Encoding utf8
-          $expect = @('part=Hello', 'set=Hello, JB', 'ins=>Hello, JB!', 'empty=[]', 'num=3e406fe000000000006c6c6f2c204a4221', 'k=255', 'file=line2', 'f=1 permit=HELLO file second=second')
+          $expect = @('part=Hello', 'set=Hello, JB', 'ins=>Hello, JB!', 'empty=[]', 'num=3e406fe000000000006c6c6f2c204a4221', 'k=255', 'cow=Xbc abZ', 'file=line2', 'f=1 permit=HELLO file second=second')
           $got = Get-Content datafile-out.txt -Encoding utf8; $bad = 0
           foreach ($e in $expect) { if ($got -notcontains $e) { Write-Host "✖ 없음: $e"; $bad++ } }
           if ((Get-Content pf-a.txt -Raw) -ne 'HELLO file') { Write-Host '✖ overWriteFile 이 허락받은 파일을 바꾸지 않았습니다'; $bad++ }

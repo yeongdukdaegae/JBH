@@ -36,6 +36,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - APK: 아직 안 됨 (안드로이드 쪽 앱 틀에 권한 요청이 없음 → 늘 0). C 변환은 이 기능들 (getPermit · hasPermit · deviceManager · data) 을 거부한다.
   - 시험: `tests/fixtures/permit-main.jb` 를 웹 (`tests/dev.mjs` · 가짜 카메라 · 마이크 · 파일 고르기 흉내) 과 EXE (CI · 파일 · dummy 마이크만 실제로 확인) 가 같이 돌린다.
 - `data` 형식 (변수 형식 · Lite 와 Dev. 모두): 무엇이든 넣고 무엇에든 넣을 수 있는 바이트 묶음. 규칙은 에디터 (`toData` · `fromData` · `dco`) 와 C (`value.c` 의 `to_data` · `from_data` · `run.c` 의 `dco`) 를 같게 둔다.
+  - 바이트는 복사하지 않고 나눠 쓴다: EXE 는 `Data.rc` (참조 수 · `v_copy` 는 rc 만 올림), 웹은 나눠 준 `Uint8Array` 에 `__sh` 표시. setPart 는 혼자 쓰는 바이트면 그 자리에서 (웹은 같은 길이일 때), 나눠 쓰는 중이면 새로 만든다. 프로젝트 파일 ↔ 바이트 · UTF-8 판정 · 쓰기 금지 경로는 core 의 `fileBytes` · `bytesFile` · `utf8Of` · `noWritePath` (EXE 는 `run.c` 의 `noWritePath`) 한 곳에만 둔다.
   - 넣을 때: 숫자 → 8바이트 실수 (big-endian) · 문자열 → UTF-8 · 행렬 · 리스트 · compound → JSON 글자 · data → 복사 (장치에 연결된 것은 그 순간의 바이트).
   - 꺼낼 때: 받는 형식으로 억지로 읽고 안 맞으면 건너뜀 — 숫자는 8바이트일 때만 · 문자열은 올바른 UTF-8 (0 바이트 없음) · 리스트 · 행렬 · compound 는 JSON `[ ]` (행렬은 크기까지). 건너뛰면 대입은 원래 값 그대로 · 선언 · 매개변수 · 돌려줄 값은 기본값.
   - print · 문자열과 `+` · `%이름%`: 16진수 (64바이트가 넘으면 앞 32바이트 + `… (N B)`) · JSON 으로는 16진수 전체. 계산 (`+ - == …`) 은 검사 오류 · 리스트 · compound 에 못 넣음.

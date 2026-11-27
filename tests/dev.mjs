@@ -194,7 +194,7 @@ await pg.evaluate(()=>{delete files['ext/Layers.jbx'];});
  }finally{srv.kill();await pg.evaluate(()=>{delete files['ext/Net.jbx'];});}
 }
 // ---- data 형식 (넣기 · 꺼내기 · 안 맞으면 건너뜀) — EXE (CI) 와 같은 줄 ----
-const DATA_EXPECT=['d=406fe00000000000','n=255','s=6869','t=hi','k=7','k2=0','bad=keep','fd=3fe0000000000000 b=1 f2=0.5','md=5b5b312c325d2c5b332c345d5d','m2=[1, 2 | 3, 4]','m3=[0 | 0 | 0]','ls=[1,"x",3] l2=[1, "x", 3]','c2=[1, "a", [2, 3]]','l3=[9]','e=[]','big=3031323334353637383930313233343536373839303132333435363738393031… (70 B)','d2=406fe00000000000 d=7a','three=0'];
+const DATA_EXPECT=['d=406fe00000000000','n=255','s=6869','t=hi','k=7','k2=0','bad=keep','fd=3fe0000000000000 b=1 f2=0.5','md=5b5b312c325d2c5b332c345d5d','m2=[1, 2 | 3, 4]','m3=[0 | 0 | 0]','ls=[1,"x",3] l2=[1, "x", 3]','c2=[1, "a", [2, 3]]','l3=[9]','e=[]','big=3031323334353637383930313233343536373839303132333435363738393031… (70 B)','d2=406fe00000000000 d=7a','three=0','lb=[1, 0, 2]'];
 L=await run(fs.readFileSync(ROOT+'/tests/fixtures/data-main.jb','utf8'),800);console.log(L.map(x=>'    | '+x).join('\n'));
 for(const e of DATA_EXPECT)ok(L.includes(e),'data: '+e);
 for(const [body,want] of [['var data call d = 1;\n    var int call x = d + 1;',"data 에는 '+' 를 쓸 수 없습니다"],
@@ -213,7 +213,7 @@ await pg.evaluate(()=>{
   window.showOpenFilePicker=async()=>{const x=q.shift();return [mk(x[0],x[1])];};
 });
 L=await run(fs.readFileSync(ROOT+'/tests/fixtures/datafile-main.jb','utf8'),1500);console.log(L.map(x=>'    | '+x).join('\n'));
-for(const e of ['part=Hello','set=Hello, JB','ins=>Hello, JB!','empty=[]','num=3e406fe000000000006c6c6f2c204a4221','k=255','file=line2','f=1 permit=HELLO file second=second'])ok(L.includes(e),'datafile: '+e);
+for(const e of ['part=Hello','set=Hello, JB','ins=>Hello, JB!','empty=[]','num=3e406fe000000000006c6c6f2c204a4221','k=255',"cow=Xbc abZ",'file=line2','f=1 permit=HELLO file second=second'])ok(L.includes(e),'datafile: '+e);
 ok(await pg.evaluate(()=>new TextDecoder().decode(window.__pf[0].data))==='HELLO file','datafile: overWriteFile changed the permitted file');
 ok(await pg.evaluate(()=>files['doc/out.txt'])==='line2','datafile: overWriteFile wrote the project file');
 for(const [body,want] of [['jaw.overWriteFile("x", "main.jb");','overWriteFile 로 쓸 수 없는 경로입니다'],

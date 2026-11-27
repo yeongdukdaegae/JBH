@@ -17,7 +17,7 @@ void list_push(List *l, Value v) {
 }
 Value v_copy(Value v) {
     switch (v.k) {
-    case V_DATA: { Value d = v_data(v.u.dt->b, v.u.dt->n); d.u.dt->dev = v.u.dt->dev; d.u.dt->bind = v.u.dt->bind; return d; }
+    case V_DATA: v.u.dt->rc++; return v;   /* 바이트는 바뀌지 않으므로 나눠 씀 (setPart 는 rc 를 보고 새로 만듦) */
     case V_STR: return v_str(v.u.s);
     case V_MAT: { Value m = v_mat(v.u.m->r, v.u.m->c); memcpy(m.u.m->d, v.u.m->d, sizeof(double) * v.u.m->r * v.u.m->c); return m; }
     case V_LIST: {
@@ -33,7 +33,7 @@ Value v_own(Value v) { return v_copy(v); }
 void v_free(Value *v) {
     switch (v->k) {
     case V_STR: free(v->u.s); break;
-    case V_DATA: free(v->u.dt->b); free(v->u.dt); break;
+    case V_DATA: if (--v->u.dt->rc <= 0) { free(v->u.dt->b); free(v->u.dt); } break;
     case V_MAT: free(v->u.m->d); free(v->u.m); break;
     case V_LIST: for (int i = 0; i < v->u.l->n; i++) v_free(&v->u.l->items[i]); free(v->u.l->items); free(v->u.l); break;
     }
@@ -63,15 +63,21 @@ int v_eq(Value a, Value b) {
  *   꺼낼 때: 받는 형식으로 억지로 읽고 안 맞으면 0 (대입을 건너뜀) · 장치에 귀속된 data 는 지금 순간의 바이트 */
 unsigned char *rt_dev_snap(int dev, size_t *n);   /* run.c — 카메라 · 마이크의 지금 바이트 */
 Value v_data(const unsigned char *b, size_t n) {
-    Value v; v.k = V_DATA; v.u.dt = jb_calloc(sizeof(Data));
+    Value v; v.k = V_DATA; v.u.dt = jb_calloc(sizeof(Data)); v.u.dt->rc = 1;
     v.u.dt->b = jb_alloc(n ? n : 1); if (n) memcpy(v.u.dt->b, b, n); v.u.dt->n = n; return v;
+}
+Value v_data_own(unsigned char *b, size_t n) {   /* b 를 그대로 가짐 (복사 없음) */
+    Value v; v.k = V_DATA; v.u.dt = jb_calloc(sizeof(Data)); v.u.dt->rc = 1; v.u.dt->b = b ? b : jb_alloc(1); v.u.dt->n = n; return v;
 }
 unsigned char *data_bytes(Value v, size_t *n, int *own) {
     if (v.u.dt->dev) { *own = 1; return rt_dev_snap(v.u.dt->dev, n); }
     *own = 0; *n = v.u.dt->n; return v.u.dt->b;
 }
 Value to_data(Value v) {
-    if (v.k == V_DATA) { size_t n; int own; unsigned char *b = data_bytes(v, &n, &own); Value r = v_data(b, n); if (own) free(b); return r; }
+    if (v.k == V_DATA) {   /* 바이트는 나눠 씀 · 장치에 귀속된 것은 그 순간의 바이트 */
+        if (!v.u.dt->dev) { v.u.dt->rc++; return v; }
+        size_t n; int own; unsigned char *b = data_bytes(v, &n, &own); return v_data_own(b, n);
+    }
     if (v.k == V_NUM) { unsigned char b[8]; uint64_t u; double x = v.u.n; memcpy(&u, &x, 8); for (int i = 0; i < 8; i++) b[i] = (unsigned char)(u >> (56 - 8 * i)); return v_data(b, 8); }
     if (v.k == V_STR) return v_data((const unsigned char *)v.u.s, strlen(v.u.s));
     char *j = json_of(v); Value r = v_data((const unsigned char *)j, strlen(j)); free(j); return r;
@@ -88,7 +94,7 @@ static int utf8_ok(const unsigned char *s, size_t n) {
 }
 int from_data(Value d, int ty, const int *dims, Value *out) {
     size_t n; int own; unsigned char *b = data_bytes(d, &n, &own); int ok = 0;
-    if (ty == TY_DATA) { *out = v_data(b, n); ok = 1; goto done; }
+    if (ty == TY_DATA) { *out = own ? v_data_own(b, n) : to_data(d); own = 0; ok = 1; goto done; }
     if (ty == TY_INT || ty == TY_FLOAT || ty == TY_BIT) {
         if (n == 8) { uint64_t u = 0; for (int i = 0; i < 8; i++) u = u << 8 | b[i]; double x; memcpy(&x, &u, 8); *out = v_num(x); ok = 1; }
         goto done;
@@ -123,21 +129,17 @@ done:
     if (own) free(b);
     return ok;
 }
-static char *data_hex(Value v) {   /* 길면 앞 32바이트만 */
+static char *data_hex_n(Value v, int all) {   /* 16진수 — all 이 아니면 64바이트가 넘을 때 앞 32바이트 + "… (N B)" */
+    static const char H[] = "0123456789abcdef";
     size_t n; int own; unsigned char *b = data_bytes(v, &n, &own);
-    size_t k = n <= 64 ? n : 32; char *o = jb_alloc(k * 2 + 40), *w = o;
-    for (size_t i = 0; i < k; i++) w += sprintf(w, "%02x", b[i]);
-    if (k < n) sprintf(w, "… (%zu B)", n);
-    else *w = 0;
+    size_t k = all || n <= 64 ? n : 32; char *o = jb_alloc(k * 2 + 40), *w = o;
+    for (size_t i = 0; i < k; i++) { *w++ = H[b[i] >> 4]; *w++ = H[b[i] & 15]; }
+    if (k < n) sprintf(w, "… (%zu B)", n); else *w = 0;
     if (own) free(b);
     return o;
 }
-static char *data_hex_all(Value v) {
-    size_t n; int own; unsigned char *b = data_bytes(v, &n, &own);
-    char *o = jb_alloc(n * 2 + 1), *w = o; for (size_t i = 0; i < n; i++) w += sprintf(w, "%02x", b[i]); *w = 0;
-    if (own) free(b);
-    return o;
-}
+static char *data_hex(Value v) { return data_hex_n(v, 0); }
+static char *data_hex_all(Value v) { return data_hex_n(v, 1); }
 
 /* ---------- 출력 ---------- */
 static void strip0(char *s) {

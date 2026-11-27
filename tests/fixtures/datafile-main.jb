@@ -18,6 +18,13 @@ run{
     print("num=%d%");
     var int call k = data.d.getPart(1, 9);
     print("k=%k%");
+    var data call c = "abc";
+    var data call c2 = c;
+    data.c.setPart(0, 1, "X");
+    data.c2.setPart(2, 3, "Z");
+    var string call cs = c;
+    var string call cs2 = c2;
+    print("cow=%cs% %cs2%");
     jaw.overWriteFile("line1", "doc/out.txt");
     var data call r = jaw.readFile("doc/out.txt");
     data.r.setPart(4, 5, "2");
