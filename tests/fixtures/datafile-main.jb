@@ -1,0 +1,36 @@
+Use jawbreaker call jaw;
+
+run{
+    var data call d = "Hello, World";
+    var data call p = data.d.getPart(0, 5);
+    var string call ps = p;
+    print("part=%ps%");
+    data.d.setPart(7, 12, "JB");
+    var string call ds = d;
+    print("set=%ds%");
+    data.d.setPart(0, 0, ">");
+    data.d.setPart(100, 200, "!");
+    ds = d;
+    print("ins=%ds%");
+    var data call e = data.d.getPart(5, 2);
+    print("empty=[%e%]");
+    data.d.setPart(1, 3, 255);
+    print("num=%d%");
+    var int call k = data.d.getPart(1, 9);
+    print("k=%k%");
+    jaw.overWriteFile("line1", "doc/out.txt");
+    var data call r = jaw.readFile("doc/out.txt");
+    data.r.setPart(4, 5, "2");
+    jaw.overWriteFile(r, "doc/out.txt");
+    var string call rs = jaw.readFile("doc/out.txt");
+    print("file=%rs%");
+    jaw.getPermit("file");
+    jaw.getPermit("file");
+    var bit call f = jaw.hasPermit("file");
+    var data call pf = jaw.readFile("permit.1");
+    data.pf.setPart(0, 5, "HELLO");
+    jaw.overWriteFile(pf, "permit.1");
+    var string call pt = jaw.readFile("permit.1");
+    var string call p2 = jaw.readFile("permit.2");
+    print("f=%f% permit=%pt% second=%p2%");
+}

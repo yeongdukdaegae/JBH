@@ -30,7 +30,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - 웹은 워커 안에서 `fetch` · `WebSocket` 을 쓴다 (`JBX_BOOT` 의 `HOST`). 그래서 브라우저 규칙을 따른다: HTTP 는 서버가 CORS 를 허용해야 응답을 읽고, https 페이지에서는 http · ws 에 접속하지 못한다. EXE (`runtime/src/net.c` · WinHTTP · 스레드) 에는 이 제한이 없다 — 차이로 남아 있음.
   - 한도: 동시에 64개 · 응답 본문과 WebSocket 에 쌓인 메시지는 16MB.
   - 시험: `tests/libs/Net` · `tests/fixtures/net-main.jb` · `tests/net_server.py` (HTTP + WebSocket) 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌린다. Windows 가 아닌 빌드의 `net.c` 는 소켓으로 http · ws 만 한다 (시험용).
-- 권한 (언어의 내장 기능 · Lite 와 Dev. 모두): `jaw.getPermit("cam" | "mic" | "file");` 은 허락을 받을 때까지 기다리고, 결과는 `jaw.hasPermit("…")` (bit) 로 읽는다. 허락받은 장치는 `deviceManager` 로 data 변수에 연결해서 쓴다 (아래). 파일을 다루는 기능은 추후 (지금은 고르기 · 허락까지).
+- 권한 (언어의 내장 기능 · Lite 와 Dev. 모두): `jaw.getPermit("cam" | "mic" | "file");` 은 허락을 받을 때까지 기다리고, 결과는 `jaw.hasPermit("…")` (bit) 로 읽는다. 허락받은 장치는 `deviceManager` 로 data 변수에 연결해서 쓴다 (아래). `getPermit("file")` 은 부를 때마다 파일 하나를 더 받아 캐시에 둔다 (`permit.1` · `permit.2` … 차례 번호 · 16개 · 256MB 를 넘으면 오래된 것부터 뺌 · 웹 `PFILES` · EXE `run.c` 의 `PF`).
   - 웹: `getUserMedia` (카메라 · 마이크) · `showOpenFilePicker` (파일 · Edge · Chrome 만 · 사용자가 막 누른 직후에만 열리므로 실패하면 화면에 "파일 고르기" 단추를 띄움). 코드는 `execProgram` 안 `PERMIT`. 실행이 끝나면 카메라 · 마이크를 끈다 (`PERMIT_LIVE`).
   - EXE: `runtime/src/permit.c` — 카메라는 Windows Media Foundation (첫 카메라 · 그 밖의 OS 는 0) · 마이크는 SDL2 녹음 장치 · 파일은 열기 창 (환경 변수 `JB_PERMIT_FILE` 이 있으면 그 파일 · 시험용). Windows 개인 정보 설정에서 막혀 있으면 0.
   - APK: 아직 안 됨 (안드로이드 쪽 앱 틀에 권한 요청이 없음 → 늘 0). C 변환은 이 기능들 (getPermit · hasPermit · deviceManager · data) 을 거부한다.
@@ -42,6 +42,8 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - `deviceManager` (내장 라이브러리 · `Use deviceManager call dem;`): `dem.recordCamAs("변수")` · `dem.recordMicAs("변수")` 는 data 변수를 카메라 · 마이크에 연결 (읽을 때마다 지금 바이트) · `dem.stopRecord("변수")` 는 풂 (그 순간의 바이트가 남음 · 그 영상을 입은 오브젝트는 마지막 그림으로 멈춤). 인자는 data 변수 이름 ("따옴표"). 허락이 없으면 실행 오류.
   - 바이트: 카메라 = 너비 · 높이 (u32 big-endian) + RGBA · 마이크 = 4바이트 실수 (big-endian) 1024개 (마지막 소리 조각). 마이크 data 의 쓰임 (재생 등) 은 추후.
   - `mag.wearTexture("id", data)`: 카메라에 연결된 data = 계속 바뀌는 영상 · 카메라에서 나온 바이트 = 그 그림 · 그 밖은 오류. EXE 는 `Obj.camBind` 와 `gfx_cam_unbind` (멈춤) · `rd_image_rgba`.
+  - 일부분: `data.이름.getPart(시작, 끝)` (식 · data) · `data.이름.setPart(시작, 끝, 값);` (그 구간을 값의 바이트로 · 길이가 달라도 됨). 번호는 0 부터 · 끝은 빠짐 · 범위 밖은 잘라 냄. 연결된 data 를 setPart 하면 먼저 연결을 푼다.
+  - 파일: `jaw.readFile("경로")` (식 · data) · `jaw.overWriteFile(값, "경로");`. 경로 `permit.번호` = 허락받은 파일 (쓰기는 실제 파일에 · 웹은 `createWritable`) · 그 밖은 프로젝트 파일 (쓰기는 genJson 과 같은 곳 · 코드 .jb · .jbl · project.jbs · .jbx · ext/ 는 거부). 시험: `tests/fixtures/datafile-main.jb` (웹 · EXE · `JB_PERMIT_FILE` 은 `a|b` 꼴로 차례대로).
   - 시험: `tests/fixtures/data-main.jb` 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌려 같은 줄이 나오는지 본다.
 - `jdh_log` 는 `print` 와 같은 디버그 출력이다. 에디터에서는 로그 패널에, EXE 에서는 표준 출력에 나온다 (창 프로그램이라 화면에는 안 보임).
 - 엔진 버전은 1.5 (에디터의 `JB_VER` · `JBX_ENGINE` · `src/jdh.c` 의 `JDH_ENGINE_*` 를 같이 올린다). 라이브러리 선언의 `requires.engine` (">=1.2" 꼴) 을 `jdh lib check` 와 에디터가 검사한다.

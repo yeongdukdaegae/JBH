@@ -203,8 +203,17 @@ static NodeList argsList(void) {
     opx(")"); return a;
 }
 static Node *callN(int line, const char *lib, const char *name) { Node *c = N(N_CALL, line); c->lib = lib; c->name = name; return c; }
+/* data.이름.명령어(…) — data 변수의 일부분 (getPart · setPart) */
+static Node *dataRef(int k, Tok *t) {
+    S->p++; opx("."); Tok *a = ident("data 변수 이름"); opx("."); Tok *f = ident("명령어 이름 (getPart · setPart)");
+    if (!isOp("(")) EL(f->line, "'data.%s.%s' 다음에는 ( ) 가 필요합니다", a->v, f->v);
+    if (k == N_DPART && strcmp(f->v, "getPart")) EL(f->line, !strcmp(f->v, "setPart") ? "setPart 는 값을 돌려주지 않아서 식 안에서 쓸 수 없습니다 — 문장으로 씁니다 (data.이름.setPart(시작, 끝, 값);)" : "data 변수의 명령어는 getPart · setPart 입니다 (받은 이름: %s)", f->v);
+    if (k == N_DSET && strcmp(f->v, "setPart")) EL(f->line, !strcmp(f->v, "getPart") ? "getPart 는 값을 돌려주는 식이라 단독으로 쓸 수 없습니다 (예: var data call p = data.이름.getPart(0, 4);)" : "data 변수의 명령어는 getPart · setPart 입니다 (받은 이름: %s)", f->v);
+    Node *n = N(k, t->line); n->name = a->v; n->args = argsList(); return n;
+}
 static Node *primary(void) {
     Tok *t = T();
+    if (t->t == T_TYPE && !strcmp(t->v, "data") && TK(1)->t == T_OP && !strcmp(TK(1)->v, ".")) return dataRef(N_DPART, t);
     if (t->t == T_INT || t->t == T_FLOAT) { S->p++; Node *n = N(N_NUM, t->line); n->num = t->num; n->isFloat = t->t == T_FLOAT; snprintf(n->raw, sizeof n->raw, "%s", t->raw); return n; }
     if (t->t == T_STR) { S->p++; return strNode(t); }
     if (t->t == T_KW && (!strcmp(t->v, "true") || !strcmp(t->v, "false"))) { S->p++; Node *n = N(N_BOOL, t->line); n->num = !strcmp(t->v, "true"); return n; }
@@ -410,6 +419,7 @@ static Node *stmt(void) {
         if (!strcmp(t->v, "else")) E("else 앞에 짝이 되는 if 가 없습니다 — 바로 위 if 에 이미 else 가 있거나, 위쪽 if 의 { } 가 닫히지 않았는지 확인하세요 (} 하나 빠짐)");
         E("여기서는 '%s' 을(를) 쓸 수 없습니다", t->v);
     }
+    if (t->t == T_TYPE && !strcmp(t->v, "data") && TK(1)->t == T_OP && !strcmp(TK(1)->v, ".")) { Node *n = dataRef(N_DSET, t); semi(); return n; }
     if (t->t == T_TYPE) E("변수는 'var %s call 이름;' 형태로 만듭니다", t->v);
     if (t->t == T_ID) {
         Tok *nx = TK(1);

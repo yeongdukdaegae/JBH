@@ -61,7 +61,7 @@ static const Spec COL_FUNCS[] = {{"setVelocity",2,{S_,M12}},{"setVelocityX",2,{S
 static const Spec BUILTINS[] = {{"log",1,{A_}},{"print",1,{A_}},{"wait",1,{I_}},{"terminate",0},{"sendto",1,{S_}},
     {"break",0},{"return",0},{"goTo",1,{I_}},{"label",1,{S_}},{"setup",1,{S_}},
     {"keyClick",1,{S_}},{"keyPush",1,{S_}},{"keyRlse",1,{S_}},
-    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{"getPermit",1,{S_}},{NULL}};
+    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{"getPermit",1,{S_}},{"overWriteFile",2,{A_,S_}},{NULL}};
 static const Spec *spec(const Spec *t, const char *n) { for (; t->name; t++) if (!strcmp(t->name, n)) return t; return NULL; }
 static char *specList(const Spec *t, const char *pre, int objStyle) {
     size_t cap = 1024, L = 0; char *s = jb_alloc(cap); s[0] = 0;
@@ -212,6 +212,18 @@ static int wantComp(Node *x, InfoMap **sc, int ns) {
     return 0;
 }
 static void compMark(Node *x, InfoMap **sc, int ns) { if (wantComp(x, sc, ns)) { x->asList = 1; x->comp = 1; } }
+/* data.이름.… 의 이름: 선언된 data 변수 · 번호 인자: int */
+static void dataVar(Node *e, InfoMap **sc, int ns) {
+    Info *i = look(e->name, sc, ns);
+    if (!i) E(e, "변수 '%s' 이(가) 선언되지 않았습니다 (var data call %s; 로 먼저 만드세요)", e->name, e->name);
+    if (i->ty != TY_DATA) E(e, "getPart · setPart 는 data 변수에만 쓸 수 있습니다 ('%s' 은(는) %s)", e->name, ty_name(i->ty));
+    e->info = i;
+}
+static void idxInt(Node *a, int t, const char *nm, int i) {
+    if (t == TY_ANY) { a->chk = TY_INT; return; }
+    if (t == TY_INT || t == TY_BIT || (t == TY_FLOAT && a->anyInt)) return;
+    E(a, "'%s' 의 %d번째 값은 바이트 번호 (int) 입니다 (받은 형식: %s)", nm, i + 1, ty_name(t));
+}
 static void itemOk(Node *a, int t, int comp) {
     if (t == TY_DATA) E(a, "data 는 리스트 · compound 에 넣을 수 없습니다 — 다른 형식으로 바꿔서 넣으세요");
     if (comp) return;
@@ -263,6 +275,12 @@ static int ex(Node *e, InfoMap **sc, int ns) {
         return e->ty = e->isFloat ? TY_FLOAT : TY_INT;
     case N_STR: return e->ty = TY_STRING;
     case N_BOOL: return e->ty = TY_BIT;
+    case N_DPART: {   /* data.이름.getPart(시작, 끝) → data (0 부터 · 끝은 빠짐) */
+        dataVar(e, sc, ns);
+        if (e->args.n != 2) E(e, "'getPart' 은(는) 값 2개가 필요합니다 (받은 값: %d개)", e->args.n);
+        for (int i = 0; i < 2; i++) idxInt(e->args.v[i], ex(e->args.v[i], sc, ns), "getPart", i);
+        return e->ty = TY_DATA;
+    }
     case N_ID: {
         curLine = e->line;
         Info *i = look(e->name, sc, ns);
@@ -391,6 +409,11 @@ static int ex(Node *e, InfoMap **sc, int ns) {
             int pt = ex(e->args.v[0], sc, ns);
             if (!fit(e->args.v[0], pt, TY_STRING)) E(e->args.v[0], "fileExists 에는 경로(문자열)를 넣습니다 (예: \"save/s.json\") — 받은 형식: %s", tyTxt(pt, e->args.v[0]));
             e->fileEx = 1; return e->ty = TY_BIT;
+        }
+        if (!strcmp(e->name, "readFile") && jaw) {   /* jaw.readFile("경로") → data ("permit.번호" = 허락받은 파일) */
+            if (e->args.n != 1) E(e, "'readFile' 은(는) 값 1개가 필요합니다 (받은 값: %d개)", e->args.n);
+            int t = ex(e->args.v[0], sc, ns); if (!fit(e->args.v[0], t, TY_STRING)) E(e->args.v[0], "readFile 에는 경로(문자열)를 넣습니다 (예: \"doc/a.txt\" · \"permit.1\") — 받은 형식: %s", tyTxt(t, e->args.v[0]));
+            e->readF = 1; return e->ty = TY_DATA;
         }
         if (!strcmp(e->name, "hasPermit") && jaw) {   /* jaw.hasPermit("cam") */
             if (e->args.n != 1) E(e, "'%s' 은(는) 값 %d개가 필요합니다 (받은 값: %d개)", e->name, 1, e->args.n);
@@ -903,6 +926,12 @@ static void stmt(Node *s, InfoMap **sc, int ns, CS *cs, int ncs, Node *chainHead
         i->kind = ns == 1 ? (M->isLib ? VK_GLOBAL : VK_TVAR) : (!M->isLib && runK >= 0 && ns == 2) ? VK_RVAR : VK_LOCAL;
         i->mod = M->name; i->runK = runK; i->file = M->file; i->line = s->line;
         s->info = i; im_set(cur, i); return;
+    }
+    case N_DSET: {   /* data.이름.setPart(시작, 끝, 값); */
+        curLine = s->line; dataVar(s, sc, ns);
+        if (s->args.n != 3) E(s, "'setPart' 은(는) 값 3개가 필요합니다 (받은 값: %d개)", s->args.n);
+        for (int i = 0; i < 2; i++) idxInt(s->args.v[i], ex(s->args.v[i], sc, ns), "setPart", i);
+        ex(s->args.v[2], sc, ns); return;
     }
     case N_ASSIGN: {
         curLine = s->line;

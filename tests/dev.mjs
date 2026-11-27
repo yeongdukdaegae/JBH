@@ -204,9 +204,29 @@ for(const [body,want] of [['var data call d = 1;\n    var int call x = d + 1;',"
   L=await run('Use jawbreaker call jaw;\nUse deviceManager call dem;\nrun{\n    '+body+'\n}\n',300);
   ok(L.some(x=>x.includes(want)),'data error: '+want);
 }
+// ---- data.이름.getPart · setPart · jaw.readFile · overWriteFile · 허락받은 파일 (permit.번호) — EXE (CI) 와 같은 줄 ----
+await pg.evaluate(()=>{
+  window.__pf=[];const mk=(name,t)=>{const f={name,data:new TextEncoder().encode(t)};window.__pf.push(f);
+    return {name,requestPermission:async()=>'granted',getFile:async()=>({arrayBuffer:async()=>f.data.slice().buffer}),
+      createWritable:async()=>{let parts=[];return {write:async b=>{parts.push(new Uint8Array(b));},close:async()=>{f.data=parts.length?parts[parts.length-1]:new Uint8Array(0);}};}};};
+  const q=[['a.txt','hello file'],['b.txt','second']];
+  window.showOpenFilePicker=async()=>{const x=q.shift();return [mk(x[0],x[1])];};
+});
+L=await run(fs.readFileSync(ROOT+'/tests/fixtures/datafile-main.jb','utf8'),1500);console.log(L.map(x=>'    | '+x).join('\n'));
+for(const e of ['part=Hello','set=Hello, JB','ins=>Hello, JB!','empty=[]','num=3e406fe000000000006c6c6f2c204a4221','k=255','file=line2','f=1 permit=HELLO file second=second'])ok(L.includes(e),'datafile: '+e);
+ok(await pg.evaluate(()=>new TextDecoder().decode(window.__pf[0].data))==='HELLO file','datafile: overWriteFile changed the permitted file');
+ok(await pg.evaluate(()=>files['doc/out.txt'])==='line2','datafile: overWriteFile wrote the project file');
+for(const [body,want] of [['jaw.overWriteFile("x", "main.jb");','overWriteFile 로 쓸 수 없는 경로입니다'],
+  ['var data call v = jaw.readFile("permit.3");',"허락받은 파일 'permit.3' 이(가) 없습니다"],
+  ['var int call v = 1;\n    data.v.setPart(0, 1, "a");','getPart · setPart 는 data 변수에만 쓸 수 있습니다'],
+  ['var data call v;\n    data.v.getPart(0, 1);','getPart 는 값을 돌려주는 식이라 단독으로 쓸 수 없습니다']]){
+  L=await run('Use jawbreaker call jaw;\nrun{\n    '+body+'\n}\n',300);
+  ok(L.some(x=>x.includes(want)),'datafile error: '+want);
+}
+await pg.evaluate(()=>{delete files['doc/out.txt'];});
 // ---- 권한 (jaw.getPermit · hasPermit) · deviceManager (recordCamAs · recordMicAs · stopRecord) · mag.wearTexture(id, data) — 가짜 카메라 · 마이크 · 파일 고르기 ----
 await pg.evaluate(()=>{
-  window.showOpenFilePicker=async()=>[{name:'save.txt',requestPermission:async()=>'granted',getFile:async()=>({text:async()=>'hello file'})}];
+  window.showOpenFilePicker=async()=>[{name:'save.txt',requestPermission:async()=>'granted',getFile:async()=>({arrayBuffer:async()=>new TextEncoder().encode('hello file').buffer})}];
 });
 L=await run(fs.readFileSync(ROOT+'/tests/fixtures/permit-main.jb','utf8'),2500);console.log(L.map(x=>'    | '+x.slice(0,120)).join('\n'));
 for(const e of ['file=1','cam=1 mic=1','stopped'])ok(L.includes(e),'permit: '+e);

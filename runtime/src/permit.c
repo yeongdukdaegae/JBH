@@ -1,7 +1,7 @@
 /* 권한 (jaw.getPermit) 의 장치 쪽 — 카메라 · 마이크 · 파일 고르기 (편집기의 execProgram 안 PERMIT 와 같은 뜻)
  *   카메라: Windows 는 Media Foundation (첫 번째 카메라 · RGB32 로 받아 RGBA 로) · 그 밖은 없음 (허락되지 않음)
  *   마이크: SDL2 녹음 장치 — 마지막 소리 조각 (1024개 · 4바이트 실수)
- *   파일: Windows 는 열기 창 (모든 파일) · 그 밖은 터미널에서 경로 · 환경 변수 JB_PERMIT_FILE 이 있으면 그 파일 (시험용)
+ *   파일: Windows 는 열기 창 (모든 파일) · 그 밖은 터미널에서 경로 · 환경 변수 JB_PERMIT_FILE 이 있으면 그 파일들 ("a|b" · 차례대로 · 시험용)
  *   windows.h 의 이름이 실행기의 이름과 겹쳐서 실행기 헤더 없이 따로 둔 파일
  */
 #include <stdio.h>
@@ -175,9 +175,16 @@ void jb_permit_mic_stop(void) { if (micDev) { SDL_CloseAudioDevice(micDev); micD
 
 /* ---------- 파일 고르기 ---------- */
 int jb_permit_file_pick(char *out, size_t n) {
-    const char *e = getenv("JB_PERMIT_FILE");
+    const char *e = getenv("JB_PERMIT_FILE");   /* 시험용: "경로|경로|…" — 부를 때마다 다음 것 (다 쓰면 취소) */
+    static int used;
     out[0] = 0;
-    if (e) { snprintf(out, n, "%s", e); return *out != 0; }
+    if (e) {
+        for (int k = 0; k < used && e; k++) { e = strchr(e, '|'); if (e) e++; }
+        used++;
+        if (!e) return 0;
+        size_t L = strcspn(e, "|"); if (L >= n) L = n - 1;
+        memcpy(out, e, L); out[L] = 0; return *out != 0;
+    }
 #ifdef _WIN32
     wchar_t buf[4096] = L"";
     OPENFILENAMEW o; memset(&o, 0, sizeof o);

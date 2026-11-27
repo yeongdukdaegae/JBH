@@ -225,6 +225,24 @@ jobs:
           $got = Get-Content data-out.txt -Encoding utf8; $bad = 0
           foreach ($e in $expect) { if ($got -notcontains $e) { Write-Host "✖ 없음: $e"; $bad++ } }
           if ($bad) { exit 1 }
+      - name: data 일부 고치기 · 파일 시험 (getPart · setPart · readFile · overWriteFile · 허락받은 파일 permit.1 · 2 — 웹 시험과 같은 main.jb · 같은 줄)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          dist\bin\jdh.exe new project DataFileGame; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\datafile-main.jb DataFileGame\main.jb -Force
+          dist\bin\jdh.exe build exe DataFileGame -o DataFile.exe; if ($LASTEXITCODE) { exit 1 }
+          [IO.File]::WriteAllText("$PWD\pf-a.txt", 'hello file'); [IO.File]::WriteAllText("$PWD\pf-b.txt", 'second')
+          $env:JB_PERMIT_FILE = "$PWD\pf-a.txt|$PWD\pf-b.txt"
+          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+          $p = Start-Process .\DataFile.exe -RedirectStandardOutput datafile-out.txt -RedirectStandardError datafile-err.txt -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
+          Get-Content datafile-out.txt -Encoding utf8; Get-Content datafile-err.txt -Encoding utf8
+          $expect = @('part=Hello', 'set=Hello, JB', 'ins=>Hello, JB!', 'empty=[]', 'num=3e406fe000000000006c6c6f2c204a4221', 'k=255', 'file=line2', 'f=1 permit=HELLO file second=second')
+          $got = Get-Content datafile-out.txt -Encoding utf8; $bad = 0
+          foreach ($e in $expect) { if ($got -notcontains $e) { Write-Host "✖ 없음: $e"; $bad++ } }
+          if ((Get-Content pf-a.txt -Raw) -ne 'HELLO file') { Write-Host '✖ overWriteFile 이 허락받은 파일을 바꾸지 않았습니다'; $bad++ }
+          if ($bad) { exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

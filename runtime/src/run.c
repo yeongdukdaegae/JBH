@@ -30,8 +30,32 @@ void rt_sys(const char *fmt, ...) {
 /* ---------- 권한 (jaw.getPermit) — 장치 쪽은 permit.c ---------- */
 int jb_permit_cam_start(void); int jb_permit_mic_start(void); int jb_permit_file_pick(char *out, size_t n);
 unsigned char *jb_permit_cam_copy(size_t *n); unsigned char *jb_permit_mic_copy(size_t *n);
-static int PERM[3];                  /* cam · mic · file */
-static char *permPath, *permText;    /* 고른 파일 · 그 글자 (파일을 쓰는 기능은 추후) */
+static int PERM[3];                  /* cam · mic · file (file = 허락받은 파일이 하나라도 있음) */
+/* 허락받은 파일 (jaw.getPermit("file") 마다 하나 · 편집기의 PFILES 와 같음): 경로 "permit.번호" · 16개 · 256MB 를 넘으면 오래된 것부터 뺌 */
+static Value chkd(Value v, Node *n);
+typedef struct { char *path; char *text; size_t len; } Out;   /* text 는 끝에 0 이 붙은 바이트 (len = 길이) */
+static const Out *outOf(const char *path);
+#define PF_MAX 16
+#define PF_BYTES ((size_t)256 << 20)
+typedef struct { int id; char *path; unsigned char *b; size_t n; } PFile;
+static PFile PF[PF_MAX + 1]; static int nPF, pfSeq;
+static int pfAdd(const char *path, unsigned char *b, size_t n) {
+    if (n > PF_BYTES) { free(b); return 0; }
+    PF[nPF].id = ++pfSeq; PF[nPF].path = jb_strdup(path); PF[nPF].b = b; PF[nPF].n = n; nPF++;
+    size_t tot = 0; for (int i = 0; i < nPF; i++) tot += PF[i].n;
+    while (nPF > PF_MAX || tot > PF_BYTES) { tot -= PF[0].n; free(PF[0].path); free(PF[0].b); memmove(PF, PF + 1, sizeof(PFile) * --nPF); }
+    PERM[2] = nPF > 0; return pfSeq;
+}
+static int pfId(const char *p) {
+    if (strncmp(p, "permit.", 7) || p[7] < '1' || p[7] > '9') return 0;
+    long v = 0; for (const char *q = p + 7; *q; q++) { if (*q < '0' || *q > '9' || v > 100000000) return 0; v = v * 10 + (*q - '0'); }
+    return (int)v;
+}
+static PFile *pfGet(const char *raw, Node *n) {
+    int id = pfId(raw); for (int i = 0; i < nPF; i++) if (PF[i].id == id) return &PF[i];
+    RT(n, "허락받은 파일 '%s' 이(가) 없습니다 (jaw.getPermit(\"file\"); 로 허락받은 차례대로 permit.1 · permit.2 … · 16개 · 256MB 를 넘으면 오래된 것부터 빠짐)", raw);
+    return NULL;
+}
 int rt_permit_ok(int k) { return k >= 0 && k < 3 && PERM[k]; }
 static int permitKind(const char *k, Node *n) {
     if (!strcmp(k, "cam")) return 0;
@@ -48,16 +72,23 @@ unsigned char *rt_dev_snap(int dev, size_t *n) {
 }
 /* deviceManager — data 변수를 카메라 · 마이크에 귀속 · stopRecord 로 풂 (그 순간의 바이트가 남음) */
 static int demBindSeq;
+/* 귀속을 풂: 그 순간의 바이트가 변수에 남고 · 그 영상을 입은 오브젝트는 마지막 그림으로 (dem.stopRecord · setPart) */
+static void demUnbind(Slot *sl) {
+    if (sl->v.k != V_DATA || !sl->v.u.dt->dev) return;
+    Data *d = sl->v.u.dt; size_t n; unsigned char *b = rt_dev_snap(d->dev, &n);
+    if (d->dev == 1) gfx_cam_unbind(d->bind, b, n);
+    Value nv = v_data(b, n); free(b); v_free(&sl->v); sl->v = nv;
+}
+/* getPart · setPart 의 구간: 0 부터 · 끝은 빠짐 · 범위 밖은 잘라 냄 (끝 < 시작 이면 빈 구간) */
+static double dIdx(Node *a, Env *env) { Value v = chkd(ev(a, env), a); double x = v.k == V_NUM ? trunc(v.u.n) : 0; v_free(&v); return isfinite(x) ? x : 0; }
+static void dRange(Node *c, Env *env, size_t n, size_t *s, size_t *e) {
+    double a = dIdx(c->args.v[0], env), b = dIdx(c->args.v[1], env);
+    if (a < 0) a = 0; if (a > (double)n) a = (double)n; if (b > (double)n) b = (double)n; if (b < a) b = a;
+    *s = (size_t)a; *e = (size_t)b;
+}
 static int dem_call(Node *c, Env *env) {
     Slot *sl = slot_of(c->jinfo, c->jname, env, c);
-    if (!strcmp(c->name, "stopRecord")) {
-        if (sl->v.k == V_DATA && sl->v.u.dt->dev) {
-            Data *d = sl->v.u.dt; size_t n; unsigned char *b = rt_dev_snap(d->dev, &n);
-            if (d->dev == 1) gfx_cam_unbind(d->bind, b, n);
-            Value nv = v_data(b, n); free(b); v_free(&sl->v); sl->v = nv;
-        }
-        return S_OK;
-    }
+    if (!strcmp(c->name, "stopRecord")) { demUnbind(sl); return S_OK; }
     int k = !strcmp(c->name, "recordCamAs") ? 0 : 1;
     if (!PERM[k]) RT(c, k == 0 ? "카메라 권한이 없습니다 — jaw.getPermit(\"cam\"); 로 먼저 허락을 받으세요" : "마이크 권한이 없습니다 — jaw.getPermit(\"mic\"); 로 먼저 허락을 받으세요");
     Value nv = v_data(NULL, 0); nv.u.dt->dev = k + 1; nv.u.dt->bind = ++demBindSeq;
@@ -350,6 +381,10 @@ Value ev(Node *e, Env *env) {
     case N_STR: return v_str(e->str);
     case N_BOOL: return v_num(e->num ? 1 : 0);
     case N_ID: return v_copy(slot_of(e->info, e->name, env, e)->v);
+    case N_DPART: {   /* data.이름.getPart(시작, 끝) */
+        Slot *sl = slot_of(e->info, e->name, env, e); size_t n; int own; unsigned char *b = data_bytes(sl->v, &n, &own);
+        size_t s0, e0; dRange(e, env, n, &s0, &e0); Value r = v_data(b + s0, e0 - s0); if (own) free(b); return r;
+    }
     case N_MAT: {
         if (e->asList) { Value l = v_list(e->comp); for (int i = 0; i < e->args.n; i++) list_push(l.u.l, v_own(ev(e->args.v[i], env))); return l; }
         Value m = v_mat(e->dims[0], e->dims[1]);
@@ -396,6 +431,16 @@ Value ev(Node *e, Env *env) {
         if (e->canKey) { char *k = evs(e->args.v[0], env); int r = key_on(k); free(k); return v_num(r); }
         if (e->permit) {
             char *k = evs(e->args.v[0], env); int i = permitKind(k, e->args.v[0]); free(k); return v_num(PERM[i]);
+        }
+        if (e->readF) {   /* jaw.readFile("경로") → data — "permit.번호" 는 허락받은 파일 (캐시) · 그 밖은 프로젝트 파일 (이번 실행에서 쓴 것도) */
+            char *raw = evs(e->args.v[0], env);
+            if (pfId(raw)) { PFile *pf = pfGet(raw, e->args.v[0]); free(raw); return v_data(pf->b, pf->n); }
+            char *path = path_resolve(raw, e->file);
+            const Out *o = path && strncmp(path, "ext/", 4) ? outOf(path) : NULL;
+            if (o) { free(raw); free(path); return v_data((const unsigned char *)o->text, o->len); }
+            size_t n = 0; const unsigned char *b = path && strncmp(path, "ext/", 4) ? proj_bytes(path, &n) : NULL;
+            if (!b) RT(e->args.v[0], "프로젝트에 '%s' 파일이 없습니다", path ? path : raw);
+            free(raw); free(path); return v_data(b, n);
         }
         if (e->fileEx) {
             char *raw = evs(e->args.v[0], env); char *path = path_resolve(raw, e->file); free(raw);
@@ -536,6 +581,14 @@ int exec(Node *s, Env *env) {
         if (s->pub) return S_OK;
         env_def(env, s->name, s->ty, s->hasDims ? s->dims : NULL, s->expr ? dcoD(chkd(ev(s->expr, env), s->expr), s->ty, s->hasDims ? s->dims : NULL) : dflt(s->ty, s->dims));
         return S_OK;
+    case N_DSET: {   /* data.이름.setPart(시작, 끝, 값); — 장치에 귀속돼 있으면 먼저 풂 (그 순간의 바이트를 고침) */
+        Value v = to_data(ev(s->args.v[2], env));
+        Slot *sl = slot_of(s->info, s->name, env, s); demUnbind(sl);
+        Data *d = sl->v.u.dt; size_t a, e; dRange(s, env, d->n, &a, &e);
+        size_t m = a + v.u.dt->n + (d->n - e); unsigned char *o = jb_alloc(m ? m : 1);
+        memcpy(o, d->b, a); memcpy(o + a, v.u.dt->b, v.u.dt->n); memcpy(o + a + v.u.dt->n, d->b + e, d->n - e);
+        free(d->b); d->b = o; d->n = m; v_free(&v); return S_OK;
+    }
     case N_ASSIGN: {
         Slot *sl = slot_of(s->info, s->name, env, s);
         int sk; Value v = dco(chkd(ev(s->expr, env), s->expr), sl->ty, sl->dims, &sk);
@@ -719,7 +772,6 @@ int rt_wait_until(int (*pred)(void *), void *ud, Env *env, int countFrozen) {
 }
 
 /* ---------- jawbreaker · 리스트 명령 ---------- */
-typedef struct { char *path; char *text; } Out;
 static Out *outs; static int nouts;
 static struct { const char *id; Value v; } *jsons; static int njsons;
 static const char *outText(const char *path) { for (int i = 0; i < nouts; i++) if (!strcmp(outs[i].path, path)) return outs[i].text; return NULL; }
@@ -744,15 +796,17 @@ static int jsonPathOk(const char *p) {   /* ^([\p{L}\p{N}_-]+/)*[\p{L}\p{N}_-]+\
     }
     return 1;
 }
-static void writeOut(const char *path, const char *text) {
+static int writeOutB(const char *path, const unsigned char *b, size_t n) {   /* 1 = 파일에 씀 */
     int k = -1; for (int i = 0; i < nouts; i++) if (!strcmp(outs[i].path, path)) k = i;
     if (k < 0) { outs = jb_realloc(outs, sizeof(Out) * (nouts + 1)); k = nouts++; outs[k].path = jb_strdup(path); outs[k].text = NULL; }
-    free(outs[k].text); outs[k].text = jb_strdup(text);
+    free(outs[k].text); outs[k].text = jb_alloc(n + 1); if (n) memcpy(outs[k].text, b, n); outs[k].text[n] = 0; outs[k].len = n;
     char *full = jb_fmt("%s/%s", P.root, path);
     for (char *q = full + strlen(P.root) + 1; *q; q++) if (*q == '/') { *q = 0; mkdir(full, 0755); *q = '/'; }
-    FILE *f = fopen(full, "wb"); if (f) { fputs(text, f); fclose(f); }
-    free(full);
+    FILE *f = fopen(full, "wb"); int ok = 0; if (f) { ok = fwrite(b, 1, n, f) == n; ok &= fclose(f) == 0; }
+    free(full); return ok;
 }
+static void writeOut(const char *path, const char *text) { writeOutB(path, (const unsigned char *)text, strlen(text)); }
+static const Out *outOf(const char *path) { for (int i = 0; i < nouts; i++) if (!strcmp(outs[i].path, path)) return &outs[i]; return NULL; }
 /* 난독화 (jaw.exportFile · openFile): xorshift 키 · base64 · 뒤집기 · "JBX1" */
 static void keyStream(unsigned char *k, size_t n) { uint32_t x = 0x6A62786Bu; for (size_t i = 0; i < n; i++) { x ^= x << 13; x ^= x >> 17; x ^= x << 5; k[i] = (unsigned char)((x ^ (uint32_t)(i * 131)) & 255); } }
 static const char B64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -873,25 +927,50 @@ int jaw_call(Node *c, Env *env) {
     }
     if (!strcmp(n, "getPermit")) {   /* jaw.getPermit("cam" | "mic" | "file") — 허락을 받음 (답할 때까지 기다림) */
         char *k = evs(c->args.v[0], env); int i = permitKind(k, c->args.v[0]);
-        if (!PERM[i]) {
+        if (i == 2) {   /* 파일: 부를 때마다 하나 더 (permit.번호) */
             needAsync(c);
-            char path[4096] = ""; int r;
-            gil_unlock();
-            r = i == 0 ? jb_permit_cam_start() : i == 1 ? jb_permit_mic_start() : jb_permit_file_pick(path, sizeof path);
-            gil_lock();
-            if (r && i == 2) {   /* 고른 파일을 읽어 둠 — 읽지 못하면 허락되지 않음 */
+            char path[4096] = ""; gil_unlock(); int r = jb_permit_file_pick(path, sizeof path); gil_lock();
+            int id = 0;
+            if (r) {
                 FILE *f = fopen(path, "rb");
-                if (!f) r = 0;
-                else {
+                if (f) {
                     fseek(f, 0, SEEK_END); long fl = ftell(f); fseek(f, 0, SEEK_SET);
-                    char *b = jb_alloc(fl > 0 ? fl + 1 : 1); size_t rr = fl > 0 ? fread(b, 1, fl, f) : 0; b[rr] = 0; fclose(f);
-                    free(permText); permText = b; free(permPath); permPath = jb_strdup(path);
+                    if (fl >= 0 && (size_t)fl <= PF_BYTES) {
+                        unsigned char *b = jb_alloc(fl > 0 ? (size_t)fl : 1); size_t rr = fl > 0 ? fread(b, 1, (size_t)fl, f) : 0;
+                        if (rr == (size_t)fl) id = pfAdd(path, b, rr); else free(b);
+                    }
+                    fclose(f);
                 }
             }
+            if (id) rt_sys("🔓 permit.%d: 허락됨", id); else rt_sys("🔒 %s: 허락되지 않음", k);
+            free(k); return S_OK;
+        }
+        if (!PERM[i]) {
+            needAsync(c);
+            gil_unlock(); int r = i == 0 ? jb_permit_cam_start() : jb_permit_mic_start(); gil_lock();
             PERM[i] = r != 0;
             rt_sys(r ? "🔓 %s: 허락됨" : "🔒 %s: 허락되지 않음", k);
         }
         free(k); return S_OK;
+    }
+    if (!strcmp(n, "overWriteFile")) {   /* jaw.overWriteFile(값, "경로") — 값의 바이트로 덮어씀 · "permit.번호" = 허락받은 그 파일 · 그 밖은 genJson 과 같은 곳 */
+        Value v = to_data(ev(c->args.v[0], env)); char *raw = evs(c->args.v[1], env);
+        if (pfId(raw)) {
+            PFile *pf = pfGet(raw, c->args.v[1]);
+            FILE *f = fopen(pf->path, "wb"); int ok = 0;
+            if (f) { ok = fwrite(v.u.dt->b, 1, v.u.dt->n, f) == v.u.dt->n; ok &= fclose(f) == 0; }
+            const char *nm = strrchr(pf->path, '/'), *nb = strrchr(pf->path, '\\'); if (nb > nm) nm = nb; nm = nm ? nm + 1 : pf->path;
+            if (!ok) RT(c->args.v[1], "'%s' 에 쓰지 못했습니다 (%s)", nm, strerror(errno));
+            free(pf->b); pf->b = jb_alloc(v.u.dt->n ? v.u.dt->n : 1); memcpy(pf->b, v.u.dt->b, v.u.dt->n); pf->n = v.u.dt->n;
+            rt_sys("💾 %s (%s) ← %zu B", raw, nm, pf->n);
+            v_free(&v); free(raw); return S_OK;
+        }
+        char *path = path_resolve(raw, c->file); size_t L = path ? strlen(path) : 0;
+        if (!path || !strncmp(path, "ext/", 4) || (L > 3 && !strcmp(path + L - 3, ".jb")) || (L > 4 && (!strcmp(path + L - 4, ".jbl") || !strcmp(path + L - 4, ".jbs") || !strcmp(path + L - 4, ".jbx"))))
+            RT(c->args.v[1], "overWriteFile 로 쓸 수 없는 경로입니다 — 코드 (.jb · .jbl) · project.jbs · ext/ 는 안 됨 (받은 값: \"%s\")", raw);
+        writeOutB(path, v.u.dt->b, v.u.dt->n);
+        rt_sys("💾 %s ← %zu B", path, v.u.dt->n);
+        v_free(&v); free(raw); free(path); return S_OK;
     }
     if (!strcmp(n, "openFile")) {
         char *raw = evs(c->args.v[0], env), *path = path_resolve(raw, c->file);

@@ -65,7 +65,8 @@ static inline int isL(int t) { return t == TY_LIST || t == TY_COMPOUND; }
 enum {
     N_NUM, N_STR, N_BOOL, N_ID, N_MEMBER, N_CALL, N_IDX, N_BIN, N_UN, N_MAT,
     N_OBJPROP, N_OBJKEEP, N_OBJVAR, N_CANOBJ,
-    N_VAR, N_ASSIGN, N_EASSIGN, N_OASSIGN, N_IF, N_LOOP, N_RUN, N_FUNC, N_USE, N_LIB
+    N_VAR, N_ASSIGN, N_EASSIGN, N_OASSIGN, N_IF, N_LOOP, N_RUN, N_FUNC, N_USE, N_LIB,
+    N_DPART, N_DSET   /* data.이름.getPart(시작, 끝) · data.이름.setPart(시작, 끝, 값); */
 };
 /* 연산자: '+','-','*','/','%','<','>','l'(<=),'g'(>=),'e'(==),'n'(!=),'&'(&&),'|'(||),'!' */
 /* 오브젝트 속성 키 */
@@ -114,6 +115,7 @@ struct Node {
     const void *ext; const char *extLib;   /* M_EXT: 사용자 라이브러리 (JDH) 의 명령어 · 값 */
     int lfind, canKey, fileEx, isMath, isStrf, splitOK;
     int permit;   /* jaw.hasPermit */
+    int readF;    /* jaw.readFile */
     Node *lnode;                      /* 리스트 명령 · .length · .find 의 리스트 변수 */
     int ret, retTy, retDims[2];       /* return(값) */
     Node *jump; int jumpIsBreak;      /* break() · return() 대상 */
