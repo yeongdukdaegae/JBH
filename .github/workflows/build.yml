@@ -198,17 +198,32 @@ jobs:
           dist\bin\jdh.exe new project PermitGame; if ($LASTEXITCODE) { exit 1 }
           Copy-Item tests\fixtures\permit-main.jb PermitGame\main.jb -Force
           dist\bin\jdh.exe build exe PermitGame -o Permit.exe; if ($LASTEXITCODE) { exit 1 }
-          Copy-Item tests\fixtures\permit-data.txt permit-copy.txt -Force
-          $env:JB_PERMIT_FILE = "$PWD\permit-copy.txt"
+          $env:JB_PERMIT_FILE = "$PWD\tests\fixtures\permit-data.txt"
           $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
           $p = Start-Process .\Permit.exe -ArgumentList '--shot','permit-exe.png','--shot-at','4000' -RedirectStandardOutput permit-out.txt -RedirectStandardError permit-err.txt -PassThru
           if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
           Get-Content permit-out.txt -Encoding utf8; Get-Content permit-err.txt -Encoding utf8
           $bad = 0
-          foreach ($e in @('file=1 text=hello file', 'after=new text')) { if (-not (Select-String -Path permit-out.txt -SimpleMatch $e -Quiet)) { Write-Host "✖ 없음: $e"; $bad++ } }
+          foreach ($e in @('file=1', 'stopped')) { if (-not (Select-String -Path permit-out.txt -SimpleMatch $e -Quiet)) { Write-Host "✖ 없음: $e"; $bad++ } }
           if (-not (Select-String -Path permit-out.txt -Pattern '^cam=[01] mic=[01]$' -Quiet)) { Write-Host '✖ 카메라 · 마이크 줄이 없습니다'; $bad++ }
-          if (-not (Select-String -Path permit-out.txt -Pattern '^loud=[01]$' -Quiet)) { Write-Host '✖ 마이크 소리 크기 줄이 없습니다 (중간에 멈춤)'; $bad++ }
-          if ((Get-Content permit-copy.txt -Raw) -ne 'new text') { Write-Host '✖ writePermit 이 고른 파일을 바꾸지 않았습니다'; $bad++ }
+          if ((Select-String -Path permit-out.txt -Pattern '^cam=[01] mic=1$' -Quiet) -and -not (Select-String -Path permit-out.txt -Pattern '^sound=\w+… \(4096 B\)$' -Quiet -Encoding utf8)) { Write-Host '✖ 마이크 data 가 4096 바이트가 아닙니다'; $bad++ }
+          if ($bad) { exit 1 }
+      - name: data 형식 시험 (넣기 · 꺼내기 · 안 맞으면 건너뜀 — 웹 시험과 같은 main.jb · 같은 줄)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          dist\bin\jdh.exe new project DataGame; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\data-main.jb DataGame\main.jb -Force
+          dist\bin\jdh.exe build exe DataGame -o Data.exe; if ($LASTEXITCODE) { exit 1 }
+          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+          $p = Start-Process .\Data.exe -RedirectStandardOutput data-out.txt -RedirectStandardError data-err.txt -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
+          Get-Content data-out.txt -Encoding utf8; Get-Content data-err.txt -Encoding utf8
+          $expect = @('d=406fe00000000000', 'n=255', 's=6869', 't=hi', 'k=7', 'k2=0', 'bad=keep', 'fd=3fe0000000000000 b=1 f2=0.5', 'md=5b5b312c325d2c5b332c345d5d',
+            'm2=[1, 2 | 3, 4]', 'm3=[0 | 0 | 0]', 'ls=[1,"x",3] l2=[1, "x", 3]', 'c2=[1, "a", [2, 3]]', 'l3=[9]', 'e=[]',
+            'big=3031323334353637383930313233343536373839303132333435363738393031… (70 B)', 'd2=406fe00000000000 d=7a', 'three=0')
+          $got = Get-Content data-out.txt -Encoding utf8; $bad = 0
+          foreach ($e in $expect) { if ($got -notcontains $e) { Write-Host "✖ 없음: $e"; $bad++ } }
           if ($bad) { exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()

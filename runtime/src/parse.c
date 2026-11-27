@@ -338,6 +338,7 @@ static NodeList block(void) {
 static int tyOf(const char *v) {
     if (!strcmp(v,"int")) return TY_INT; if (!strcmp(v,"float")) return TY_FLOAT; if (!strcmp(v,"string")) return TY_STRING;
     if (!strcmp(v,"bit")) return TY_BIT; if (!strcmp(v,"matrix")) return TY_MATRIX; if (!strcmp(v,"list")) return TY_LIST;
+    if (!strcmp(v,"data")) return TY_DATA;
     return TY_COMPOUND;
 }
 static void mDims(int *d, int isVar) {

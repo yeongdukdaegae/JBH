@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
 
 Value v_num(double n) { Value v; v.k = V_NUM; v.u.n = n; return v; }
 Value v_str(const char *s) { Value v; v.k = V_STR; v.u.s = jb_strdup(s ? s : ""); return v; }
@@ -16,6 +17,7 @@ void list_push(List *l, Value v) {
 }
 Value v_copy(Value v) {
     switch (v.k) {
+    case V_DATA: { Value d = v_data(v.u.dt->b, v.u.dt->n); d.u.dt->dev = v.u.dt->dev; d.u.dt->bind = v.u.dt->bind; return d; }
     case V_STR: return v_str(v.u.s);
     case V_MAT: { Value m = v_mat(v.u.m->r, v.u.m->c); memcpy(m.u.m->d, v.u.m->d, sizeof(double) * v.u.m->r * v.u.m->c); return m; }
     case V_LIST: {
@@ -31,6 +33,7 @@ Value v_own(Value v) { return v_copy(v); }
 void v_free(Value *v) {
     switch (v->k) {
     case V_STR: free(v->u.s); break;
+    case V_DATA: free(v->u.dt->b); free(v->u.dt); break;
     case V_MAT: free(v->u.m->d); free(v->u.m); break;
     case V_LIST: for (int i = 0; i < v->u.l->n; i++) v_free(&v->u.l->items[i]); free(v->u.l->items); free(v->u.l); break;
     }
@@ -41,6 +44,7 @@ int v_eq(Value a, Value b) {
     switch (a.k) {
     case V_NUM: return a.u.n == b.u.n;
     case V_STR: return !strcmp(a.u.s, b.u.s);
+    case V_DATA: return !a.u.dt->dev && !b.u.dt->dev && a.u.dt->n == b.u.dt->n && !memcmp(a.u.dt->b, b.u.dt->b, a.u.dt->n);
     case V_MAT:
         if (a.u.m->r != b.u.m->r || a.u.m->c != b.u.m->c) return 0;
         for (int i = 0; i < a.u.m->r * a.u.m->c; i++) if (a.u.m->d[i] != b.u.m->d[i]) return 0;
@@ -51,6 +55,88 @@ int v_eq(Value a, Value b) {
         return 1;
     }
     return 0;
+}
+
+
+/* ---------- data 형식 (편집기의 toData · fromData · dataHex 와 같은 규칙) ----------
+ *   넣을 때: 숫자 → 8바이트 실수 (big-endian) · 문자열 → UTF-8 · 행렬 · 리스트 · compound → JSON 글자
+ *   꺼낼 때: 받는 형식으로 억지로 읽고 안 맞으면 0 (대입을 건너뜀) · 장치에 귀속된 data 는 지금 순간의 바이트 */
+unsigned char *rt_dev_snap(int dev, size_t *n);   /* run.c — 카메라 · 마이크의 지금 바이트 */
+Value v_data(const unsigned char *b, size_t n) {
+    Value v; v.k = V_DATA; v.u.dt = jb_calloc(sizeof(Data));
+    v.u.dt->b = jb_alloc(n ? n : 1); if (n) memcpy(v.u.dt->b, b, n); v.u.dt->n = n; return v;
+}
+unsigned char *data_bytes(Value v, size_t *n, int *own) {
+    if (v.u.dt->dev) { *own = 1; return rt_dev_snap(v.u.dt->dev, n); }
+    *own = 0; *n = v.u.dt->n; return v.u.dt->b;
+}
+Value to_data(Value v) {
+    if (v.k == V_DATA) { size_t n; int own; unsigned char *b = data_bytes(v, &n, &own); Value r = v_data(b, n); if (own) free(b); return r; }
+    if (v.k == V_NUM) { unsigned char b[8]; uint64_t u; double x = v.u.n; memcpy(&u, &x, 8); for (int i = 0; i < 8; i++) b[i] = (unsigned char)(u >> (56 - 8 * i)); return v_data(b, 8); }
+    if (v.k == V_STR) return v_data((const unsigned char *)v.u.s, strlen(v.u.s));
+    char *j = json_of(v); Value r = v_data((const unsigned char *)j, strlen(j)); free(j); return r;
+}
+static int utf8_ok(const unsigned char *s, size_t n) {
+    for (size_t i = 0; i < n;) {
+        unsigned c = s[i]; int k = c < 0x80 ? 0 : (c >> 5) == 6 ? 1 : (c >> 4) == 14 ? 2 : (c >> 3) == 30 ? 3 : -1;
+        if (k < 0 || (k && i + k >= n)) return 0;
+        for (int q = 1; q <= k; q++) if ((s[i + q] & 0xC0) != 0x80) return 0;
+        if (k == 1 && c < 0xC2) return 0;
+        i += k + 1;
+    }
+    return 1;
+}
+int from_data(Value d, int ty, const int *dims, Value *out) {
+    size_t n; int own; unsigned char *b = data_bytes(d, &n, &own); int ok = 0;
+    if (ty == TY_DATA) { *out = v_data(b, n); ok = 1; goto done; }
+    if (ty == TY_INT || ty == TY_FLOAT || ty == TY_BIT) {
+        if (n == 8) { uint64_t u = 0; for (int i = 0; i < 8; i++) u = u << 8 | b[i]; double x; memcpy(&x, &u, 8); *out = v_num(x); ok = 1; }
+        goto done;
+    }
+    if (!utf8_ok(b, n) || memchr(b, 0, n)) goto done;
+    char *s = jb_strndup((const char *)b, n);
+    if (ty == TY_STRING) { *out = v_strown(s); ok = 1; goto done; }
+    const char *p = s; while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+    Value j;
+    if (*p != '[' || json_parse(s, &j) != 1) { free(s); goto done; }
+    free(s);
+    if (ty == TY_COMPOUND) { *out = j; ok = 1; goto done; }
+    if (ty == TY_LIST) {
+        for (int i = 0; i < j.u.l->n; i++) if (j.u.l->items[i].k != V_NUM && j.u.l->items[i].k != V_STR) { v_free(&j); goto done; }
+        j.u.l->comp = 0; *out = j; ok = 1; goto done;
+    }
+    if (ty == TY_MATRIX && dims) {   /* 한 줄 [x, y] · 여러 줄 [[…], […]] */
+        int r = dims[0], c = dims[1], one = r == 1; List *L = j.u.l;
+        if (one) for (int i = 0; i < L->n; i++) if (L->items[i].k != V_NUM) { one = 0; break; }
+        if (one ? L->n != c : L->n != r) { v_free(&j); goto done; }
+        Value m = v_mat(r, c);
+        for (int i = 0; i < r; i++) {
+            if (one) { for (int q = 0; q < c; q++) m.u.m->d[q] = L->items[q].u.n; break; }
+            Value row = L->items[i];
+            if (row.k != V_LIST || row.u.l->n != c) { v_free(&m); v_free(&j); goto done; }
+            for (int q = 0; q < c; q++) { if (row.u.l->items[q].k != V_NUM) { v_free(&m); v_free(&j); goto done; } m.u.m->d[i * c + q] = row.u.l->items[q].u.n; }
+        }
+        v_free(&j); *out = m; ok = 1; goto done;
+    }
+    v_free(&j);
+done:
+    if (own) free(b);
+    return ok;
+}
+static char *data_hex(Value v) {   /* 길면 앞 32바이트만 */
+    size_t n; int own; unsigned char *b = data_bytes(v, &n, &own);
+    size_t k = n <= 64 ? n : 32; char *o = jb_alloc(k * 2 + 40), *w = o;
+    for (size_t i = 0; i < k; i++) w += sprintf(w, "%02x", b[i]);
+    if (k < n) sprintf(w, "… (%zu B)", n);
+    else *w = 0;
+    if (own) free(b);
+    return o;
+}
+static char *data_hex_all(Value v) {
+    size_t n; int own; unsigned char *b = data_bytes(v, &n, &own);
+    char *o = jb_alloc(n * 2 + 1), *w = o; for (size_t i = 0; i < n; i++) w += sprintf(w, "%02x", b[i]); *w = 0;
+    if (own) free(b);
+    return o;
 }
 
 /* ---------- 출력 ---------- */
@@ -97,6 +183,7 @@ static char *fmt_item(Value v) {
 char *fmt_any(Value v) {
     switch (v.k) {
     case V_STR: return jb_strdup(v.u.s);
+    case V_DATA: return data_hex(v);
     case V_MAT: return fmt_mat(v.u.m);
     case V_LIST: { SB b = {0}; sb_put(&b, "["); for (int i = 0; i < v.u.l->n; i++) { if (i) sb_put(&b, ", "); sb_own(&b, fmt_item(v.u.l->items[i])); } sb_put(&b, "]"); return b.s; }
     }
@@ -113,11 +200,12 @@ char *kind_txt(Value v) {
     if (v.k == V_STR) return jb_fmt("\"%s\"", v.u.s);
     if (v.k == V_NUM) return fmt_any(v);
     if (v.k == V_MAT) return jb_fmt("matrix[%d, %d]", v.u.m->r, v.u.m->c);
+    if (v.k == V_DATA) return jb_strdup("data");
     return jb_strdup(v.u.l->comp ? "compound" : "리스트");
 }
 const char *ty_name(int ty) {
-    static const char *N[] = {"?","int","float","string","bit","matrix","list","compound","any","matrix[1, 2]","색","json"};
-    return ty >= 0 && ty <= TY_JSON ? N[ty] : "?";
+    static const char *N[] = {"?","int","float","string","bit","matrix","list","compound","any","matrix[1, 2]","색","json","data"};
+    return ty >= 0 && ty <= TY_DATA ? N[ty] : "?";
 }
 
 /* ---------- JSON ---------- */
@@ -145,6 +233,7 @@ static void json_rec(SB *b, Value v) {
     switch (v.k) {
     case V_NUM: json_num(b, v.u.n); return;
     case V_STR: json_str(b, v.u.s); return;
+    case V_DATA: { char *h = data_hex_all(v); json_str(b, h); free(h); return; }
     case V_MAT: {
         Mat *m = v.u.m;
         if (m->r == 1) { sb_put(b, "["); for (int j = 0; j < m->c; j++) { if (j) sb_put(b, ","); json_num(b, m->d[j]); } sb_put(b, "]"); return; }

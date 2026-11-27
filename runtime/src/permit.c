@@ -1,6 +1,6 @@
 /* 권한 (jaw.getPermit) 의 장치 쪽 — 카메라 · 마이크 · 파일 고르기 (편집기의 execProgram 안 PERMIT 와 같은 뜻)
  *   카메라: Windows 는 Media Foundation (첫 번째 카메라 · RGB32 로 받아 RGBA 로) · 그 밖은 없음 (허락되지 않음)
- *   마이크: SDL2 녹음 장치 — 들어오는 소리의 RMS (0 ~ 1)
+ *   마이크: SDL2 녹음 장치 — 마지막 소리 조각 (1024개 · 4바이트 실수)
  *   파일: Windows 는 열기 창 (모든 파일) · 그 밖은 터미널에서 경로 · 환경 변수 JB_PERMIT_FILE 이 있으면 그 파일 (시험용)
  *   windows.h 의 이름이 실행기의 이름과 겹쳐서 실행기 헤더 없이 따로 둔 파일
  */
@@ -129,26 +129,48 @@ int jb_permit_cam_take(unsigned char **buf, int *w, int *h, unsigned *seq) {
     return got;
 }
 void jb_permit_cam_size(int *w, int *h) { pthread_mutex_lock(&camMu); *w = camW; *h = camH; pthread_mutex_unlock(&camMu); }
+/* 지금 프레임의 바이트 — 너비 · 높이 (4바이트 big-endian) · RGBA (편집기의 camSnap 과 같은 꼴 · 꺼져 있으면 0 · 0) */
+unsigned char *jb_permit_cam_copy(size_t *n) {
+    pthread_mutex_lock(&camMu);
+    int w = camPx ? camW : 0, h = camPx ? camH : 0; size_t L = 8 + (size_t)w * h * 4;
+    unsigned char *o = malloc(L);
+    if (o) {
+        for (int i = 0; i < 4; i++) { o[i] = (unsigned char)((unsigned)w >> (24 - 8 * i)); o[4 + i] = (unsigned char)((unsigned)h >> (24 - 8 * i)); }
+        if (w && h) memcpy(o + 8, camPx, (size_t)w * h * 4);
+    }
+    pthread_mutex_unlock(&camMu);
+    *n = o ? L : 0; return o;
+}
 
 /* ---------- 마이크 ---------- */
 static SDL_AudioDeviceID micDev;
-static volatile float micRms;
+#define MIC_N 1024
+static float micBuf[MIC_N];   /* 마지막 소리 조각 (오래된 것부터) */
 static void SDLCALL micCb(void *ud, Uint8 *stream, int len) {
-    (void)ud; const float *s = (const float *)stream; int n = len / (int)sizeof(float); double acc = 0;
-    for (int i = 0; i < n; i++) acc += (double)s[i] * s[i];
-    micRms = n ? (float)sqrt(acc / n) : 0;
+    (void)ud; const float *s = (const float *)stream; int n = len / (int)sizeof(float);
+    if (n >= MIC_N) memcpy(micBuf, s + n - MIC_N, sizeof micBuf);
+    else { memmove(micBuf, micBuf + n, sizeof(float) * (MIC_N - n)); memcpy(micBuf + MIC_N - n, s, sizeof(float) * n); }
 }
 int jb_permit_mic_start(void) {
     if (micDev) return 1;
     if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) return 0;
     SDL_AudioSpec want, have; memset(&want, 0, sizeof want);
     want.freq = 44100; want.format = AUDIO_F32SYS; want.channels = 1; want.samples = 1024; want.callback = micCb;
+    memset(micBuf, 0, sizeof micBuf);
     micDev = SDL_OpenAudioDevice(NULL, 1, &want, &have, 0);
     if (!micDev) { SDL_QuitSubSystem(SDL_INIT_AUDIO); return 0; }
     SDL_PauseAudioDevice(micDev, 0);
     return 1;
 }
-double jb_permit_mic_level(void) { double v = micRms; return v > 1 ? 1 : v < 0 ? 0 : v; }
+/* 지금 소리 조각의 바이트 — 4바이트 실수 big-endian (편집기의 micSnap 과 같은 꼴 · 꺼져 있으면 0바이트) */
+unsigned char *jb_permit_mic_copy(size_t *n) {
+    if (!micDev) { *n = 0; return malloc(1); }
+    float t[MIC_N]; SDL_LockAudioDevice(micDev); memcpy(t, micBuf, sizeof t); SDL_UnlockAudioDevice(micDev);
+    unsigned char *o = malloc(MIC_N * 4);
+    if (!o) { *n = 0; return NULL; }
+    for (int i = 0; i < MIC_N; i++) { Uint32 u; memcpy(&u, &t[i], 4); for (int q = 0; q < 4; q++) o[i * 4 + q] = (unsigned char)(u >> (24 - 8 * q)); }
+    *n = MIC_N * 4; return o;
+}
 void jb_permit_mic_stop(void) { if (micDev) { SDL_CloseAudioDevice(micDev); micDev = 0; SDL_QuitSubSystem(SDL_INIT_AUDIO); } }
 
 /* ---------- 파일 고르기 ---------- */

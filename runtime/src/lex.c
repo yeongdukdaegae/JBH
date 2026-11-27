@@ -6,7 +6,7 @@
 #include <stdarg.h>
 
 static const char *KW[] = {"Use","use","Lib","call","var","public","if","else","loop","while","run","func","true","false","as","obj","cam","spk","to","for",NULL};
-static const char *TY[] = {"int","float","string","bit","matrix","list","compound",NULL};
+static const char *TY[] = {"int","float","string","bit","matrix","list","compound","data",NULL};
 
 static int inset(const char **set, const char *s, size_t n) {
     for (int i = 0; set[i]; i++) if (strlen(set[i]) == n && !memcmp(set[i], s, n)) return 1;

@@ -25,10 +25,12 @@ typedef struct { int t, line; const char *v; double num; char raw[32]; } Tok;
 Tok *jb_lex(const char *src, const char *file, int *count);
 
 /* ---------- 값 (숫자는 JS 처럼 모두 double · 형식은 검사기가 정함) ---------- */
-enum { V_NUM, V_STR, V_MAT, V_LIST };
+enum { V_NUM, V_STR, V_MAT, V_LIST, V_DATA };
 typedef struct List List;
 typedef struct Mat Mat;
-typedef struct { int k; union { double n; char *s; Mat *m; List *l; } u; } Value;
+typedef struct Data Data;
+typedef struct { int k; union { double n; char *s; Mat *m; List *l; Data *dt; } u; } Value;
+struct Data { unsigned char *b; size_t n; int dev, bind; };   /* dev: 0 = 바이트 · 1 = 카메라 · 2 = 마이크 (귀속 · 읽을 때마다 지금 바이트) */
 struct Mat { int r, c; double *d; };
 struct List { int n, cap; Value *items; int comp; };
 
@@ -48,10 +50,14 @@ char *fmt_val(Value v, int ty);
 char *json_of(Value v);
 int json_parse(const char *s, Value *out);   /* 0 = JSON 아님 · -1 = { } 객체 */
 char *kind_txt(Value v);
+Value v_data(const unsigned char *b, size_t n);
+Value to_data(Value v);                                       /* 무엇이든 → data */
+int from_data(Value d, int ty, const int *dims, Value *out);   /* data → 형식 · 안 맞으면 0 */
+unsigned char *data_bytes(Value v, size_t *n, int *own);
 
 /* ---------- 형식 ---------- */
 enum { TY_NONE, TY_INT, TY_FLOAT, TY_STRING, TY_BIT, TY_MATRIX, TY_LIST, TY_COMPOUND, TY_ANY,
-       TY_MAT12, TY_COLOR, TY_JSON };   /* 뒤의 셋은 명령 매개변수 전용 */
+       TY_MAT12, TY_COLOR, TY_JSON, TY_DATA };   /* 뒤의 셋은 명령 매개변수 전용 */
 const char *ty_name(int ty);
 static inline int isL(int t) { return t == TY_LIST || t == TY_COMPOUND; }
 
@@ -72,7 +78,7 @@ typedef struct Info {
     const char *file, *clash; int line; int used;
 } Info;
 /* 명령의 대상 */
-enum { M_NONE, M_JAW, M_LIST, M_BELONG, M_DIS, M_COL, M_MAG, M_CAN, M_SND, M_CAM, M_USER, M_EXT };
+enum { M_NONE, M_JAW, M_LIST, M_BELONG, M_DIS, M_COL, M_MAG, M_CAN, M_SND, M_CAM, M_USER, M_EXT, M_DEM };
 
 typedef struct Module Module;
 typedef struct Node Node;
@@ -107,7 +113,7 @@ struct Node {
     int target; Module *tmod; Node *tdef;   /* 대상 */
     const void *ext; const char *extLib;   /* M_EXT: 사용자 라이브러리 (JDH) 의 명령어 · 값 */
     int lfind, canKey, fileEx, isMath, isStrf, splitOK;
-    int permit;   /* jaw.hasPermit = 1 · micLevel = 2 · permitText = 3 */
+    int permit;   /* jaw.hasPermit */
     Node *lnode;                      /* 리스트 명령 · .length · .find 의 리스트 변수 */
     int ret, retTy, retDims[2];       /* return(값) */
     Node *jump; int jumpIsBreak;      /* break() · return() 대상 */

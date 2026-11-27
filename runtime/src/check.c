@@ -32,6 +32,7 @@ static int ext_ty(int t) { return t == JDH_T_INT ? TY_INT : t == JDH_T_FLOAT ? T
 #define MAG_ID "Magellan"
 #define SND_ID "soundMaster"
 #define CAM_ID "SeongBin"
+#define DEM_ID "deviceManager"
 typedef struct { const char *name; int n; int p[6]; } Spec;
 enum { I_ = TY_INT, F_ = TY_FLOAT, S_ = TY_STRING, B_ = TY_BIT, M12 = TY_MAT12, C_ = TY_COLOR, L_ = TY_LIST, A_ = TY_ANY, J_ = TY_JSON };
 static const Spec DIS_FUNCS[] = {
@@ -47,7 +48,7 @@ static const Spec DIS_FUNCS[] = {
 static const Spec CAN_FUNCS[] = {{"setUi",1,{S_}},{"setasButton",1,{S_}},{"bindInput",1,{S_}},{"setUpScene",0},{"nameScene",1,{S_}},{"setScene",1,{S_}},
     {"sendtoScene",1,{S_}},{"popupScene",1,{S_}},{"closeScene",0},{"obj.setExistableScene",2,{S_,S_}},{NULL}};
 static const Spec MAG_FUNCS[] = {{"importFile",1,{S_}},{"importFolder",1,{S_}},{"setObjTexture",4,{S_,S_,M12,M12}},
-    {"setasTexture",3,{S_,M12,M12}},{"wearTexture",2,{S_,S_}},{"wearCam",1,{S_}},{"setasAnime",3,{L_,I_,S_}},
+    {"setasTexture",3,{S_,M12,M12}},{"wearTexture",2,{S_,S_}},{"setasAnime",3,{L_,I_,S_}},
     {"obj.applyAnime",2,{S_,S_}},{"obj.runAnime",3,{S_,S_,F_}},{"obj.breakAnime",1,{S_}},{NULL}};
 static const Spec SND_FUNCS[] = {{"setSpeaker",1,{S_}},{"playSfx",3,{S_,S_,I_}},{"setVol",2,{S_,I_}},
     {"repeatingPlay",3,{S_,S_,I_}},{"repeatPart",4,{S_,S_,I_,I_}},{"repatPart",4,{S_,S_,I_,I_}},{"introPart",4,{S_,S_,I_,I_}},{"break",1,{S_}},{"setFadein",2,{S_,I_}},{"setFadeout",2,{S_,I_}},
@@ -60,7 +61,7 @@ static const Spec COL_FUNCS[] = {{"setVelocity",2,{S_,M12}},{"setVelocityX",2,{S
 static const Spec BUILTINS[] = {{"log",1,{A_}},{"print",1,{A_}},{"wait",1,{I_}},{"terminate",0},{"sendto",1,{S_}},
     {"break",0},{"return",0},{"goTo",1,{I_}},{"label",1,{S_}},{"setup",1,{S_}},
     {"keyClick",1,{S_}},{"keyPush",1,{S_}},{"keyRlse",1,{S_}},
-    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{"getPermit",1,{S_}},{"writePermit",1,{S_}},{NULL}};
+    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{"getPermit",1,{S_}},{NULL}};
 static const Spec *spec(const Spec *t, const char *n) { for (; t->name; t++) if (!strcmp(t->name, n)) return t; return NULL; }
 static char *specList(const Spec *t, const char *pre, int objStyle) {
     size_t cap = 1024, L = 0; char *s = jb_alloc(cap); s[0] = 0;
@@ -77,7 +78,7 @@ static char *specList(const Spec *t, const char *pre, int objStyle) {
     return s;
 }
 int is_builtin_lib(const char *l) {
-    return !strcmp(l, "jawbreaker") || !strcmp(l, DIS_ID) || !strcmp(l, COL_ID) || !strcmp(l, CAN_ID) || !strcmp(l, MAG_ID) || !strcmp(l, SND_ID) || !strcmp(l, CAM_ID);
+    return !strcmp(l, "jawbreaker") || !strcmp(l, DIS_ID) || !strcmp(l, COL_ID) || !strcmp(l, CAN_ID) || !strcmp(l, MAG_ID) || !strcmp(l, SND_ID) || !strcmp(l, CAM_ID) || !strcmp(l, DEM_ID);
 }
 const char *mod_use(Module *m, const char *alias) { for (int i = 0; i < m->nuses; i++) if (m->uses[i].alias == alias || !strcmp(m->uses[i].alias, alias)) return m->uses[i].lib; return NULL; }
 int mod_uses_lib(Module *m, const char *lib) { for (int i = 0; i < m->nuses; i++) if (!strcmp(m->uses[i].lib, lib)) return 1; return 0; }
@@ -91,6 +92,7 @@ static int HEX_ok(const char *v) {
 }
 int jb_hex_ok(const char *v) { return HEX_ok(v); }
 static int assignable(int to, int from) {
+    if (to == TY_DATA || from == TY_DATA) return to == from;
     if (to == TY_MATRIX || from == TY_MATRIX || isL(to) || isL(from)) return to == from;
     if (to == TY_STRING) return from == TY_STRING;
     if (from == TY_STRING) return 0;
@@ -188,6 +190,7 @@ static void fnArgs(Node *c, Node *def, InfoMap **sc, int ns) {
         Node *a = c->args.v[i]; Param *pp = &def->params[i]; int pt = pp->ty;
         if (isL(pt) && a->k == N_MAT) { a->asList = 1; a->comp = pt == TY_COMPOUND; }
         int t = ex(a, sc, ns);
+        if (pt == TY_DATA || t == TY_DATA) continue;   /* 함수의 data 매개변수 ↔ 무엇이든 */
         if (pt == TY_MATRIX) { char w[128]; snprintf(w, sizeof w, "'%s' 의 %d번째 값", c->name, i + 1); needMat(a, t, pp->dims, w); continue; }
         if (!fit(a, t, pt)) E(a, "'%s' 의 %d번째 값은 %s 형식이어야 합니다 (받은 형식: %s)", c->name, i + 1, ty_name(pt), tyTxt(t, a));
     }
@@ -210,6 +213,7 @@ static int wantComp(Node *x, InfoMap **sc, int ns) {
 }
 static void compMark(Node *x, InfoMap **sc, int ns) { if (wantComp(x, sc, ns)) { x->asList = 1; x->comp = 1; } }
 static void itemOk(Node *a, int t, int comp) {
+    if (t == TY_DATA) E(a, "data 는 리스트 · compound 에 넣을 수 없습니다 — 다른 형식으로 바꿔서 넣으세요");
     if (comp) return;
     if (t == TY_ANY) { a->chk = -1; return; }   /* -1 = scalar */
     if (t == TY_MATRIX || isL(t)) E(a, "리스트 항목에는 숫자나 문자열만 넣을 수 있습니다 (받은 형식: %s) — 행렬 · 리스트까지 넣으려면 compound 를 쓰세요", tyTxt(t, a));
@@ -342,7 +346,7 @@ static int ex(Node *e, InfoMap **sc, int ns) {
         if (!strcmp(al, "jawbreaker")) E(e, "jawbreaker 라이브러리에는 변수가 없습니다 (명령어는 %s.%s(...) 로 호출)", e->lib, e->name);
         if (!strcmp(al, COL_ID)) E(e, "colliders 라이브러리에는 변수가 없습니다 (명령어는 %s.%s(...) 로 호출)", e->lib, e->name);
         if (!strcmp(al, MAG_ID)) E(e, "Magellan 라이브러리에는 변수가 없습니다 (명령어는 %s.%s(...) 로 호출)", e->lib, e->name);
-        if (!strcmp(al, SND_ID) || !strcmp(al, CAM_ID)) E(e, "라이브러리 '%s' (부모 포함) 에 변수 '%s' 이(가) 없습니다", al, e->name);
+        if (!strcmp(al, SND_ID) || !strcmp(al, CAM_ID) || !strcmp(al, DEM_ID)) E(e, "라이브러리 '%s' (부모 포함) 에 변수 '%s' 이(가) 없습니다", al, e->name);
         if (!strcmp(al, CAN_ID)) {
             needDis(e, "Canvas 는 DisPlayer 의 하위 라이브러리라 이 파일에 'Use DisPlayer call 별칭;' 도 필요합니다");
             int t = !strcmp(e->name, "ScreenClicked") ? TY_BIT : !strcmp(e->name, "MouseX") || !strcmp(e->name, "MouseY") ? TY_FLOAT : !strcmp(e->name, "SceneName") ? TY_STRING : 0;
@@ -388,12 +392,10 @@ static int ex(Node *e, InfoMap **sc, int ns) {
             if (!fit(e->args.v[0], pt, TY_STRING)) E(e->args.v[0], "fileExists 에는 경로(문자열)를 넣습니다 (예: \"save/s.json\") — 받은 형식: %s", tyTxt(pt, e->args.v[0]));
             e->fileEx = 1; return e->ty = TY_BIT;
         }
-        if ((!strcmp(e->name, "hasPermit") || !strcmp(e->name, "micLevel") || !strcmp(e->name, "permitText")) && jaw) {   /* jaw.hasPermit("cam") · micLevel() · permitText() */
-            int need = !strcmp(e->name, "hasPermit");
-            if (e->args.n != need) E(e, "'%s' 은(는) 값 %d개가 필요합니다 (받은 값: %d개)", e->name, need, e->args.n);
-            if (need) { int t = ex(e->args.v[0], sc, ns); if (!fit(e->args.v[0], t, TY_STRING)) E(e->args.v[0], "hasPermit 에는 \"cam\" · \"mic\" · \"file\" 중 하나를 넣습니다 — 받은 형식: %s", tyTxt(t, e->args.v[0])); permitLit(e->args.v[0]); }
-            e->permit = need ? 1 : !strcmp(e->name, "micLevel") ? 2 : 3;
-            return e->ty = need ? TY_BIT : e->permit == 2 ? TY_FLOAT : TY_STRING;
+        if (!strcmp(e->name, "hasPermit") && jaw) {   /* jaw.hasPermit("cam") */
+            if (e->args.n != 1) E(e, "'%s' 은(는) 값 %d개가 필요합니다 (받은 값: %d개)", e->name, 1, e->args.n);
+            int t = ex(e->args.v[0], sc, ns); if (!fit(e->args.v[0], t, TY_STRING)) E(e->args.v[0], "hasPermit 에는 \"cam\" · \"mic\" · \"file\" 중 하나를 넣습니다 — 받은 형식: %s", tyTxt(t, e->args.v[0])); permitLit(e->args.v[0]);
+            e->permit = 1; return e->ty = TY_BIT;
         }
         const char *sig; int sr; int sn = strf_n(e->name, &sig, &sr);
         if (sn >= 0 && jaw) {
@@ -442,12 +444,17 @@ static int ex(Node *e, InfoMap **sc, int ns) {
         if (isL(t)) E(e, "리스트에는 '%s' 를 쓸 수 없습니다", o);
         if (t == TY_STRING) E(e, "문자열에는 '%s' 를 쓸 수 없습니다", o);
         if (t == TY_MATRIX) E(e, "행렬에는 '%s' 를 쓸 수 없습니다", o);
+        if (t == TY_DATA) E(e, "data 에는 '%s' 를 쓸 수 없습니다 — 다른 형식의 변수에 옮겨서 쓰세요 (문자열과 + 로 이어 붙이면 16진수)", o);
         return e->ty = e->op == '!' ? TY_BIT : (t == TY_FLOAT ? TY_FLOAT : TY_INT);
     }
     case N_BIN: {
         int a = ex(e->a, sc, ns), b = ex(e->b, sc, ns), op = e->op;
         const char *os = op == 'l' ? "<=" : op == 'g' ? ">=" : op == 'e' ? "==" : op == 'n' ? "!=" : op == '&' ? "&&" : op == '|' ? "||" : NULL;
         char ob[3] = {(char)op, 0, 0}; if (!os) os = ob;
+        if (a == TY_DATA || b == TY_DATA) {   /* data 는 계산하지 않음 — 문자열과 + 로 이으면 16진수 글자 */
+            if (op == '+' && (a == TY_STRING || b == TY_STRING)) return e->ty = TY_STRING;
+            E(e, "data 에는 '%s' 를 쓸 수 없습니다 — 다른 형식의 변수에 옮겨서 쓰세요 (문자열과 + 로 이어 붙이면 16진수)", os);
+        }
         if ((isL(a) || isL(b)) && !(op == '+' && (a == TY_STRING || b == TY_STRING)) && !((op == 'e' || op == 'n') && (a == TY_ANY || b == TY_ANY)))
             E(e, "리스트에는 '%s' 를 쓸 수 없습니다 (항목 list[번호] 는 계산할 수 있고, 문자열과 + 로 이어 붙일 수는 있음)", os);
         if (a == TY_ANY || b == TY_ANY) {
@@ -583,6 +590,17 @@ static void call(Node *c, InfoMap **sc, int ns, CS *cs, int ncs) {
                 E(c, "soundMaster 에 '%s%s%s' 명령어가 없습니다 (사용 가능: %s)", c->sub ? c->sub : "", c->sub ? ".id." : "", c->name, specList(SND_FUNCS, pre, 2));
             }
             SETSPEC(sp, M_SND);
+        } else if (!strcmp(al, DEM_ID)) {   /* deviceManager — 인자는 data 변수 이름 ("따옴표") */
+            static const Spec DEM_FUNCS[] = {{"recordCamAs",1,{S_}},{"recordMicAs",1,{S_}},{"stopRecord",1,{S_}},{NULL}};
+            sp = spec(DEM_FUNCS, c->name);
+            if (!sp) { char pre[64]; snprintf(pre, sizeof pre, "%s.", c->lib); E(c, "deviceManager 에 '%s' 명령어가 없습니다 (사용 가능: %s)", c->name, specList(DEM_FUNCS, pre, 0)); }
+            Node *a = c->args.n ? c->args.v[0] : NULL;
+            if (c->args.n != 1 || a->k != N_STR) E(c, "%s 은(는) data 변수 이름을 \"따옴표\" 로 씁니다 (예: %s.%s(\"video\");)", c->name, c->lib, c->name);
+            const char *nm = jb_in(a->str); Info *i = look(nm, sc, ns);
+            if (!i) E(a, "변수 '%s' 이(가) 선언되지 않았습니다 (var data call %s; 로 먼저 만드세요)", a->str, a->str);
+            if (i->ty != TY_DATA) E(a, "%s 은(는) data 변수에만 쓸 수 있습니다 ('%s' 은(는) %s)", c->name, a->str, ty_name(i->ty));
+            c->jinfo = i; c->jname = nm;
+            SETSPEC(sp, M_DEM);
         } else if (!strcmp(al, CAM_ID)) {
             if (!mod_uses_lib(M, CAN_ID) || !mod_uses_lib(M, DIS_ID)) E(c, "SeongBin 은 Canvas(DisPlayer 하위)의 하위 라이브러리라 이 파일에 'Use DisPlayer call 별칭;' 과 'Use Canvas call 별칭;' 도 필요합니다");
             char key[128]; snprintf(key, sizeof key, "%s%s", c->sub && !strcmp(c->sub, "cam") ? "cam." : "", c->name);
@@ -684,13 +702,15 @@ static void call(Node *c, InfoMap **sc, int ns, CS *cs, int ncs) {
         if (T_ == M_EXT && (pt == TY_LIST || pt == TY_MATRIX)) { ext_arg(c, i, a, t, &((const JdhCmd *)c->ext)->p[i]); continue; }
         if (pt == TY_MAT12) { int d[2] = {1, 2}; needMat(a, t, d, w); continue; }
         if (pt == TY_MATRIX && c->tdef) { needMat(a, t, c->tdef->params[i].dims, w); continue; }
+        if (c->tdef && (pt == TY_DATA || t == TY_DATA)) continue;   /* 함수의 data 매개변수 ↔ 무엇이든 */
+        if (IS(M_MAG, "wearTexture") && i == 1 && t == TY_DATA) continue;   /* mag.wearTexture("id", 데이터) */
         if (pt == TY_COLOR) { char w2[180]; snprintf(w2, sizeof w2, "%s(색)", w); colorCheck(a, t, w2); continue; }
         if (pt != TY_ANY && !fit(a, t, pt)) E(a, "'%s' 의 %d번째 값은 %s 형식이어야 합니다 (받은 형식: %s)", c->name, i + 1, ty_name(pt), tyTxt(t, a));
     }
     if (IS(M_JAW, "getPermit")) permitLit(c->args.v[0]);
     if (IS(M_JAW, "loadJson")) {
         Node *a = c->args.v[1];
-        if (a->k != N_STR) E(a, "loadJson 의 두 번째 값은 compound 변수 이름을 \"따옴표\" 로 씁니다 (예: jaw.loadJson(\"save.json\", \"data\");)");
+        if (a->k != N_STR) E(a, "loadJson 의 두 번째 값은 compound 변수 이름을 \"따옴표\" 로 씁니다 (예: jaw.loadJson(\"save.json\", \"sav\");)");
         const char *nm = jb_in(a->str);
         Info *i = look(nm, sc, ns);
         if (!i) E(a, "변수 '%s' 이(가) 선언되지 않았습니다 (var compound call %s; 로 먼저 만드세요)", a->str, a->str);
@@ -875,7 +895,8 @@ static void stmt(Node *s, InfoMap **sc, int ns, CS *cs, int ncs, Node *chainHead
             if (isL(s->ty) && s->expr->k == N_MAT) { s->expr->asList = 1; s->expr->comp = s->ty == TY_COMPOUND; }
             if (s->ty == TY_LIST && s->expr->k == N_CALL) s->expr->splitOK = 1;
             int t = ex(s->expr, sc, ns);
-            if (s->ty == TY_MATRIX) { char w[128]; snprintf(w, sizeof w, "행렬 변수 '%s'", s->name); needMat(s->expr, t, s->dims, w); }
+            if (s->ty == TY_DATA || t == TY_DATA) {}   /* data ↔ 무엇이든 (실행할 때 바꿈 · 안 맞으면 건너뜀) */
+            else if (s->ty == TY_MATRIX) { char w[128]; snprintf(w, sizeof w, "행렬 변수 '%s'", s->name); needMat(s->expr, t, s->dims, w); }
             else if (!fit(s->expr, t, s->ty)) E(s, "%s 값을 %s 변수 '%s' 에 넣을 수 없습니다", tyTxt(t, s->expr), ty_name(s->ty), s->name);
         }
         Info *i = info_new(s->name, s->ty, s->hasDims ? s->dims : NULL);
@@ -891,7 +912,8 @@ static void stmt(Node *s, InfoMap **sc, int ns, CS *cs, int ncs, Node *chainHead
         if (isL(i->ty) && s->expr->k == N_MAT) { s->expr->asList = 1; s->expr->comp = i->ty == TY_COMPOUND; }
         if (i->ty == TY_LIST && s->expr->k == N_CALL) s->expr->splitOK = 1;
         int t = ex(s->expr, sc, ns);
-        if (i->ty == TY_MATRIX) { char w[128]; snprintf(w, sizeof w, "행렬 변수 '%s'", s->name); needMat(s->expr, t, i->dims, w); }
+        if (i->ty == TY_DATA || t == TY_DATA) {}   /* data ↔ 무엇이든 */
+        else if (i->ty == TY_MATRIX) { char w[128]; snprintf(w, sizeof w, "행렬 변수 '%s'", s->name); needMat(s->expr, t, i->dims, w); }
         else if (!fit(s->expr, t, i->ty)) E(s, "%s 값을 %s 변수 '%s' 에 넣을 수 없습니다", tyTxt(t, s->expr), ty_name(i->ty), s->name);
         s->info = i; s->ty = i->ty; return;
     }

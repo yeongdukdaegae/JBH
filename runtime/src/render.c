@@ -313,7 +313,12 @@ static SDL_Texture *imgTex(Img *im) {
     SDL_SetTextureScaleMode(im->tex, SDL_ScaleModeNearest);
     return im->tex;
 }
-/* 카메라 영상 (mag.wearCam): 그릴 때 새 프레임이 있으면 텍스쳐에 올림 */
+/* data 의 그림 (카메라에서 나온 RGBA) — 새 그림을 만듦 (px 는 그림이 가짐) */
+Img *rd_image_rgba(unsigned char *px, int w, int h) {
+    static int seq; Img *im = jb_calloc(sizeof(Img)); im->path = jb_fmt("@data#%d", ++seq); im->px = px; im->w = w; im->h = h; im->loaded = 1; im->owned = 1;
+    return im;
+}
+/* 카메라 영상 (카메라에 귀속된 data 를 입힘): 그릴 때 새 프레임이 있으면 텍스쳐에 올림 */
 int jb_permit_cam_take(unsigned char **buf, int *w, int *h, unsigned *seq);
 static Img CAMIMG = {"@cam", NULL, 0, 0, 1, 0, NULL, NULL, NULL, 0, 1};
 static unsigned camSeqSeen;

@@ -28,9 +28,10 @@ void rt_sys(const char *fmt, ...) {
 }
 
 /* ---------- 권한 (jaw.getPermit) — 장치 쪽은 permit.c ---------- */
-int jb_permit_cam_start(void); int jb_permit_mic_start(void); double jb_permit_mic_level(void); int jb_permit_file_pick(char *out, size_t n);
+int jb_permit_cam_start(void); int jb_permit_mic_start(void); int jb_permit_file_pick(char *out, size_t n);
+unsigned char *jb_permit_cam_copy(size_t *n); unsigned char *jb_permit_mic_copy(size_t *n);
 static int PERM[3];                  /* cam · mic · file */
-static char *permPath, *permText;    /* 고른 파일 · 그 글자 */
+static char *permPath, *permText;    /* 고른 파일 · 그 글자 (파일을 쓰는 기능은 추후) */
 int rt_permit_ok(int k) { return k >= 0 && k < 3 && PERM[k]; }
 static int permitKind(const char *k, Node *n) {
     if (!strcmp(k, "cam")) return 0;
@@ -38,6 +39,29 @@ static int permitKind(const char *k, Node *n) {
     if (!strcmp(k, "file")) return 2;
     RT(n, "권한은 \"cam\" · \"mic\" · \"file\" 중 하나입니다 (받은 값: \"%s\")", k);
     return 0;
+}
+/* 장치에 귀속된 data 의 지금 바이트 (value.c 의 data_bytes 가 부름) — 1 = 카메라 · 2 = 마이크 */
+unsigned char *rt_dev_snap(int dev, size_t *n) {
+    unsigned char *b = dev == 1 ? jb_permit_cam_copy(n) : jb_permit_mic_copy(n);
+    if (!b) { *n = 0; b = jb_alloc(1); }
+    return b;
+}
+/* deviceManager — data 변수를 카메라 · 마이크에 귀속 · stopRecord 로 풂 (그 순간의 바이트가 남음) */
+static int demBindSeq;
+static int dem_call(Node *c, Env *env) {
+    Slot *sl = slot_of(c->jinfo, c->jname, env, c);
+    if (!strcmp(c->name, "stopRecord")) {
+        if (sl->v.k == V_DATA && sl->v.u.dt->dev) {
+            Data *d = sl->v.u.dt; size_t n; unsigned char *b = rt_dev_snap(d->dev, &n);
+            if (d->dev == 1) gfx_cam_unbind(d->bind, b, n);
+            Value nv = v_data(b, n); free(b); v_free(&sl->v); sl->v = nv;
+        }
+        return S_OK;
+    }
+    int k = !strcmp(c->name, "recordCamAs") ? 0 : 1;
+    if (!PERM[k]) RT(c, k == 0 ? "카메라 권한이 없습니다 — jaw.getPermit(\"cam\"); 로 먼저 허락을 받으세요" : "마이크 권한이 없습니다 — jaw.getPermit(\"mic\"); 로 먼저 허락을 받으세요");
+    Value nv = v_data(NULL, 0); nv.u.dt->dev = k + 1; nv.u.dt->bind = ++demBindSeq;
+    v_free(&sl->v); sl->v = nv; return S_OK;
 }
 /* ---------- 차례 (FIFO) ---------- */
 static pthread_mutex_t Gm = PTHREAD_MUTEX_INITIALIZER;
@@ -134,6 +158,7 @@ Value co(Value v, int ty) {
 }
 Value dflt(int ty, const int *dims) {
     switch (ty) {
+    case TY_DATA: return v_data(NULL, 0);
     case TY_STRING: return v_str("");
     case TY_MATRIX: return v_mat(dims ? dims[0] : 1, dims ? dims[1] : 1);
     case TY_LIST: return v_list(0);
@@ -158,6 +183,19 @@ static Value dynChk(Value v, Node *n) {
     return v;
 }
 static Value chkd(Value v, Node *n) { return n->chk ? dynChk(v, n) : v; }
+/* data ↔ 다른 형식 (편집기의 dco 와 같음): 넣을 때 바이트로 · 꺼낼 때 억지로 읽고 안 맞으면 *skip = 1 */
+static Value dco(Value v, int ty, const int *dims, int *skip) {
+    *skip = 0;
+    if (ty == TY_DATA) return to_data(v);
+    if (v.k == V_DATA) {
+        Value r; if (!from_data(v, ty, dims, &r)) { *skip = 1; return v_num(0); }
+        if (ty == TY_MATRIX) return r;
+        Value o = co(r, ty); v_free(&r); return o;
+    }
+    return co(v, ty);
+}
+/* 변수 · 매개변수 · 돌려줄 값: 안 맞으면 기본값 */
+static Value dcoD(Value v, int ty, const int *dims) { int sk; Value r = dco(v, ty, dims, &sk); return sk ? dflt(ty, dims) : r; }
 
 /* ---------- 사용자 라이브러리 (JDH) — 실행기와 함께 컴파일된 C 구현 ---------- */
 #include "jdh_native.h"
@@ -357,8 +395,6 @@ Value ev(Node *e, Env *env) {
         }
         if (e->canKey) { char *k = evs(e->args.v[0], env); int r = key_on(k); free(k); return v_num(r); }
         if (e->permit) {
-            if (e->permit == 2) return v_num(PERM[1] ? jb_permit_mic_level() : 0);
-            if (e->permit == 3) return v_str(PERM[2] && permText ? permText : "");
             char *k = evs(e->args.v[0], env); int i = permitKind(k, e->args.v[0]); free(k); return v_num(PERM[i]);
         }
         if (e->fileEx) {
@@ -498,11 +534,12 @@ int exec(Node *s, Env *env) {
     case N_USE: case N_LIB: case N_FUNC: return S_OK;
     case N_VAR:
         if (s->pub) return S_OK;
-        env_def(env, s->name, s->ty, s->hasDims ? s->dims : NULL, s->expr ? co(chkd(ev(s->expr, env), s->expr), s->ty) : dflt(s->ty, s->dims));
+        env_def(env, s->name, s->ty, s->hasDims ? s->dims : NULL, s->expr ? dcoD(chkd(ev(s->expr, env), s->expr), s->ty, s->hasDims ? s->dims : NULL) : dflt(s->ty, s->dims));
         return S_OK;
     case N_ASSIGN: {
         Slot *sl = slot_of(s->info, s->name, env, s);
-        Value v = co(chkd(ev(s->expr, env), s->expr), sl->ty);
+        int sk; Value v = dco(chkd(ev(s->expr, env), s->expr), sl->ty, sl->dims, &sk);
+        if (sk) return S_OK;   /* data 가 이 형식에 맞지 않음 → 그대로 둠 */
         sl = slot_of(s->info, s->name, env, s);
         v_free(&sl->v); sl->v = v; return S_OK;
     }
@@ -555,7 +592,7 @@ int exec(Node *s, Env *env) {
             Node *def = s->tdef; Dc *dc = dcOf(env);
             if (dc->n >= 200) RT(s, "함수 호출이 너무 깊습니다 (무한 재귀?)");
             Env *fenv = env_new(lib_env(s->tmod->name)); fenv->dc = dc; fenv->tk = env->tk;
-            for (int i = 0; i < def->nparams; i++) env_def(fenv, def->params[i].name, def->params[i].ty, def->params[i].dims, co(chkd(ev(s->args.v[i], env), s->args.v[i]), def->params[i].ty));
+            for (int i = 0; i < def->nparams; i++) env_def(fenv, def->params[i].name, def->params[i].ty, def->params[i].dims, dcoD(chkd(ev(s->args.v[i], env), s->args.v[i]), def->params[i].ty, def->params[i].dims));
             dc->n++;
             r = seq(&def->body, 0, fenv);
             dc->n--;
@@ -564,6 +601,7 @@ int exec(Node *s, Env *env) {
             env_free(fenv);
         }
         else if (s->target == M_BELONG) r = gfx_belong(s, env);
+        else if (s->target == M_DEM) r = dem_call(s, env);
         else r = gfx_call(s, env);
         if (r == S_OK && C.sig) { r = C.sig; C.sig = 0; }   /* 값 함수 안의 sendto · 귀속 해제 */
         return r;
@@ -576,7 +614,7 @@ static Value callValue(Node *c, Env *env) {
     Node *def = c->tdef; Dc *dc = dcOf(env);
     if (dc->n >= 200) RT(c, "함수 호출이 너무 깊습니다 (무한 재귀?)");
     Env *fenv = env_new(lib_env(c->tmod->name)); fenv->dc = dc; fenv->tk = NULL;
-    for (int i = 0; i < def->nparams; i++) env_def(fenv, def->params[i].name, def->params[i].ty, def->params[i].dims, co(chkd(ev(c->args.v[i], env), c->args.v[i]), def->params[i].ty));
+    for (int i = 0; i < def->nparams; i++) env_def(fenv, def->params[i].name, def->params[i].ty, def->params[i].dims, dcoD(chkd(ev(c->args.v[i], env), c->args.v[i]), def->params[i].ty, def->params[i].dims));
     const char *prevSelf = C.selfNow;
     dc->n++;
     if (C.sync++ == 0) { C.syncNode = c; C.syncStart = perf_now(); }
@@ -855,16 +893,6 @@ int jaw_call(Node *c, Env *env) {
         }
         free(k); return S_OK;
     }
-    if (!strcmp(n, "writePermit")) {   /* jaw.writePermit("글자") — 고른 파일을 그 글자로 덮어씀 */
-        char *t = evs(c->args.v[0], env);
-        if (!PERM[2]) RT(c, "파일 권한이 없습니다 — jaw.getPermit(\"file\"); 로 먼저 파일을 고르세요");
-        const char *nm = strrchr(permPath, '/'), *nb = strrchr(permPath, '\\'); if (nb > nm) nm = nb; nm = nm ? nm + 1 : permPath;
-        FILE *f = fopen(permPath, "wb");
-        if (!f) RT(c, "'%s' 에 쓰지 못했습니다 (%s)", nm, strerror(errno));
-        size_t L = strlen(t); int bad = fwrite(t, 1, L, f) != L; bad |= fclose(f) != 0;
-        if (bad) RT(c, "'%s' 에 쓰지 못했습니다 (%s)", nm, strerror(errno));
-        free(permText); permText = t; return S_OK;
-    }
     if (!strcmp(n, "openFile")) {
         char *raw = evs(c->args.v[0], env), *path = path_resolve(raw, c->file);
         if (!path || !jsonPathOk(path)) RT(c->args.v[0], "openFile 의 경로는 이름.json 형태여야 합니다 (받은 값: \"%s\")", raw);
@@ -914,7 +942,7 @@ int jaw_call(Node *c, Env *env) {
     if (!strcmp(n, "goTo")) { C.gotoLine = i32(evn(c->args.v[0], env)); C.gotoFile = c->file; C.gotoAt = c->line; return S_GOTO; }
     if (!strcmp(n, "label")) return S_OK;
     if (!strcmp(n, "break") || !strcmp(n, "return")) {
-        if (c->ret) { C.ret = co(chkd(ev(c->args.v[0], env), c->args.v[0]), c->retTy); return S_RET; }
+        if (c->ret) { C.ret = dcoD(chkd(ev(c->args.v[0], env), c->args.v[0]), c->retTy, c->retDims); return S_RET; }
         C.jump = c->jump; return !strcmp(n, "break") ? S_BREAK : S_CONT;
     }
     if (!strcmp(n, "setup")) {

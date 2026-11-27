@@ -123,7 +123,7 @@ typedef struct Obj {
     const char **tags; int ntags;
     int off;
     int *scenes; int nscenes; int hasScenes;   /* -1 = '*' */
-    int hasTex; TexUse tex;
+    int hasTex; TexUse tex; int camBind;   /* 카메라에 귀속된 data 의 영상을 입었으면 그 귀속 번호 */
     Anime *an;
     int ui;
     int hasNud; int nud[2];
@@ -151,7 +151,10 @@ void rd_size(double *w, double *h);        /* 화면 단위 (짧은 쪽 720) */
 double rd_measure(const char *t, double size);
 int rd_set_font(const char *path);
 Img *rd_image(const char *path, int *w, int *h, int *failed);
-Img *rd_cam_img(void);          /* 카메라 영상 (mag.wearCam) — 그릴 때마다 새 프레임을 올림 */
+Img *rd_cam_img(void);          /* 카메라 영상 (카메라에 귀속된 data) — 그릴 때마다 새 프레임을 올림 */
+Img *rd_image_rgba(unsigned char *px, int w, int h);   /* data 의 그림 (px 를 가짐) */
+void gfx_cam_unbind(int bind, const unsigned char *b, size_t n);   /* dem.stopRecord — 그 영상을 입은 오브젝트를 마지막 그림으로 */
+int data_frame(const unsigned char *b, size_t n, int *w, int *h);    /* 카메라에서 나온 바이트 (너비 · 높이 · RGBA) 이면 1 */
 int rt_permit_ok(int k);         /* 0 = cam · 1 = mic · 2 = file — 허락됐으면 1 */
 void jb_permit_cam_size(int *w, int *h);
 void rd_poll(void);

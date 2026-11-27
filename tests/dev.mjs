@@ -193,21 +193,32 @@ await pg.evaluate(()=>{delete files['ext/Layers.jbx'];});
   ok(L.includes('nogrant started=0 status=0')&&L.includes('nogrant ws=-1')&&L.some(x=>/네트워크를 허락하지 않아/.test(x)),'net: without the grant nothing connects');
  }finally{srv.kill();await pg.evaluate(()=>{delete files['ext/Net.jbx'];});}
 }
-// ---- 권한 (jaw.getPermit · hasPermit · mag.wearCam · micLevel · permitText · writePermit) — 가짜 카메라 · 마이크 · 파일 고르기 대신 메모리 파일 ----
+// ---- data 형식 (넣기 · 꺼내기 · 안 맞으면 건너뜀) — EXE (CI) 와 같은 줄 ----
+const DATA_EXPECT=['d=406fe00000000000','n=255','s=6869','t=hi','k=7','k2=0','bad=keep','fd=3fe0000000000000 b=1 f2=0.5','md=5b5b312c325d2c5b332c345d5d','m2=[1, 2 | 3, 4]','m3=[0 | 0 | 0]','ls=[1,"x",3] l2=[1, "x", 3]','c2=[1, "a", [2, 3]]','l3=[9]','e=[]','big=3031323334353637383930313233343536373839303132333435363738393031… (70 B)','d2=406fe00000000000 d=7a','three=0'];
+L=await run(fs.readFileSync(ROOT+'/tests/fixtures/data-main.jb','utf8'),800);console.log(L.map(x=>'    | '+x).join('\n'));
+for(const e of DATA_EXPECT)ok(L.includes(e),'data: '+e);
+for(const [body,want] of [['var data call d = 1;\n    var int call x = d + 1;',"data 에는 '+' 를 쓸 수 없습니다"],
+  ['var data call d = 1;\n    var list call l = [d];','data 는 리스트 · compound 에 넣을 수 없습니다'],
+  ['var int call v = 1;\n    dem.recordCamAs("v");','recordCamAs 은(는) data 변수에만 쓸 수 있습니다'],
+  ['var data call v;\n    dem.recordMicAs(v);','recordMicAs 은(는) data 변수 이름을 "따옴표" 로 씁니다']]){
+  L=await run('Use jawbreaker call jaw;\nUse deviceManager call dem;\nrun{\n    '+body+'\n}\n',300);
+  ok(L.some(x=>x.includes(want)),'data error: '+want);
+}
+// ---- 권한 (jaw.getPermit · hasPermit) · deviceManager (recordCamAs · recordMicAs · stopRecord) · mag.wearTexture(id, data) — 가짜 카메라 · 마이크 · 파일 고르기 ----
 await pg.evaluate(()=>{
-  window.__pf='hello file';
-  window.showOpenFilePicker=async()=>[{name:'save.txt',requestPermission:async()=>'granted',getFile:async()=>({text:async()=>window.__pf}),
-    createWritable:async()=>{let buf='';return {write:async t=>{buf+=t;},close:async()=>{window.__pf=buf;}};}}];
+  window.showOpenFilePicker=async()=>[{name:'save.txt',requestPermission:async()=>'granted',getFile:async()=>({text:async()=>'hello file'})}];
 });
-L=await run(fs.readFileSync(ROOT+'/tests/fixtures/permit-main.jb','utf8'),2500);console.log(L.map(x=>'    | '+x).join('\n'));
-for(const e of ['file=1 text=hello file','after=new text','cam=1 mic=1','loud=1'])ok(L.includes(e),'permit: '+e);
-ok(await pg.evaluate(()=>window.__pf)==='new text','permit: writePermit changed the chosen file');
-{const lit=await pg.evaluate(()=>{const cv=document.querySelector('#display canvas'),c=cv.getContext('2d'),d=c.getImageData(cv.width/2-100,cv.height/2-60,200,120).data;let n=0;for(let i=0;i<d.length;i+=4)if(d[i]+d[i+1]+d[i+2]>60)n++;return n;});
- ok(lit>10000,'permit: mag.wearCam shows the camera picture on the object ('+lit+' lit pixels)');}
+L=await run(fs.readFileSync(ROOT+'/tests/fixtures/permit-main.jb','utf8'),2500);console.log(L.map(x=>'    | '+x.slice(0,120)).join('\n'));
+for(const e of ['file=1','cam=1 mic=1','stopped'])ok(L.includes(e),'permit: '+e);
+ok(L.some(x=>/^video=0000028000000\w+… \(1228808 B\)$/.test(x)),'permit: camera data = width · height · RGBA (640×480)');
+ok(L.some(x=>/^sound=\w+… \(4096 B\)$/.test(x)),'permit: mic data = 1024 float32 samples');
+const litNow=()=>pg.evaluate(()=>{const cv=document.querySelector('#display canvas'),c=cv.getContext('2d'),d=c.getImageData(cv.width/2-100,cv.height/2-60,200,120).data;let n=0;for(let i=0;i<d.length;i+=4)if(d[i]+d[i+1]+d[i+2]>60)n++;return n;});
+{const lit=await litNow();ok(lit>10000,'permit: wearTexture(id, camera data) shows the picture ('+lit+' lit pixels) and stays after stopRecord');}
 for(const [body,want] of [['jaw.getPermit("gps");','권한은 "cam" · "mic" · "file" 중 하나입니다 (받은 값: "gps")'],
-  ['jaw.writePermit("x");','파일 권한이 없습니다 — jaw.getPermit("file"); 로 먼저 파일을 고르세요'],
-  ['dis.setDisplay();\n    dis.setupObject();\n    dis.setObject([0, 0], "tv", [40, 30], "#000000");\n    mag.wearCam("tv");','카메라 권한이 없습니다 — jaw.getPermit("cam"); 로 먼저 허락을 받으세요']]){
-  L=await run('Use jawbreaker call jaw;\nUse DisPlayer call dis;\nUse Magellan call mag;\nrun{\n    '+body+'\n}\n',400);
+  ['var data call v;\n    dem.recordCamAs("v");','카메라 권한이 없습니다 — jaw.getPermit("cam"); 로 먼저 허락을 받으세요'],
+  ['var data call v;\n    dem.recordMicAs("v");','마이크 권한이 없습니다 — jaw.getPermit("mic"); 로 먼저 허락을 받으세요'],
+  ['dis.setDisplay();\n    dis.setupObject();\n    dis.setObject([0, 0], "tv", [40, 30], "#000000");\n    var data call v = "abc";\n    mag.wearTexture("tv", v);','이 data 는 텍스쳐로 쓸 수 없습니다']]){
+  L=await run('Use jawbreaker call jaw;\nUse DisPlayer call dis;\nUse Magellan call mag;\nUse deviceManager call dem;\nrun{\n    '+body+'\n}\n',400);
   ok(L.some(x=>x.includes(want)),'permit error: '+want);
 }
 await pg.evaluate(()=>{delete files['ext/Probe.jbx'];});
