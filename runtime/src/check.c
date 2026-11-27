@@ -47,7 +47,7 @@ static const Spec DIS_FUNCS[] = {
 static const Spec CAN_FUNCS[] = {{"setUi",1,{S_}},{"setasButton",1,{S_}},{"bindInput",1,{S_}},{"setUpScene",0},{"nameScene",1,{S_}},{"setScene",1,{S_}},
     {"sendtoScene",1,{S_}},{"popupScene",1,{S_}},{"closeScene",0},{"obj.setExistableScene",2,{S_,S_}},{NULL}};
 static const Spec MAG_FUNCS[] = {{"importFile",1,{S_}},{"importFolder",1,{S_}},{"setObjTexture",4,{S_,S_,M12,M12}},
-    {"setasTexture",3,{S_,M12,M12}},{"wearTexture",2,{S_,S_}},{"setasAnime",3,{L_,I_,S_}},
+    {"setasTexture",3,{S_,M12,M12}},{"wearTexture",2,{S_,S_}},{"wearCam",1,{S_}},{"setasAnime",3,{L_,I_,S_}},
     {"obj.applyAnime",2,{S_,S_}},{"obj.runAnime",3,{S_,S_,F_}},{"obj.breakAnime",1,{S_}},{NULL}};
 static const Spec SND_FUNCS[] = {{"setSpeaker",1,{S_}},{"playSfx",3,{S_,S_,I_}},{"setVol",2,{S_,I_}},
     {"repeatingPlay",3,{S_,S_,I_}},{"repeatPart",4,{S_,S_,I_,I_}},{"repatPart",4,{S_,S_,I_,I_}},{"introPart",4,{S_,S_,I_,I_}},{"break",1,{S_}},{"setFadein",2,{S_,I_}},{"setFadeout",2,{S_,I_}},
@@ -60,7 +60,7 @@ static const Spec COL_FUNCS[] = {{"setVelocity",2,{S_,M12}},{"setVelocityX",2,{S
 static const Spec BUILTINS[] = {{"log",1,{A_}},{"print",1,{A_}},{"wait",1,{I_}},{"terminate",0},{"sendto",1,{S_}},
     {"break",0},{"return",0},{"goTo",1,{I_}},{"label",1,{S_}},{"setup",1,{S_}},
     {"keyClick",1,{S_}},{"keyPush",1,{S_}},{"keyRlse",1,{S_}},
-    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{NULL}};
+    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{"getPermit",1,{S_}},{"writePermit",1,{S_}},{NULL}};
 static const Spec *spec(const Spec *t, const char *n) { for (; t->name; t++) if (!strcmp(t->name, n)) return t; return NULL; }
 static char *specList(const Spec *t, const char *pre, int objStyle) {
     size_t cap = 1024, L = 0; char *s = jb_alloc(cap); s[0] = 0;
@@ -247,6 +247,8 @@ static void ext_arg(Node *c, int i, Node *a, int t, const JdhPT *pt) {
         E(a, "'%s' 의 %d번째 값은 %s 행렬이어야 합니다 (받은 값: matrix[%d, %d])", c->name, i + 1, want, a->dims[0], a->dims[1]);
     }
 }
+/* jaw.getPermit · hasPermit 의 "cam" · "mic" · "file" (따옴표 안이면 검사 때 확인) */
+static void permitLit(Node *a) { if (a->k == N_STR && strcmp(a->str, "cam") && strcmp(a->str, "mic") && strcmp(a->str, "file")) E(a, "권한은 \"cam\" · \"mic\" · \"file\" 중 하나입니다 (받은 값: \"%s\")", a->str); }
 static void aliasErr(const char *name, Node *n) { E(n, "'%s' 은(는) 라이브러리 별칭이 아닙니다 (파일 위쪽에 'Use 라이브러리id call %s' 이 필요합니다)", name, name); }
 static void needDis(Node *e, const char *what) { if (!mod_uses_lib(M, DIS_ID)) E(e, "%s", what); }
 
@@ -385,6 +387,13 @@ static int ex(Node *e, InfoMap **sc, int ns) {
             int pt = ex(e->args.v[0], sc, ns);
             if (!fit(e->args.v[0], pt, TY_STRING)) E(e->args.v[0], "fileExists 에는 경로(문자열)를 넣습니다 (예: \"save/s.json\") — 받은 형식: %s", tyTxt(pt, e->args.v[0]));
             e->fileEx = 1; return e->ty = TY_BIT;
+        }
+        if ((!strcmp(e->name, "hasPermit") || !strcmp(e->name, "micLevel") || !strcmp(e->name, "permitText")) && jaw) {   /* jaw.hasPermit("cam") · micLevel() · permitText() */
+            int need = !strcmp(e->name, "hasPermit");
+            if (e->args.n != need) E(e, "'%s' 은(는) 값 %d개가 필요합니다 (받은 값: %d개)", e->name, need, e->args.n);
+            if (need) { int t = ex(e->args.v[0], sc, ns); if (!fit(e->args.v[0], t, TY_STRING)) E(e->args.v[0], "hasPermit 에는 \"cam\" · \"mic\" · \"file\" 중 하나를 넣습니다 — 받은 형식: %s", tyTxt(t, e->args.v[0])); permitLit(e->args.v[0]); }
+            e->permit = need ? 1 : !strcmp(e->name, "micLevel") ? 2 : 3;
+            return e->ty = need ? TY_BIT : e->permit == 2 ? TY_FLOAT : TY_STRING;
         }
         const char *sig; int sr; int sn = strf_n(e->name, &sig, &sr);
         if (sn >= 0 && jaw) {
@@ -678,6 +687,7 @@ static void call(Node *c, InfoMap **sc, int ns, CS *cs, int ncs) {
         if (pt == TY_COLOR) { char w2[180]; snprintf(w2, sizeof w2, "%s(색)", w); colorCheck(a, t, w2); continue; }
         if (pt != TY_ANY && !fit(a, t, pt)) E(a, "'%s' 의 %d번째 값은 %s 형식이어야 합니다 (받은 형식: %s)", c->name, i + 1, ty_name(pt), tyTxt(t, a));
     }
+    if (IS(M_JAW, "getPermit")) permitLit(c->args.v[0]);
     if (IS(M_JAW, "loadJson")) {
         Node *a = c->args.v[1];
         if (a->k != N_STR) E(a, "loadJson 의 두 번째 값은 compound 변수 이름을 \"따옴표\" 로 씁니다 (예: jaw.loadJson(\"save.json\", \"data\");)");

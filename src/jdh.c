@@ -932,7 +932,7 @@ static int cmdBuildExe(const char *projArg, const char *outArg) {
     }
     remove(out);
     printf("  실행기를 컴파일합니다 (처음에는 1분쯤 걸릴 수 있습니다)…\n");
-    char *cmd = fmtdup("%s cc %s -O2 -s -mwindows -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32 -lwinhttp",
+    char *cmd = fmtdup("%s cc %s -O2 -s -mwindows -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32 -lwinhttp -lmfplat -lmf -lmfreadwrite -lmfuuid",
         zig, tg, rt, sdl, rtsrc, sdk, out, srcs, genp, objs, rcarg, sdla);
     if (run(cmd) || !isFile(out)) die("실행 파일을 만들지 못했습니다 (위 메시지를 확인하세요)");
     /* 3. 프로젝트 붙이기 */

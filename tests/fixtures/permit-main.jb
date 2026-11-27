@@ -1,0 +1,35 @@
+Use jawbreaker call jaw;
+Use DisPlayer call dis;
+Use Magellan call mag;
+
+run{
+    jaw.getPermit("file");
+    var bit call f = jaw.hasPermit("file");
+    var string call t = jaw.permitText();
+    print("file=%f% text=%t%");
+    jaw.writePermit("new text");
+    t = jaw.permitText();
+    print("after=%t%");
+    jaw.getPermit("cam");
+    jaw.getPermit("mic");
+    var bit call c = jaw.hasPermit("cam");
+    var bit call m = jaw.hasPermit("mic");
+    print("cam=%c% mic=%m%");
+    dis.setDisplay();
+    dis.setupObject();
+    dis.setObject([0, 0], "tv", [400, 300], "#000000");
+    if [c == 1]{
+        mag.wearCam("tv");
+    }
+    var float call peak = 0;
+    var int call i = 0;
+    loop [i < 30]{
+        if [jaw.micLevel() > peak]{
+            peak = jaw.micLevel();
+        }
+        jaw.wait(50);
+        i = i + 1;
+    }
+    var bit call loud = peak > 0;
+    print("loud=%loud%");
+}

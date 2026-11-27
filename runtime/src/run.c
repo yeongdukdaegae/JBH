@@ -27,6 +27,18 @@ void rt_sys(const char *fmt, ...) {
     va_list ap; va_start(ap, fmt); fputs("· ", stderr); vfprintf(stderr, fmt, ap); fputc('\n', stderr); va_end(ap);
 }
 
+/* ---------- 권한 (jaw.getPermit) — 장치 쪽은 permit.c ---------- */
+int jb_permit_cam_start(void); int jb_permit_mic_start(void); double jb_permit_mic_level(void); int jb_permit_file_pick(char *out, size_t n);
+static int PERM[3];                  /* cam · mic · file */
+static char *permPath, *permText;    /* 고른 파일 · 그 글자 */
+int rt_permit_ok(int k) { return k >= 0 && k < 3 && PERM[k]; }
+static int permitKind(const char *k, Node *n) {
+    if (!strcmp(k, "cam")) return 0;
+    if (!strcmp(k, "mic")) return 1;
+    if (!strcmp(k, "file")) return 2;
+    RT(n, "권한은 \"cam\" · \"mic\" · \"file\" 중 하나입니다 (받은 값: \"%s\")", k);
+    return 0;
+}
 /* ---------- 차례 (FIFO) ---------- */
 static pthread_mutex_t Gm = PTHREAD_MUTEX_INITIALIZER;
 typedef struct GW { pthread_cond_t c; struct GW *next; int go; int init; } GW;
@@ -344,6 +356,11 @@ Value ev(Node *e, Env *env) {
             v_free(&x); return v_num(r);
         }
         if (e->canKey) { char *k = evs(e->args.v[0], env); int r = key_on(k); free(k); return v_num(r); }
+        if (e->permit) {
+            if (e->permit == 2) return v_num(PERM[1] ? jb_permit_mic_level() : 0);
+            if (e->permit == 3) return v_str(PERM[2] && permText ? permText : "");
+            char *k = evs(e->args.v[0], env); int i = permitKind(k, e->args.v[0]); free(k); return v_num(PERM[i]);
+        }
         if (e->fileEx) {
             char *raw = evs(e->args.v[0], env); char *path = path_resolve(raw, e->file); free(raw);
             extern int rt_file_exists(const char *path);
@@ -815,6 +832,38 @@ int jaw_call(Node *c, Env *env) {
         FILE *f = fopen(b, "wb"); if (f) { fputs(o, f); fclose(f); }
         rt_sys("📤 %s → %s (난독화)", path, b);
         free(o); free(raw); free(name); free(path); return S_OK;
+    }
+    if (!strcmp(n, "getPermit")) {   /* jaw.getPermit("cam" | "mic" | "file") — 허락을 받음 (답할 때까지 기다림) */
+        char *k = evs(c->args.v[0], env); int i = permitKind(k, c->args.v[0]);
+        if (!PERM[i]) {
+            needAsync(c);
+            char path[4096] = ""; int r;
+            gil_unlock();
+            r = i == 0 ? jb_permit_cam_start() : i == 1 ? jb_permit_mic_start() : jb_permit_file_pick(path, sizeof path);
+            gil_lock();
+            if (r && i == 2) {   /* 고른 파일을 읽어 둠 — 읽지 못하면 허락되지 않음 */
+                FILE *f = fopen(path, "rb");
+                if (!f) r = 0;
+                else {
+                    fseek(f, 0, SEEK_END); long fl = ftell(f); fseek(f, 0, SEEK_SET);
+                    char *b = jb_alloc(fl > 0 ? fl + 1 : 1); size_t rr = fl > 0 ? fread(b, 1, fl, f) : 0; b[rr] = 0; fclose(f);
+                    free(permText); permText = b; free(permPath); permPath = jb_strdup(path);
+                }
+            }
+            PERM[i] = r != 0;
+            rt_sys(r ? "🔓 %s: 허락됨" : "🔒 %s: 허락되지 않음", k);
+        }
+        free(k); return S_OK;
+    }
+    if (!strcmp(n, "writePermit")) {   /* jaw.writePermit("글자") — 고른 파일을 그 글자로 덮어씀 */
+        char *t = evs(c->args.v[0], env);
+        if (!PERM[2]) RT(c, "파일 권한이 없습니다 — jaw.getPermit(\"file\"); 로 먼저 파일을 고르세요");
+        const char *nm = strrchr(permPath, '/'), *nb = strrchr(permPath, '\\'); if (nb > nm) nm = nb; nm = nm ? nm + 1 : permPath;
+        FILE *f = fopen(permPath, "wb");
+        if (!f) RT(c, "'%s' 에 쓰지 못했습니다 (%s)", nm, strerror(errno));
+        size_t L = strlen(t); int bad = fwrite(t, 1, L, f) != L; bad |= fclose(f) != 0;
+        if (bad) RT(c, "'%s' 에 쓰지 못했습니다 (%s)", nm, strerror(errno));
+        free(permText); permText = t; return S_OK;
     }
     if (!strcmp(n, "openFile")) {
         char *raw = evs(c->args.v[0], env), *path = path_resolve(raw, c->file);

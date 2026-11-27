@@ -107,6 +107,7 @@ struct Node {
     int target; Module *tmod; Node *tdef;   /* 대상 */
     const void *ext; const char *extLib;   /* M_EXT: 사용자 라이브러리 (JDH) 의 명령어 · 값 */
     int lfind, canKey, fileEx, isMath, isStrf, splitOK;
+    int permit;   /* jaw.hasPermit = 1 · micLevel = 2 · permitText = 3 */
     Node *lnode;                      /* 리스트 명령 · .length · .find 의 리스트 변수 */
     int ret, retTy, retDims[2];       /* return(값) */
     Node *jump; int jumpIsBreak;      /* break() · return() 대상 */

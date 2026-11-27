@@ -1177,6 +1177,14 @@ static int gfxCallInner(Node *c, Env *env) {
         if (o->kind == OK_TEXT || o->kind == OK_NONE || o->kind == OK_POLY)
             RT(c, "'%s' 은(는) %s 오브젝트라 텍스쳐를 입힐 수 없습니다 (사각형 · 원만)", o->id, o->kind == OK_TEXT ? "글자" : o->kind == OK_POLY ? "다각형" : "보이지 않는");
         if (IS("breakAnime")) { animeStop(o); return S_OK; }
+        if (IS("wearCam")) {   /* mag.wearCam("id") — 카메라 영상을 텍스쳐로 (프레임마다 바뀜) · 벗기기는 mag.wearTexture("id", "") */
+            if (!rt_permit_ok(0)) RT(c, "카메라 권한이 없습니다 — jaw.getPermit(\"cam\"); 로 먼저 허락을 받으세요");
+            animeStop(o); if (!o->hasTex) strcpy(o->color, "#ffffff");
+            int w = 0, h = 0; jb_permit_cam_size(&w, &h);
+            o->hasTex = 1; o->tex.ref = rd_cam_img(); o->tex.tid = "@cam"; o->tex.path = "@cam";
+            o->tex.x1 = 0; o->tex.y1 = 0; o->tex.x2 = w ? w : 640; o->tex.y2 = h ? h : 480;
+            redraw(); return S_OK;
+        }
         if (IS("wearTexture")) {
             animeStop(o); char *tid = strArg(c->args.v[1], env);
             if (!*tid) { if (o->hasTex) { o->hasTex = 0; redraw(); } free(tid); return S_OK; }

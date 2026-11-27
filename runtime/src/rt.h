@@ -151,6 +151,9 @@ void rd_size(double *w, double *h);        /* 화면 단위 (짧은 쪽 720) */
 double rd_measure(const char *t, double size);
 int rd_set_font(const char *path);
 Img *rd_image(const char *path, int *w, int *h, int *failed);
+Img *rd_cam_img(void);          /* 카메라 영상 (mag.wearCam) — 그릴 때마다 새 프레임을 올림 */
+int rt_permit_ok(int k);         /* 0 = cam · 1 = mic · 2 = file — 허락됐으면 1 */
+void jb_permit_cam_size(int *w, int *h);
 void rd_poll(void);
 void rd_paint(void);
 void rd_present(void);

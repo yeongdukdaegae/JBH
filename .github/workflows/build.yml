@@ -191,6 +191,25 @@ jobs:
             foreach ($e in $expect) { if (-not (Select-String -Path net-out.txt -SimpleMatch $e -Quiet -Encoding utf8)) { Write-Host "✖ 없음: $e"; $bad++ } }
           } finally { Stop-Process -Id $srv.Id -Force }
           if ($bad) { exit 1 }
+      - name: 권한 시험 (jaw.getPermit — 파일은 JB_PERMIT_FILE 로 고름 · 카메라 · 마이크는 이 컴퓨터에 없으면 0 · 웹 시험과 같은 main.jb)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          dist\bin\jdh.exe new project PermitGame; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\permit-main.jb PermitGame\main.jb -Force
+          dist\bin\jdh.exe build exe PermitGame -o Permit.exe; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\permit-data.txt permit-copy.txt -Force
+          $env:JB_PERMIT_FILE = "$PWD\permit-copy.txt"
+          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+          $p = Start-Process .\Permit.exe -ArgumentList '--shot','permit-exe.png','--shot-at','4000' -RedirectStandardOutput permit-out.txt -RedirectStandardError permit-err.txt -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
+          Get-Content permit-out.txt -Encoding utf8; Get-Content permit-err.txt -Encoding utf8
+          $bad = 0
+          foreach ($e in @('file=1 text=hello file', 'after=new text')) { if (-not (Select-String -Path permit-out.txt -SimpleMatch $e -Quiet)) { Write-Host "✖ 없음: $e"; $bad++ } }
+          if (-not (Select-String -Path permit-out.txt -Pattern '^cam=[01] mic=[01]$' -Quiet)) { Write-Host '✖ 카메라 · 마이크 줄이 없습니다'; $bad++ }
+          if (-not (Select-String -Path permit-out.txt -Pattern '^loud=[01]$' -Quiet)) { Write-Host '✖ 마이크 소리 크기 줄이 없습니다 (중간에 멈춤)'; $bad++ }
+          if ((Get-Content permit-copy.txt -Raw) -ne 'new text') { Write-Host '✖ writePermit 이 고른 파일을 바꾸지 않았습니다'; $bad++ }
+          if ($bad) { exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -198,6 +217,7 @@ jobs:
           path: |
             probe-exe.png
             layers-exe.png
+            permit-exe.png
           if-no-files-found: ignore
       - name: 업데이트 파일 만들기 (설치된 파일 목록 · 묶음) · 업데이트 시험
         shell: pwsh

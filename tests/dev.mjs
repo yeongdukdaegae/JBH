@@ -3,7 +3,7 @@ const {chromium}=await import(process.env.PW||'playwright');
 import path from 'path';import {fileURLToPath} from 'url';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 import fs from 'fs';
-const b=await chromium.launch({...(process.env.CHROME?{executablePath:process.env.CHROME}:{}),args:['--no-sandbox']});
+const b=await chromium.launch({...(process.env.CHROME?{executablePath:process.env.CHROME}:{}),args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});   // 가짜 카메라 · 마이크 (jaw.getPermit 시험)
 const ok=(c,m)=>console.log((c?'PASS ':'FAIL ')+m);
 const ctx=await b.newContext({viewport:{width:1100,height:800},locale:'ko-KR'});
 const pg=await ctx.newPage();const errs=[];
@@ -192,6 +192,23 @@ await pg.evaluate(()=>{delete files['ext/Layers.jbx'];});
   L=await run('Use jawbreaker call jaw;\nUse Net call net;\nrun{\n    net.get("http://127.0.0.1:8770/hello");\n    jaw.wait(600);\n    print("nogrant started=%net.started% status=%net.status%");\n    net.wsopen("ws://127.0.0.1:8771/");\n    jaw.wait(600);\n    print("nogrant ws=%net.ws%");\n}\n',1800);
   ok(L.includes('nogrant started=0 status=0')&&L.includes('nogrant ws=-1')&&L.some(x=>/네트워크를 허락하지 않아/.test(x)),'net: without the grant nothing connects');
  }finally{srv.kill();await pg.evaluate(()=>{delete files['ext/Net.jbx'];});}
+}
+// ---- 권한 (jaw.getPermit · hasPermit · mag.wearCam · micLevel · permitText · writePermit) — 가짜 카메라 · 마이크 · 파일 고르기 대신 메모리 파일 ----
+await pg.evaluate(()=>{
+  window.__pf='hello file';
+  window.showOpenFilePicker=async()=>[{name:'save.txt',requestPermission:async()=>'granted',getFile:async()=>({text:async()=>window.__pf}),
+    createWritable:async()=>{let buf='';return {write:async t=>{buf+=t;},close:async()=>{window.__pf=buf;}};}}];
+});
+L=await run(fs.readFileSync(ROOT+'/tests/fixtures/permit-main.jb','utf8'),2500);console.log(L.map(x=>'    | '+x).join('\n'));
+for(const e of ['file=1 text=hello file','after=new text','cam=1 mic=1','loud=1'])ok(L.includes(e),'permit: '+e);
+ok(await pg.evaluate(()=>window.__pf)==='new text','permit: writePermit changed the chosen file');
+{const lit=await pg.evaluate(()=>{const cv=document.querySelector('#display canvas'),c=cv.getContext('2d'),d=c.getImageData(cv.width/2-100,cv.height/2-60,200,120).data;let n=0;for(let i=0;i<d.length;i+=4)if(d[i]+d[i+1]+d[i+2]>60)n++;return n;});
+ ok(lit>10000,'permit: mag.wearCam shows the camera picture on the object ('+lit+' lit pixels)');}
+for(const [body,want] of [['jaw.getPermit("gps");','권한은 "cam" · "mic" · "file" 중 하나입니다 (받은 값: "gps")'],
+  ['jaw.writePermit("x");','파일 권한이 없습니다 — jaw.getPermit("file"); 로 먼저 파일을 고르세요'],
+  ['dis.setDisplay();\n    dis.setupObject();\n    dis.setObject([0, 0], "tv", [40, 30], "#000000");\n    mag.wearCam("tv");','카메라 권한이 없습니다 — jaw.getPermit("cam"); 로 먼저 허락을 받으세요']]){
+  L=await run('Use jawbreaker call jaw;\nUse DisPlayer call dis;\nUse Magellan call mag;\nrun{\n    '+body+'\n}\n',400);
+  ok(L.some(x=>x.includes(want)),'permit error: '+want);
 }
 await pg.evaluate(()=>{delete files['ext/Probe.jbx'];});
 console.log(errs.length?errs.join('\n'):'no page errors');

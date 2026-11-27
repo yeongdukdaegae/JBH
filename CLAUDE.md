@@ -30,6 +30,11 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - 웹은 워커 안에서 `fetch` · `WebSocket` 을 쓴다 (`JBX_BOOT` 의 `HOST`). 그래서 브라우저 규칙을 따른다: HTTP 는 서버가 CORS 를 허용해야 응답을 읽고, https 페이지에서는 http · ws 에 접속하지 못한다. EXE (`runtime/src/net.c` · WinHTTP · 스레드) 에는 이 제한이 없다 — 차이로 남아 있음.
   - 한도: 동시에 64개 · 응답 본문과 WebSocket 에 쌓인 메시지는 16MB.
   - 시험: `tests/libs/Net` · `tests/fixtures/net-main.jb` · `tests/net_server.py` (HTTP + WebSocket) 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌린다. Windows 가 아닌 빌드의 `net.c` 는 소켓으로 http · ws 만 한다 (시험용).
+- 권한 (언어의 내장 기능 · Lite 와 Dev. 모두): `jaw.getPermit("cam" | "mic" | "file");` 은 허락을 받을 때까지 기다리고, 결과는 `jaw.hasPermit("…")` (bit) 로 읽는다. 쓰는 기능: `mag.wearCam("id");` (카메라 영상을 오브젝트의 텍스쳐로 · 벗기기는 `mag.wearTexture("id", "")`) · `jaw.micLevel()` (소리 크기 RMS 0 ~ 1) · `jaw.permitText()` (고른 파일의 글자) · `jaw.writePermit("글자");` (고른 파일을 덮어씀).
+  - 웹: `getUserMedia` (카메라 · 마이크) · `showOpenFilePicker` (파일 · Edge · Chrome 만 · 사용자가 막 누른 직후에만 열리므로 실패하면 화면에 "파일 고르기" 단추를 띄움). 코드는 `execProgram` 안 `PERMIT`. 실행이 끝나면 카메라 · 마이크를 끈다 (`PERMIT_LIVE`).
+  - EXE: `runtime/src/permit.c` — 카메라는 Windows Media Foundation (첫 카메라 · 그 밖의 OS 는 0) · 마이크는 SDL2 녹음 장치 · 파일은 열기 창 (환경 변수 `JB_PERMIT_FILE` 이 있으면 그 파일 · 시험용). Windows 개인 정보 설정에서 막혀 있으면 0.
+  - APK: 아직 안 됨 (안드로이드 쪽 앱 틀에 권한 요청이 없음 → 늘 0). C 변환은 이 기능들을 거부한다.
+  - 시험: `tests/fixtures/permit-main.jb` 를 웹 (`tests/dev.mjs` · 가짜 카메라 · 마이크 · 파일 고르기 흉내) 과 EXE (CI · 파일만 실제로 확인) 가 같이 돌린다.
 - `jdh_log` 는 `print` 와 같은 디버그 출력이다. 에디터에서는 로그 패널에, EXE 에서는 표준 출력에 나온다 (창 프로그램이라 화면에는 안 보임).
 - 엔진 버전은 1.5 (에디터의 `JB_VER` · `JBX_ENGINE` · `src/jdh.c` 의 `JDH_ENGINE_*` 를 같이 올린다). 라이브러리 선언의 `requires.engine` (">=1.2" 꼴) 을 `jdh lib check` 와 에디터가 검사한다.
 - 신뢰 확인 (Dev.): `.jbx` 내용의 SHA-256 마다 한 번 묻고 `localStorage` 의 `jawbreaker.jbx.trust` 에 기억한다 (다시 구우면 다시 물음). 창에는 버전 · 명령어 · 값 개수 · 쓰는 권한 · "EXE 에서는 격리 없음" 을 보여 주고, files.read 가 있으면 허락 여부도 고른다. 묻는 때: 「라이브러리 불러오기 (.jbx)」 메뉴 · 파일로 넣을 때 (불러오기 · 끌어 놓기) · 프로젝트 zip 등으로 들어온 것은 처음 실행할 때. 신뢰하지 않은 라이브러리를 쓰는 프로그램은 실행하지 않는다. 코드는 에디터 쪽 DEV 구간 (`jbxTrustRun` · `jbxImport` · `jbxDocText` · `jbxAcMembers`) — 내보낸 게임에는 없다.
@@ -81,5 +86,6 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 - 설치 파일을 실제 PC 에서 실행한 적이 없다.
 - 격리 방식 (권한을 뺀 프레임 안의 워커) 은 헤드리스 Chrome 에서만 확인했다. Edge 앱 창 · Android WebView 는 미확인.
 - 번역 (ja · zh-CN · zh-TW) 은 원어민 검수를 받지 않았다.
+- 권한: 실제 카메라 · 마이크 (웹은 가짜 장치, CI 에는 장치가 없음) · EXE 의 카메라 영상 (Media Foundation 코드는 컴파일까지만) · 실제 파일 고르기 창은 확인하지 못했다. 에디터의 "EXE 로 내보내기" 에 든 미리 만든 실행기 (`jbrt-win`) 는 다시 만들지 않아 이 기능이 없다 (`jdh build exe` 는 됨).
 - 네트워크: https · wss (실제 인터넷의 서버) 는 확인하지 못했다 (시험은 로컬의 http · ws 서버). APK 에서의 네트워크 (INTERNET 권한) 도 미확인.
 - 업데이트: 실제 GitHub 릴리스에서 받는 것 · `jbdev.exe` 의 "업데이트하시겠습니까?" 창은 확인하지 못했다 (CI 는 로컬 HTTP 서버로 `jdh update` 만 시험 · 릴리스를 게시한 적이 없음).
