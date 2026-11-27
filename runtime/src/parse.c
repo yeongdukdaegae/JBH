@@ -453,7 +453,13 @@ static Node *stmt(void) {
             if (isKw("to")) { S->p++; c->toExpr = expr(); if (isKw("for")) { S->p++; c->forExpr = expr(); } }
             else if (isKw("for")) { S->p++; c->forExpr = expr(); }
             if (LW("ease")) { S->p++; c->easeExpr = expr(); }
-            if (isKw("as")) { S->p++; c->asName = ident("받을 변수 이름")->v; c->asLine = S->toks[S->p - 1].line; }
+            if (isKw("as")) {   /* dis.getVar(…) as 변수;  ·  jaw.copyFileData(…) as ("data 변수"); */
+                S->p++;
+                if (isOp("(")) {
+                    S->p++; Tok *t = T(); if (t->t != T_STR) E("as ( ) 안에는 받을 data 변수 이름을 \"따옴표\" 로 씁니다 (예: jaw.copyFileData(\"permit\") as (\"doc\");)");
+                    S->p++; opx(")"); c->asName = t->v; c->asQ = 1; c->asLine = t->line;
+                } else { c->asName = ident("받을 변수 이름")->v; c->asLine = S->toks[S->p - 1].line; }
+            }
             semi(); return c;
         }
     }

@@ -61,7 +61,7 @@ static const Spec COL_FUNCS[] = {{"setVelocity",2,{S_,M12}},{"setVelocityX",2,{S
 static const Spec BUILTINS[] = {{"log",1,{A_}},{"print",1,{A_}},{"wait",1,{I_}},{"terminate",0},{"sendto",1,{S_}},
     {"break",0},{"return",0},{"goTo",1,{I_}},{"label",1,{S_}},{"setup",1,{S_}},
     {"keyClick",1,{S_}},{"keyPush",1,{S_}},{"keyRlse",1,{S_}},
-    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{"getPermit",1,{S_}},{"overWriteFile",2,{A_,S_}},{NULL}};
+    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{"getPermit",1,{S_}},{"copyFileData",1,{S_}},{"overWriteFile",2,{A_,S_}},{NULL}};
 static const Spec *spec(const Spec *t, const char *n) { for (; t->name; t++) if (!strcmp(t->name, n)) return t; return NULL; }
 static char *specList(const Spec *t, const char *pre, int objStyle) {
     size_t cap = 1024, L = 0; char *s = jb_alloc(cap); s[0] = 0;
@@ -409,11 +409,6 @@ static int ex(Node *e, InfoMap **sc, int ns) {
             int pt = ex(e->args.v[0], sc, ns);
             if (!fit(e->args.v[0], pt, TY_STRING)) E(e->args.v[0], "fileExists 에는 경로(문자열)를 넣습니다 (예: \"save/s.json\") — 받은 형식: %s", tyTxt(pt, e->args.v[0]));
             e->fileEx = 1; return e->ty = TY_BIT;
-        }
-        if (!strcmp(e->name, "readFile") && jaw) {   /* jaw.readFile("경로") → data ("permit.번호" = 허락받은 파일) */
-            if (e->args.n != 1) E(e, "'readFile' 은(는) 값 1개가 필요합니다 (받은 값: %d개)", e->args.n);
-            int t = ex(e->args.v[0], sc, ns); if (!fit(e->args.v[0], t, TY_STRING)) E(e->args.v[0], "readFile 에는 경로(문자열)를 넣습니다 (예: \"doc/a.txt\" · \"permit.1\") — 받은 형식: %s", tyTxt(t, e->args.v[0]));
-            e->readF = 1; return e->ty = TY_DATA;
         }
         if (!strcmp(e->name, "hasPermit") && jaw) {   /* jaw.hasPermit("cam") */
             if (e->args.n != 1) E(e, "'%s' 은(는) 값 %d개가 필요합니다 (받은 값: %d개)", e->name, 1, e->args.n);
@@ -824,7 +819,15 @@ static void call(Node *c, InfoMap **sc, int ns, CS *cs, int ncs) {
         if (st != TY_STRING && st != TY_ANY) E(c->saveAs, "save as 다음은 id 문자열입니다 (받은 형식: %s)", tyTxt(st, c->saveAs));
         if (st == TY_ANY) c->saveAs->chk = TY_STRING;
     }
-    if (c->asName && !IS(M_DIS, "getVar")) E(c, "'as' 는 dis.getVar(...) 뒤에서만 쓸 수 있습니다");
+    int isCopy = IS(M_JAW, "copyFileData");
+    if (c->asName && !IS(M_DIS, "getVar") && !isCopy) E(c, "'as' 는 dis.getVar(...) · jaw.copyFileData(...) 뒤에서만 쓸 수 있습니다");
+    if (isCopy) {   /* jaw.copyFileData("경로" | "permit") as ("data 변수"); */
+        if (!c->asName || !c->asQ) E(c, "copyFileData 는 받을 data 변수를 as (\"이름\") 으로 정합니다 (예: jaw.copyFileData(\"permit\") as (\"doc\");)");
+        c->asName = jb_in(c->asName); Info *i = look(c->asName, sc, ns);
+        if (!i) EL(c->asLine, "변수 '%s' 이(가) 선언되지 않았습니다 (var data call %s; 로 먼저 만드세요)", c->asName, c->asName);
+        if (i->ty != TY_DATA) EL(c->asLine, "copyFileData 는 data 변수에만 넣을 수 있습니다 ('%s' 은(는) %s)", c->asName, ty_name(i->ty));
+        c->asInfo = i;
+    }
     if (IS(M_DIS, "getVar")) {
         if (!c->asName) E(c, "getVar 는 받을 변수를 'as' 로 정해야 합니다 (예: dis.getVar(\"yaju\", \"scale[1, 2]\") as s;)");
         Info *info = look(c->asName, sc, ns);

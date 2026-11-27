@@ -217,7 +217,9 @@ for(const e of ['part=Hello','set=Hello, JB','ins=>Hello, JB!','empty=[]','num=3
 ok(await pg.evaluate(()=>new TextDecoder().decode(window.__pf[0].data))==='HELLO file','datafile: overWriteFile changed the permitted file');
 ok(await pg.evaluate(()=>files['doc/out.txt'])==='line2','datafile: overWriteFile wrote the project file');
 for(const [body,want] of [['jaw.overWriteFile("x", "main.jb");','overWriteFile 로 쓸 수 없는 경로입니다'],
-  ['var data call v = jaw.readFile("permit.3");',"허락받은 파일 'permit.3' 이(가) 없습니다"],
+  ['var data call v;\n    jaw.copyFileData("permit") as ("v");','허락받은 파일이 없습니다 — 먼저 jaw.getPermit("file"); 로 파일을 고르세요'],
+  ['var int call v;\n    jaw.copyFileData("doc/a.txt") as ("v");','copyFileData 는 data 변수에만 넣을 수 있습니다'],
+  ['var data call v;\n    jaw.copyFileData("doc/a.txt");','copyFileData 는 받을 data 변수를 as ("이름") 으로 정합니다'],
   ['var int call v = 1;\n    data.v.setPart(0, 1, "a");','getPart · setPart 는 data 변수에만 쓸 수 있습니다'],
   ['var data call v;\n    data.v.getPart(0, 1);','getPart 는 값을 돌려주는 식이라 단독으로 쓸 수 없습니다']]){
   L=await run('Use jawbreaker call jaw;\nrun{\n    '+body+'\n}\n',300);
