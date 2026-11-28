@@ -4,7 +4,7 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.8.0"
+#define JDH_VERSION "0.8.1"
 #define JDH_ENGINE_MAJOR 1
 #define JDH_ENGINE_MINOR 6   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <time.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #ifndef _WIN32
@@ -800,7 +801,7 @@ static void projScan(const char *root, const char *rel, PList *pl) {
         if (isDir(f2)) {
             if (!*rel && (!strcmp(e->d_name, "build") || !strcmp(e->d_name, "ext") || endsWith(e->d_name, "_data"))) { free(r2); free(f2); continue; }
             projScan(root, r2, pl); free(r2);
-        } else if (isFile(f2) && !endsWith(e->d_name, ".exe") && !endsWith(e->d_name, ".zip")) {
+        } else if (isFile(f2) && !endsWith(e->d_name, ".exe") && !endsWith(e->d_name, ".zip") && !endsWith(e->d_name, ".apk")) {
             pl->path = realloc(pl->path, sizeof(char*) * (pl->n + 1)); pl->path[pl->n++] = r2;
         } else free(r2);
         free(f2);
@@ -1095,8 +1096,8 @@ static const char *uiLang(void) {
     return "ko";
 #endif
 }
-static int cmdBuildHtml(const char *projArg, const char *outArg, const char *lang) {
-    const char *pd = projDir(projArg);
+/* 게임 HTML 한 파일 (HTML 만들기 · APK 의 assets/index.html) — ram: 램 한도 ("auto" · MB · "0" = 무제한 · NULL = 틀 그대로) */
+static Sb gameHtml(const char *pd, const char *lang, const char *ram, int *nfOut, int *netOut, int *grantOut) {
     char *sdk = sdkDir(); if (!sdk) die("jdh.h 를 찾을 수 없습니다 — JDH 를 다시 설치하거나 환경 변수 JDH_HOME 을 확인하세요");
     if (!lang) lang = uiLang();
     const char *te = getenv("JDH_HTML_TEMPLATE");   /* 시험용: 틀 파일 */
@@ -1124,7 +1125,7 @@ static int cmdBuildHtml(const char *projArg, const char *outArg, const char *lan
     sbStr(&js, ",\"files\":{");
     int nf = 0;
     for (int i = 0; i < pl.n; i++) {
-        if (endsWith(pl.path[i], ".bat")) continue;   /* run.bat 등은 넣지 않음 */
+        if (endsWith(pl.path[i], ".bat") || endsWith(pl.path[i], ".html")) continue;   /* run.bat · 만든 HTML 등은 넣지 않음 */
         char *fp = fmtdup("%s/%s", pd, pl.path[i]); size_t len; unsigned char *b = readAll(fp, &len); free(fp);
         if (!b) continue;
         if (nf++) sbStr(&js, ",");
@@ -1147,10 +1148,26 @@ static int cmdBuildHtml(const char *projArg, const char *outArg, const char *lan
     Sb html = {0}; *at = 0; char *rest = at + strlen(mk);
     char *ti = strstr(t, "__JB_TITLE__");
     if (ti) { *ti = 0; sbStr(&html, t); sbStr(&html, esc.s ? esc.s : ""); sbStr(&html, ti + 12); } else sbStr(&html, t);
-    sbStr(&html, js.s); sbStr(&html, rest);
+    sbStr(&html, js.s);
+    /* 램 한도 (설정) — 틀은 JBMEM.set("auto"); */
+    const char *rm = "JBMEM.set(\"auto\");"; char *ra = ram ? strstr(rest, rm) : NULL;
+    if (ra) {
+        int ok = !strcmp(ram, "auto"); for (const char *q = ram; *q && !ok; q++) if (!isdigit((unsigned char)*q)) break; else if (!q[1]) ok = 1;
+        if (!ok) die("--ram 은 auto 또는 MB 수 (0 = 무제한) 입니다: %s", ram);
+        *ra = 0; sbStr(&html, rest); sbStr(&html, "JBMEM.set("); sbStr(&html, strcmp(ram, "auto") ? ram : "\"auto\""); sbStr(&html, ");"); sbStr(&html, ra + strlen(rm));
+    } else sbStr(&html, rest);
+    if (nfOut) *nfOut = nf;
+    if (netOut) *netOut = net.n > 0;
+    if (grantOut) *grantOut = grant.n > 0;
+    free(tpl); free(js.s); free(esc.s); free(grant.s); free(net.s);
+    return html;
+}
+static int cmdBuildHtml(const char *projArg, const char *outArg, const char *lang, const char *ram) {
+    const char *pd = projDir(projArg); int nf, net, grant;
+    Sb html = gameHtml(pd, lang, ram, &nf, &net, &grant);
     char *out = outArg ? xdup(outArg) : fmtdup("%s/%s.html", pd, projName(pd));
     writeAll(out, html.s, html.n);
-    printf("✔ 만들었습니다: %s (%.1f MB · 파일 %d개%s)\n  브라우저로 열면 바로 실행됩니다\n", out, html.n / 1048576.0, nf, grant.n || net.n ? " · 라이브러리 권한은 선언한 대로" : "");
+    printf("✔ 만들었습니다: %s (%.1f MB · 파일 %d개%s)\n  브라우저로 열면 바로 실행됩니다\n", out, html.n / 1048576.0, nf, grant || net ? " · 라이브러리 권한은 선언한 대로" : "");
     return 0;
 }
 /* ---------- 업데이트 ----------
@@ -1360,6 +1377,386 @@ static void walkAll(const char *root, const char *rel, PList *pl) {
     }
     closedir(d); free(dir);
 }
+/* ---------- APK 변환 (jdh build apk) — 웹 판 에디터의 JBX.apk 와 같은 결과 ----------
+ *   WebView 실행기 (classes.dex · resources.arsc · 기본 아이콘 — SDK 의 apk/apk-tpl.json · editor/gen_native.mjs 가 뽑음)
+ *   + HTML 만들기와 같은 게임 파일 (assets/index.html) + 여기서 만든 AndroidManifest.xml (바이너리 XML)
+ *   zip (모두 압축 없이 · 4 바이트 정렬) → APK 서명 v2 (RSA 2048 · SHA-256)
+ *   서명 키: {"pkcs8": base64, "cert": base64, "made": ms} — 웹 판의 「키 내보내기」 파일과 같은 꼴 (서로 가져올 수 있음)
+ *     기본 자리 = %APPDATA%\JDH\apk-key.json (그 밖: ~/.config/jdh/apk-key.json) · JDH_APK_KEY 로 바꿈 · 없으면 새로 만듦
+ *   RSA: Windows 는 CNG (NCrypt) · 그 밖 (시험용) 은 openssl 명령 */
+typedef struct { unsigned char *b; size_t n, cap; } Bb;   /* 바이트 버퍼 */
+static void bbPut(Bb *o, const void *p, size_t n) { if (o->n + n > o->cap) { o->cap = (o->n + n) * 2 + 64; o->b = realloc(o->b, o->cap); if (!o->b) die("메모리가 부족합니다"); } memcpy(o->b + o->n, p, n); o->n += n; }
+static void bbU8(Bb *o, unsigned v) { unsigned char c = (unsigned char)v; bbPut(o, &c, 1); }
+static void bbU16(Bb *o, unsigned v) { unsigned char c[2] = {(unsigned char)v, (unsigned char)(v >> 8)}; bbPut(o, c, 2); }
+static void bbU32(Bb *o, uint32_t v) { unsigned char c[4] = {(unsigned char)v, (unsigned char)(v >> 8), (unsigned char)(v >> 16), (unsigned char)(v >> 24)}; bbPut(o, c, 4); }
+static void bbU64(Bb *o, uint64_t v) { bbU32(o, (uint32_t)v); bbU32(o, (uint32_t)(v >> 32)); }
+static void bbBb(Bb *o, const Bb *x) { bbPut(o, x->b, x->n); }
+static void put32at(unsigned char *p, uint32_t v) { p[0] = (unsigned char)v; p[1] = (unsigned char)(v >> 8); p[2] = (unsigned char)(v >> 16); p[3] = (unsigned char)(v >> 24); }
+static unsigned char *unb64(const char *s, size_t *n) {
+    size_t L = strlen(s); unsigned char *o = xalloc(L / 4 * 3 + 4); size_t k = 0; unsigned v = 0; int bits = 0;
+    for (const char *p = s; *p; p++) {
+        int c = *p >= 'A' && *p <= 'Z' ? *p - 'A' : *p >= 'a' && *p <= 'z' ? *p - 'a' + 26 : *p >= '0' && *p <= '9' ? *p - '0' + 52 : *p == '+' ? 62 : *p == '/' ? 63 : -1;
+        if (c < 0) continue;
+        v = v << 6 | (unsigned)c; bits += 6; if (bits >= 8) { bits -= 8; o[k++] = (unsigned char)(v >> bits); }
+    }
+    *n = k; return o;
+}
+static void sha256raw(const unsigned char *p, size_t n, unsigned char out[32]) {
+    Sha s; shaInit(&s); shaAdd(&s, p, n); char hx[65]; shaHex(&s, hx);
+    for (int i = 0; i < 32; i++) { unsigned v; sscanf(hx + 2 * i, "%2x", &v); out[i] = (unsigned char)v; }
+}
+static uint32_t crc32b(const unsigned char *p, size_t n) {
+    static uint32_t T[256]; static int ok;
+    if (!ok) { for (uint32_t i = 0; i < 256; i++) { uint32_t c = i; for (int k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320u ^ (c >> 1) : c >> 1; T[i] = c; } ok = 1; }
+    uint32_t c = 0xFFFFFFFFu; for (size_t i = 0; i < n; i++) c = T[(c ^ p[i]) & 255] ^ (c >> 8); return c ^ 0xFFFFFFFFu;
+}
+/* ----- 바이너리 XML (AndroidManifest.xml) ----- */
+typedef struct { const char *name; uint32_t id; int ns; int type; const char *s; uint32_t v; } AxAttr;   /* type: 3 문자열 · 0x10 정수 · 0x11 16진 · 0x12 참거짓 · 1 참조 */
+typedef struct AxEl { const char *name; AxAttr at[8]; int nat; struct AxEl *kid[4]; int nkid; } AxEl;
+static const char *AX_NS = "http://schemas.android.com/apk/res/android";
+static char *AXS[64]; static int AXN;
+static int axS(const char *s) { for (int i = 0; i < AXN; i++) if (!strcmp(AXS[i], s)) return i; if (AXN >= 64) die("axml: 문자열이 너무 많습니다"); AXS[AXN] = xdup(s); return AXN++; }
+static uint32_t AXR[32]; static int AXRN;
+static void axWalkRes(AxEl *e) {
+    for (int i = 0; i < e->nat; i++) if (e->at[i].id) {
+        int have = 0; for (int q = 0; q < AXN; q++) if (!strcmp(AXS[q], e->at[i].name)) have = 1;
+        if (!have) { AXS[AXN] = xdup(e->at[i].name); AXR[AXRN++] = e->at[i].id; AXN++; }
+    }
+    for (int k = 0; k < e->nkid; k++) axWalkRes(e->kid[k]);
+}
+static void axWalkStr(AxEl *e) { axS(e->name); for (int i = 0; i < e->nat; i++) { axS(e->at[i].name); if (e->at[i].type == 3) axS(e->at[i].s); } for (int k = 0; k < e->nkid; k++) axWalkStr(e->kid[k]); }
+static int AXLINE;
+static void axNode(Bb *o, int type, uint32_t size) { bbU16(o, (unsigned)type); bbU16(o, 16); bbU32(o, size); bbU32(o, (uint32_t)AXLINE++); bbU32(o, 0xFFFFFFFFu); }
+static int axAtCmp(const void *a, const void *b) { uint32_t x = ((const AxAttr *)a)->id ? ((const AxAttr *)a)->id : 0x7fffffff, y = ((const AxAttr *)b)->id ? ((const AxAttr *)b)->id : 0x7fffffff; return x < y ? -1 : x > y; }
+static void axElem(Bb *o, AxEl *e) {
+    qsort(e->at, (size_t)e->nat, sizeof(AxAttr), axAtCmp);
+    axNode(o, 0x0102, 36 + 20 * (uint32_t)e->nat);
+    bbU32(o, 0xFFFFFFFFu); bbU32(o, (uint32_t)axS(e->name)); bbU16(o, 20); bbU16(o, 20); bbU16(o, (unsigned)e->nat); bbU16(o, 0); bbU16(o, 0); bbU16(o, 0);
+    for (int i = 0; i < e->nat; i++) {
+        AxAttr *a = &e->at[i];
+        bbU32(o, a->ns ? (uint32_t)axS(AX_NS) : 0xFFFFFFFFu); bbU32(o, (uint32_t)axS(a->name)); bbU32(o, a->type == 3 ? (uint32_t)axS(a->s) : 0xFFFFFFFFu);
+        bbU16(o, 8); bbU8(o, 0); bbU8(o, (unsigned)a->type);
+        bbU32(o, a->type == 3 ? (uint32_t)axS(a->s) : a->v);
+    }
+    for (int k = 0; k < e->nkid; k++) axElem(o, e->kid[k]);
+    axNode(o, 0x0103, 24); bbU32(o, 0xFFFFFFFFu); bbU32(o, (uint32_t)axS(e->name));
+}
+static int resCmp(const void *a, const void *b) { uint32_t x = *(const uint32_t *)a, y = *(const uint32_t *)b; return x < y ? -1 : x > y; }
+static Bb axml(AxEl *root) {
+    AXN = 0; AXRN = 0; AXLINE = 1;
+    /* 리소스 id 가 있는 속성 이름을 문자열 풀 맨 앞에 (리소스 맵과 같은 순서 · id 순) */
+    axWalkRes(root);
+    { int n = AXRN; for (int i = 0; i < n; i++) for (int j = i + 1; j < n; j++) if (AXR[j] < AXR[i]) { uint32_t t = AXR[i]; AXR[i] = AXR[j]; AXR[j] = t; char *ts = AXS[i]; AXS[i] = AXS[j]; AXS[j] = ts; } }
+    (void)resCmp;
+    axS("android"); axS(AX_NS); axWalkStr(root);
+    /* 문자열 풀 (UTF-16 · ASCII 만 씀 — 앱 이름은 UTF-8 → UTF-16) */
+    Bb data = {0}; uint32_t offs[64];
+    for (int i = 0; i < AXN; i++) {
+        offs[i] = (uint32_t)data.n;
+        /* UTF-8 → UTF-16 */
+        uint16_t w[512]; int wn = 0; const unsigned char *p = (const unsigned char *)AXS[i];
+        while (*p && wn < 500) {
+            unsigned c = *p++;
+            if (c >= 0xF0) { c = (c & 7) << 18; c |= (*p++ & 63) << 12; c |= (*p++ & 63) << 6; c |= (*p++ & 63); c -= 0x10000; w[wn++] = (uint16_t)(0xD800 + (c >> 10)); w[wn++] = (uint16_t)(0xDC00 + (c & 1023)); continue; }
+            if (c >= 0xE0) { c = (c & 15) << 12; c |= (*p++ & 63) << 6; c |= (*p++ & 63); }
+            else if (c >= 0xC0) { c = (c & 31) << 6; c |= (*p++ & 63); }
+            w[wn++] = (uint16_t)c;
+        }
+        bbU16(&data, (unsigned)wn); for (int q = 0; q < wn; q++) bbU16(&data, w[q]); bbU16(&data, 0);
+    }
+    while (data.n % 4) bbU8(&data, 0);
+    Bb pool = {0}; uint32_t hdr = 28, poolSize = hdr + 4 * (uint32_t)AXN + (uint32_t)data.n;
+    bbU16(&pool, 1); bbU16(&pool, hdr); bbU32(&pool, poolSize); bbU32(&pool, (uint32_t)AXN); bbU32(&pool, 0); bbU32(&pool, 0); bbU32(&pool, hdr + 4 * (uint32_t)AXN); bbU32(&pool, 0);
+    for (int i = 0; i < AXN; i++) bbU32(&pool, offs[i]);
+    bbBb(&pool, &data);
+    Bb rm = {0}; bbU16(&rm, 0x0180); bbU16(&rm, 8); bbU32(&rm, 8 + 4 * (uint32_t)AXRN); for (int i = 0; i < AXRN; i++) bbU32(&rm, AXR[i]);
+    Bb body = {0}; bbBb(&body, &pool); bbBb(&body, &rm);
+    int nsA = axS("android"), nsU = axS(AX_NS);
+    axNode(&body, 0x0100, 24); bbU32(&body, (uint32_t)nsA); bbU32(&body, (uint32_t)nsU);
+    axElem(&body, root);
+    axNode(&body, 0x0101, 24); bbU32(&body, (uint32_t)nsA); bbU32(&body, (uint32_t)nsU);
+    if ((uint32_t)AXN * 4 + hdr + data.n != poolSize) die("axml: 문자열 풀이 바뀌었습니다");   /* 쓰는 중에 새 문자열이 생기면 안 됨 */
+    Bb out = {0}; bbU16(&out, 3); bbU16(&out, 8); bbU32(&out, 8 + (uint32_t)body.n); bbBb(&out, &body);
+    free(data.b); free(pool.b); free(rm.b); free(body.b);
+    return out;
+}
+#define AA(n_, id_, t_, s_, v_) (AxAttr){ n_, id_, 1, t_, s_, v_ }
+static Bb apkManifest(const char *pkg, uint32_t vcode, const char *vname, const char *label, int orient, int net) {
+    static AxEl man, sdk, perm, app, act, filt, action, cat;
+    memset(&man, 0, sizeof man); memset(&sdk, 0, sizeof sdk); memset(&perm, 0, sizeof perm); memset(&app, 0, sizeof app);
+    memset(&act, 0, sizeof act); memset(&filt, 0, sizeof filt); memset(&action, 0, sizeof action); memset(&cat, 0, sizeof cat);
+    man.name = "manifest"; man.at[0] = AA("versionCode", 0x0101021b, 0x10, NULL, vcode); man.at[1] = AA("versionName", 0x0101021c, 3, vname, 0);
+    man.at[2] = (AxAttr){ "package", 0, 0, 3, pkg, 0 }; man.nat = 3;
+    sdk.name = "uses-sdk"; sdk.at[0] = AA("minSdkVersion", 0x0101020c, 0x10, NULL, 24); sdk.at[1] = AA("targetSdkVersion", 0x01010270, 0x10, NULL, 34); sdk.nat = 2;
+    man.kid[man.nkid++] = &sdk;
+    if (net) { perm.name = "uses-permission"; perm.at[0] = AA("name", 0x01010003, 3, "android.permission.INTERNET", 0); perm.nat = 1; man.kid[man.nkid++] = &perm; }
+    app.name = "application"; app.at[0] = AA("label", 0x01010001, 3, label, 0); app.at[1] = AA("icon", 0x01010002, 1, NULL, 0x7f010000);
+    app.at[2] = AA("hardwareAccelerated", 0x010102d3, 0x12, NULL, 0xffffffffu); app.at[3] = AA("allowBackup", 0x01010280, 0x12, NULL, 0xffffffffu); app.nat = 4;
+    man.kid[man.nkid++] = &app;
+    act.name = "activity"; act.at[0] = AA("theme", 0x01010000, 1, NULL, 0x01030007); act.at[1] = AA("name", 0x01010003, 3, "com.jawbreaker.app.MainActivity", 0);
+    act.at[2] = AA("exported", 0x01010010, 0x12, NULL, 0xffffffffu); act.at[3] = AA("screenOrientation", 0x0101001e, 0x10, NULL, (uint32_t)orient);
+    act.at[4] = AA("configChanges", 0x0101001f, 0x11, NULL, 0x0ff0); act.at[5] = AA("launchMode", 0x0101001d, 0x10, NULL, 2); act.nat = 6;
+    app.kid[app.nkid++] = &act;
+    filt.name = "intent-filter"; act.kid[act.nkid++] = &filt;
+    action.name = "action"; action.at[0] = AA("name", 0x01010003, 3, "android.intent.action.MAIN", 0); action.nat = 1;
+    cat.name = "category"; cat.at[0] = AA("name", 0x01010003, 3, "android.intent.category.LAUNCHER", 0); cat.nat = 1;
+    filt.kid[filt.nkid++] = &action; filt.kid[filt.nkid++] = &cat;
+    return axml(&man);
+}
+/* ----- zip (모두 압축 없이 · 4 바이트 정렬) ----- */
+typedef struct { const char *name; const unsigned char *data; size_t n; } ZEnt;
+static void apkZip(ZEnt *e, int ne, Bb *body, Bb *cd, Bb *eocd) {
+    for (int i = 0; i < ne; i++) {
+        size_t nl = strlen(e[i].name); uint32_t crc = crc32b(e[i].data, e[i].n), off = (uint32_t)body->n;
+        size_t pos = body->n + 30 + nl; unsigned extra = (unsigned)((4 - pos % 4) % 4);
+        bbU32(body, 0x04034b50); bbU16(body, 20); bbU16(body, 0x0800); bbU16(body, 0); bbU16(body, 0); bbU16(body, 0x21);
+        bbU32(body, crc); bbU32(body, (uint32_t)e[i].n); bbU32(body, (uint32_t)e[i].n); bbU16(body, (unsigned)nl); bbU16(body, extra);
+        bbPut(body, e[i].name, nl); for (unsigned q = 0; q < extra; q++) bbU8(body, 0);
+        bbPut(body, e[i].data, e[i].n);
+        bbU32(cd, 0x02014b50); bbU16(cd, 20); bbU16(cd, 20); bbU16(cd, 0x0800); bbU16(cd, 0); bbU16(cd, 0); bbU16(cd, 0x21);
+        bbU32(cd, crc); bbU32(cd, (uint32_t)e[i].n); bbU32(cd, (uint32_t)e[i].n); bbU16(cd, (unsigned)nl); bbU16(cd, 0); bbU16(cd, 0); bbU16(cd, 0); bbU16(cd, 0);
+        bbU32(cd, 0); bbU32(cd, off); bbPut(cd, e[i].name, nl);
+    }
+    bbU32(eocd, 0x06054b50); bbU16(eocd, 0); bbU16(eocd, 0); bbU16(eocd, (unsigned)ne); bbU16(eocd, (unsigned)ne);
+    bbU32(eocd, (uint32_t)cd->n); bbU32(eocd, (uint32_t)body->n); bbU16(eocd, 0);
+}
+/* ----- DER ----- */
+static void derLen(Bb *o, size_t n) { if (n < 128) { bbU8(o, (unsigned)n); return; } unsigned char t[8]; int k = 0; for (size_t x = n; x; x >>= 8) t[k++] = (unsigned char)x; bbU8(o, 0x80 | (unsigned)k); while (k) bbU8(o, t[--k]); }
+static Bb der(int tag, const Bb *c) { Bb o = {0}; bbU8(&o, (unsigned)tag); derLen(&o, c->n); bbBb(&o, c); return o; }
+static Bb derRaw(int tag, const unsigned char *p, size_t n) { Bb c = {0}; bbPut(&c, p, n); Bb o = der(tag, &c); free(c.b); return o; }
+static Bb derSeq(Bb *parts, int n) { Bb c = {0}; for (int i = 0; i < n; i++) { bbBb(&c, &parts[i]); free(parts[i].b); } Bb o = der(0x30, &c); free(c.b); return o; }
+static Bb derOid(const char *s) {
+    unsigned long p[16]; int n = 0; for (const char *q = s; *q && n < 16; ) { p[n++] = strtoul(q, (char **)&q, 10); if (*q == '.') q++; }
+    Bb c = {0}; bbU8(&c, (unsigned)(40 * p[0] + p[1]));
+    for (int i = 2; i < n; i++) { unsigned char t[8]; int k = 0; unsigned long v = p[i]; t[k++] = v & 127; for (v >>= 7; v; v >>= 7) t[k++] = (unsigned char)((v & 127) | 128); while (k) bbU8(&c, t[--k]); }
+    Bb o = der(0x06, &c); free(c.b); return o;
+}
+static Bb derInt(const unsigned char *be, size_t n) {   /* 큰 수 (big-endian · 양수) */
+    while (n > 1 && !be[0]) { be++; n--; }
+    Bb c = {0}; if (be[0] & 0x80) bbU8(&c, 0); bbPut(&c, be, n); Bb o = der(0x02, &c); free(c.b); return o;
+}
+/* 인증서 DER → SubjectPublicKeyInfo (tbs 의 7 번째 원소) */
+static size_t derHdr(const unsigned char *u, size_t p, size_t *len) {
+    size_t L = u[p + 1], h = 2; if (L & 0x80) { int k = (int)(L & 0x7f); L = 0; for (int i = 0; i < k; i++) L = L * 256 + u[p + 2 + i]; h = 2 + (size_t)k; }
+    *len = L; return h;
+}
+static int spkiOf(const unsigned char *cert, size_t cn, size_t *off, size_t *n) {
+    size_t L, h = derHdr(cert, 0, &L); if (cert[0] != 0x30 || h + L > cn) return 0;
+    size_t tl, th = derHdr(cert, h, &tl), p = h + th;
+    for (int i = 0; i < 6; i++) { size_t l, hh = derHdr(cert, p, &l); p += hh + l; if (p >= cn) return 0; }
+    size_t l, hh = derHdr(cert, p, &l); if (cert[p] != 0x30 || p + hh + l > cn) return 0;
+    *off = p; *n = hh + l; return 1;
+}
+/* ----- RSA (서명 · 키 만들기) ----- */
+#ifdef _WIN32
+#include <ncrypt.h>
+#ifndef NCRYPT_PKCS8_PRIVATE_KEY_BLOB
+#define NCRYPT_PKCS8_PRIVATE_KEY_BLOB L"PKCS8_PRIVATEKEY"
+#endif
+static NCRYPT_KEY_HANDLE rsaImport(const unsigned char *p8, size_t n) {
+    NCRYPT_PROV_HANDLE pv; NCRYPT_KEY_HANDLE k = 0;
+    if (NCryptOpenStorageProvider(&pv, MS_KEY_STORAGE_PROVIDER, 0)) return 0;
+    if (NCryptImportKey(pv, 0, NCRYPT_PKCS8_PRIVATE_KEY_BLOB, NULL, &k, (PBYTE)p8, (DWORD)n, 0)) {
+        k = 0;
+        if (!NCryptImportKey(pv, 0, NCRYPT_PKCS8_PRIVATE_KEY_BLOB, NULL, &k, (PBYTE)p8, (DWORD)n, NCRYPT_DO_NOT_FINALIZE_FLAG)) { if (NCryptFinalizeKey(k, 0)) { NCryptFreeObject(k); k = 0; } }
+        else k = 0;
+    }
+    NCryptFreeObject(pv); return k;
+}
+static Bb rsaSign(const unsigned char *p8, size_t p8n, const unsigned char *data, size_t n) {
+    NCRYPT_KEY_HANDLE k = rsaImport(p8, p8n); if (!k) die("APK 서명 키를 읽지 못했습니다 (PKCS#8 RSA 가 아님)");
+    unsigned char h[32]; sha256raw(data, n, h);
+    BCRYPT_PKCS1_PADDING_INFO pi = { BCRYPT_SHA256_ALGORITHM }; unsigned char sig[1024]; DWORD sl = 0;
+    if (NCryptSignHash(k, &pi, h, 32, sig, sizeof sig, &sl, BCRYPT_PAD_PKCS1)) die("APK 에 서명하지 못했습니다 (NCryptSignHash)");
+    NCryptFreeObject(k); Bb o = {0}; bbPut(&o, sig, sl); return o;
+}
+/* 새 RSA 2048 → PKCS#8 · SPKI */
+static void rsaNew(Bb *p8, Bb *spki) {
+    NCRYPT_PROV_HANDLE pv; NCRYPT_KEY_HANDLE k;
+    if (NCryptOpenStorageProvider(&pv, MS_KEY_STORAGE_PROVIDER, 0) || NCryptCreatePersistedKey(pv, &k, BCRYPT_RSA_ALGORITHM, NULL, 0, 0)) die("서명 키를 만들지 못했습니다 (CNG)");
+    DWORD len = 2048, pol = NCRYPT_ALLOW_EXPORT_FLAG | NCRYPT_ALLOW_PLAINTEXT_EXPORT_FLAG;
+    NCryptSetProperty(k, NCRYPT_LENGTH_PROPERTY, (PBYTE)&len, sizeof len, 0);
+    NCryptSetProperty(k, NCRYPT_EXPORT_POLICY_PROPERTY, (PBYTE)&pol, sizeof pol, 0);
+    if (NCryptFinalizeKey(k, 0)) die("서명 키를 만들지 못했습니다 (CNG finalize)");
+    DWORD n = 0; unsigned char *b;
+    if (NCryptExportKey(k, 0, NCRYPT_PKCS8_PRIVATE_KEY_BLOB, NULL, NULL, 0, &n, 0)) die("서명 키를 내보내지 못했습니다 (PKCS#8)");
+    b = xalloc(n); NCryptExportKey(k, 0, NCRYPT_PKCS8_PRIVATE_KEY_BLOB, NULL, b, n, &n, 0); bbPut(p8, b, n); free(b);
+    if (NCryptExportKey(k, 0, BCRYPT_RSAPUBLIC_BLOB, NULL, NULL, 0, &n, 0)) die("공개 키를 내보내지 못했습니다");
+    b = xalloc(n); NCryptExportKey(k, 0, BCRYPT_RSAPUBLIC_BLOB, NULL, b, n, &n, 0);
+    BCRYPT_RSAKEY_BLOB *kb = (BCRYPT_RSAKEY_BLOB *)b; unsigned char *e = b + sizeof *kb, *m = e + kb->cbPublicExp;
+    Bb ints[2] = { derInt(m, kb->cbModulus), derInt(e, kb->cbPublicExp) }; Bb rsapub = derSeq(ints, 2);
+    Bb bit = {0}; bbU8(&bit, 0); bbBb(&bit, &rsapub); Bb bits = der(0x03, &bit);
+    Bb algp[2] = { derOid("1.2.840.113549.1.1.1"), derRaw(0x05, NULL, 0) }; Bb alg = derSeq(algp, 2);
+    Bb sp[2] = { alg, bits }; Bb s = derSeq(sp, 2); bbBb(spki, &s); free(s.b); free(rsapub.b); free(bit.b); free(b);
+    NCryptFreeObject(k); NCryptFreeObject(pv);
+}
+#else
+static char *tmpPath(const char *tag) { const char *t = getenv("TMPDIR"); return fmtdup("%s/jdh-apk-%d-%s", t && *t ? t : "/tmp", (int)getpid(), tag); }
+static Bb readBb(const char *p) { size_t n; unsigned char *b = readAll(p, &n); if (!b) die("읽지 못했습니다: %s", p); Bb o = { b, n, n }; return o; }
+static Bb rsaSign(const unsigned char *p8, size_t p8n, const unsigned char *data, size_t n) {
+    char *kp = tmpPath("key.der"), *dp = tmpPath("data"), *sp = tmpPath("sig");
+    writeAll(kp, p8, p8n); writeAll(dp, data, n);
+    char *cmd = fmtdup("openssl dgst -sha256 -keyform DER -sign '%s' -out '%s' '%s'", kp, sp, dp);
+    if (run(cmd)) die("APK 에 서명하지 못했습니다 (openssl)");
+    Bb o = readBb(sp); remove(kp); remove(dp); remove(sp); free(cmd); free(kp); free(dp); free(sp); return o;
+}
+static void rsaNew(Bb *p8, Bb *spki) {
+    char *kp = tmpPath("new.der"), *pp = tmpPath("pub.der");
+    char *c1 = fmtdup("openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt -outform DER -out '%s'", kp), *c2 = fmtdup("openssl pkey -inform DER -in '%s' -pubout -outform DER -out '%s'", kp, pp);   /* PKCS#8 (웹 판의 키와 같은 꼴) */
+    if (run(c1) || run(c2)) die("서명 키를 만들지 못했습니다 (openssl)");
+    Bb a = readBb(kp), b = readBb(pp); bbBb(p8, &a); bbBb(spki, &b); free(a.b); free(b.b); remove(kp); remove(pp); free(c1); free(c2); free(kp); free(pp);
+}
+#endif
+/* 스스로 서명한 인증서 (웹 판 JBX.cert 와 같은 꼴: CN · 50 년 · sha256WithRSA) */
+static Bb certMake(const Bb *p8, const Bb *spki, const char *cn) {
+    Bb ap[2] = { derOid("1.2.840.113549.1.1.11"), derRaw(0x05, NULL, 0) };
+    Bb alg = derSeq(ap, 2);
+    Bb atv[2] = { derOid("2.5.4.3"), derRaw(0x0c, (const unsigned char *)cn, strlen(cn)) }; Bb atvs = derSeq(atv, 2);
+    Bb rdn = der(0x31, &atvs); Bb nm[1] = { rdn }; Bb name = derSeq(nm, 1);
+    time_t now = time(NULL); struct tm g = *gmtime(&now); char t1[20], t2[20];
+    strftime(t1, sizeof t1, "%Y%m%d%H%M%SZ", &g); g.tm_year += 50; strftime(t2, sizeof t2, "%Y%m%d%H%M%SZ", &g);
+    Bb tv[2] = { derRaw(0x18, (const unsigned char *)t1, strlen(t1)), derRaw(0x18, (const unsigned char *)t2, strlen(t2)) }; Bb validity = derSeq(tv, 2);
+    unsigned char ser[8]; for (int i = 0; i < 8; i++) ser[i] = (unsigned char)(rand() ^ (int)(now >> (i * 3))); ser[0] = (ser[0] & 0x7f) | 1;
+    unsigned char two = 2; Bb v = derRaw(0x02, &two, 1); Bb ver = der(0xa0, &v); free(v.b);
+    Bb algCopy = {0}; bbBb(&algCopy, &alg); Bb nameCopy = {0}; bbBb(&nameCopy, &name); Bb sp = {0}; bbBb(&sp, spki);
+    Bb tp[7] = { ver, derRaw(0x02, ser, 8), algCopy, nameCopy, validity, name, sp }; Bb tbs = derSeq(tp, 7);
+    Bb sig = rsaSign(p8->b, p8->n, tbs.b, tbs.n);
+    Bb sb = {0}; bbU8(&sb, 0); bbBb(&sb, &sig); Bb sbits = der(0x03, &sb); free(sb.b); free(sig.b);
+    Bb cp[3] = { tbs, alg, sbits }; free(atvs.b);
+    return derSeq(cp, 3);
+}
+static char *apkKeyPath(void) {
+    const char *e = getenv("JDH_APK_KEY"); if (e && *e) return xdup(e);
+#ifdef _WIN32
+    const char *ad = getenv("APPDATA"); return fmtdup("%s\\JDH\\apk-key.json", ad && *ad ? ad : ".");
+#else
+    const char *h = getenv("HOME"); return fmtdup("%s/.config/jdh/apk-key.json", h && *h ? h : ".");
+#endif
+}
+typedef struct { Bb p8, cert; double made; } ApkKey;
+static int apkKeyRead(const char *path, ApkKey *k) {
+    unsigned char *t = readAll(path, NULL); if (!t) return 0;
+    const char *err; int line; JV *j = jparse((char *)t, &err, &line);
+    const char *p8 = jgets(j, "pkcs8"), *ce = jgets(j, "cert"); JV *m = jget(j, "made");
+    if (!p8 || !ce) die("APK 서명 키 파일이 아닙니다 (pkcs8 · cert 가 없음): %s", path);
+    size_t n; unsigned char *b = unb64(p8, &n); k->p8 = (Bb){ b, n, n }; b = unb64(ce, &n); k->cert = (Bb){ b, n, n };
+    k->made = m && m->k == J_NUM ? m->num : 0;
+    size_t o, sn; if (!spkiOf(k->cert.b, k->cert.n, &o, &sn)) die("APK 서명 키 파일의 인증서를 읽지 못했습니다: %s", path);
+    free(t); return 1;
+}
+static void apkKeyWrite(const char *path, const ApkKey *k) {
+    char *a = b64(k->p8.b, k->p8.n), *c = b64(k->cert.b, k->cert.n);
+    char *txt = fmtdup("{\n \"pkcs8\": \"%s\",\n \"cert\": \"%s\",\n \"made\": %.0f,\n \"note\": \"Jawbreaker APK 서명 키 — 잃어버리면 이미 설치된 앱을 업데이트할 수 없습니다. 남에게 주지 마세요.\"\n}\n", a, c, k->made);
+    char *dir = xdup(path); char *sl = strrchr(dir, '/'), *bs = strrchr(dir, '\\'); if (bs > sl) sl = bs; if (sl) { *sl = 0; mkdirs(dir); }
+    writeAll(path, txt, strlen(txt)); free(a); free(c); free(txt); free(dir);
+}
+static void apkKeyGet(ApkKey *k, int *made) {
+    char *p = apkKeyPath(); *made = 0;
+    if (!apkKeyRead(p, k)) {
+        Bb p8 = {0}, spki = {0}; rsaNew(&p8, &spki);
+        k->p8 = p8; k->cert = certMake(&p8, &spki, "Jawbreaker"); k->made = (double)time(NULL) * 1000.0; free(spki.b);
+        apkKeyWrite(p, k); *made = 1;
+        printf("🔑 새 APK 서명 키를 만들어 저장했습니다: %s\n   백업해 두세요 (잃어버리면 설치된 앱을 업데이트할 수 없음 · jdh apk-key export <파일>)\n", p);
+    }
+    free(p);
+}
+/* ----- APK 서명 v2 ----- */
+static void lp(Bb *o, const Bb *x) { bbU32(o, (uint32_t)x->n); bbBb(o, x); }
+static void v2digest(Bb *secs[3], unsigned char out[32]) {
+    Bb all = {0}; int nch = 0; Bb ch = {0};
+    for (int s = 0; s < 3; s++) for (size_t i = 0; i < secs[s]->n || (i == 0 && !secs[s]->n && 0); i += 1048576) {
+        size_t k = secs[s]->n - i < 1048576 ? secs[s]->n - i : 1048576;
+        Bb c = {0}; bbU8(&c, 0xa5); bbU32(&c, (uint32_t)k); bbPut(&c, secs[s]->b + i, k);
+        unsigned char h[32]; sha256raw(c.b, c.n, h); bbPut(&ch, h, 32); nch++; free(c.b);
+    }
+    bbU8(&all, 0x5a); bbU32(&all, (uint32_t)nch); bbBb(&all, &ch);
+    sha256raw(all.b, all.n, out); free(all.b); free(ch.b);
+}
+static Bb apkSign(Bb *body, Bb *cd, Bb *eocd, const ApkKey *k) {
+    Bb *secs[3] = { body, cd, eocd }; unsigned char dg[32]; v2digest(secs, dg);
+    const uint32_t ALG = 0x0103;
+    Bb dgv = {0}; bbPut(&dgv, dg, 32);
+    Bb d1 = {0}; bbU32(&d1, ALG); lp(&d1, &dgv);
+    Bb d2 = {0}; lp(&d2, &d1); Bb digests = {0}; lp(&digests, &d2);
+    Bb c1 = {0}; lp(&c1, &k->cert); Bb certs = {0}; lp(&certs, &c1);
+    Bb none = {0}; Bb attrs = {0}; lp(&attrs, &none);
+    Bb signedData = {0}; bbBb(&signedData, &digests); bbBb(&signedData, &certs); bbBb(&signedData, &attrs);
+    Bb sig = rsaSign(k->p8.b, k->p8.n, signedData.b, signedData.n);
+    Bb s1 = {0}; bbU32(&s1, ALG); lp(&s1, &sig); Bb s2 = {0}; lp(&s2, &s1); Bb sigs = {0}; lp(&sigs, &s2);
+    size_t so, sn; spkiOf(k->cert.b, k->cert.n, &so, &sn); Bb spk = {0}; bbPut(&spk, k->cert.b + so, sn);
+    Bb signer = {0}; lp(&signer, &signedData); bbBb(&signer, &sigs); lp(&signer, &spk);
+    Bb s3 = {0}; lp(&s3, &signer); Bb value = {0}; lp(&value, &s3);
+    Bb pair = {0}; bbU64(&pair, 4 + value.n); bbU32(&pair, 0x7109871a); bbBb(&pair, &value);
+    uint64_t size = pair.n + 8 + 16;
+    Bb block = {0}; bbU64(&block, size); bbBb(&block, &pair); bbU64(&block, size); bbPut(&block, "APK Sig Block 42", 16);
+    put32at(eocd->b + 16, (uint32_t)(body->n + block.n));
+    Bb out = {0}; bbBb(&out, body); bbBb(&out, &block); bbBb(&out, cd); bbBb(&out, eocd);
+    return out;
+}
+static char *apkPkgOf(const char *name) {
+    char s[40]; int n = 0;
+    for (const unsigned char *p = (const unsigned char *)name; *p && n < 30; p++) { unsigned c = *p; if (c >= 'A' && c <= 'Z') c += 32; if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) s[n++] = (char)c; }
+    s[n] = 0;
+    if (n && s[0] >= 'a' && s[0] <= 'z') return fmtdup("com.jawbreaker.%s", s);
+    uint32_t h = 0; for (const unsigned char *p = (const unsigned char *)name; *p; p++) h = h * 31 + *p;
+    char b36[16]; int k = 0; do { int d = h % 36; b36[k++] = (char)(d < 10 ? '0' + d : 'a' + d - 10); h /= 36; } while (h); b36[k] = 0;
+    for (int i = 0; i < k / 2; i++) { char t = b36[i]; b36[i] = b36[k - 1 - i]; b36[k - 1 - i] = t; }
+    return fmtdup("com.jawbreaker.game%s", b36);
+}
+static int pkgOk(const char *p) {
+    int parts = 0; const char *q = p;
+    for (;;) { if (!isalpha((unsigned char)*q)) return 0; while (isalnum((unsigned char)*q) || *q == '_') q++; parts++; if (!*q) break; if (*q != '.') return 0; q++; }
+    return parts >= 2;
+}
+typedef struct { const char *out, *lang, *label, *pkg, *vname, *orient, *icon, *ram; long vcode; } ApkOpt;
+static int cmdBuildApk(const char *projArg, ApkOpt *o) {
+    const char *pd = projDir(projArg);
+    char *sdk = sdkDir(); if (!sdk) die("jdh.h 를 찾을 수 없습니다 — JDH 를 다시 설치하거나 환경 변수 JDH_HOME 을 확인하세요");
+    const char *te = getenv("JDH_APK_TEMPLATE"); char *tp = te && *te ? xdup(te) : fmtdup("%s/apk/apk-tpl.json", sdk);
+    unsigned char *tt = readAll(tp, NULL); if (!tt) die("Android 실행기 틀이 없습니다: %s — JDH 를 다시 설치해 주세요", tp);
+    const char *err; int line; JV *tj = jparse((char *)tt, &err, &line);
+    const char *tdex = jgets(tj, "dex"), *tarsc = jgets(tj, "arsc"), *ticon = jgets(tj, "icon");
+    if (!tdex || !tarsc || !ticon) die("Android 실행기 틀이 올바르지 않습니다: %s", tp);
+    char *name = projField(pd, "name"); const char *nm = name && *name ? name : "Jawbreaker";
+    const char *label = o->label && *o->label ? o->label : nm;
+    char *pkg = o->pkg && *o->pkg ? xdup(o->pkg) : apkPkgOf(nm);
+    if (!pkgOk(pkg)) die("패키지 이름은 영문 · 숫자 · _ 로 된 두 마디 이상입니다 (예: com.example.game): %s", pkg);
+    long vc = o->vcode ? o->vcode : 1; if (vc < 1 || vc > 2100000000) die("버전 번호는 1 이상의 정수입니다: %ld", vc);
+    const char *vn = o->vname && *o->vname ? o->vname : "1.0";
+    const char *or = o->orient && *o->orient ? o->orient : "auto";
+    int orient = !strcmp(or, "auto") ? 10 : !strcmp(or, "portrait") ? 7 : !strcmp(or, "landscape") ? 6 : -1;
+    if (orient < 0) die("화면 방향은 auto · landscape · portrait 중 하나입니다: %s", or);
+    /* 아이콘: 프로젝트의 PNG (그대로 · 크기는 Android 가 맞춤) */
+    size_t iconN; unsigned char *icon = NULL;
+    if (o->icon && *o->icon) {
+        char *ip = fmtdup("%s/%s", pd, o->icon); icon = readAll(ip, &iconN); free(ip);
+        if (!icon) die("아이콘 그림이 없습니다: %s", o->icon);
+        if (iconN < 8 || memcmp(icon, "\x89PNG", 4)) die("아이콘은 PNG 그림만 씁니다: %s", o->icon);
+    }
+    int nf, net, grant; Sb html = gameHtml(pd, o->lang, o->ram, &nf, &net, &grant);
+    Bb man = apkManifest(pkg, (uint32_t)vc, vn, label, orient, net);
+    size_t dn, an, in; unsigned char *dex = unb64(tdex, &dn), *arsc = unb64(tarsc, &an), *dicon = unb64(ticon, &in);
+    ZEnt e[5] = { {"AndroidManifest.xml", man.b, man.n}, {"classes.dex", dex, dn}, {"resources.arsc", arsc, an},
+                  {"res/drawable/icon.png", icon ? icon : dicon, icon ? iconN : in}, {"assets/index.html", (unsigned char *)html.s, html.n} };
+    Bb body = {0}, cd = {0}, eocd = {0}; apkZip(e, 5, &body, &cd, &eocd);
+    ApkKey key; int made; apkKeyGet(&key, &made);
+    Bb apk = apkSign(&body, &cd, &eocd, &key);
+    char *out = o->out ? xdup(o->out) : fmtdup("%s/%s.apk", pd, projName(pd));
+    writeAll(out, apk.b, apk.n);
+    printf("✔ 만들었습니다: %s (%.1f MB · %s · 버전 %s (%ld)%s)\n  휴대폰으로 옮겨 열면 설치됩니다 (Android 7.0 이상 · \"출처를 알 수 없는 앱\" 허용)\n",
+        out, apk.n / 1048576.0, pkg, vn, vc, net ? " · 인터넷 권한" : "");
+    return 0;
+}
+/* jdh apk-key [path | export <파일> | import <파일>] — APK 서명 키 (웹 판의 키 파일과 같은 꼴) */
+static int cmdApkKey(const char *what, const char *file) {
+    char *p = apkKeyPath();
+    if (!what || !strcmp(what, "path")) { ApkKey k; int have = apkKeyRead(p, &k); printf("%s%s\n", p, have ? "" : "  (아직 없음 — 처음 APK 를 만들 때 생김)"); if (have) printf("made %.0f\n", k.made); return 0; }
+    if (!strcmp(what, "export")) { if (!file) die("jdh apk-key export <파일>"); size_t n; unsigned char *b = readAll(p, &n); if (!b) die("저장된 서명 키가 없습니다: %s", p); writeAll(file, b, n); printf("✔ 서명 키를 내보냈습니다: %s\n", file); return 0; }
+    if (!strcmp(what, "import")) { if (!file) die("jdh apk-key import <파일>"); ApkKey k; if (!apkKeyRead(file, &k)) die("키 파일을 읽지 못했습니다: %s", file);
+        Bb t = rsaSign(k.p8.b, k.p8.n, (const unsigned char *)"jdh", 3); free(t.b);   /* 서명이 되는 키인지 */
+        apkKeyWrite(p, &k); printf("✔ 서명 키를 가져왔습니다: %s\n", p); return 0; }
+    die("jdh apk-key [path | export <파일> | import <파일>]"); return 1;
+}
 static int cmdPackUpdate(const char *dist, const char *out, const char *ver) {
     if (!isDir(dist)) die("폴더가 없습니다: %s", dist);
     if (!verOk(ver)) die("버전은 0.6.0 꼴로 씁니다 (받은 값: %s)", ver);
@@ -1552,7 +1949,10 @@ static void usage(void) {
          "  jdh lib remove <id> [프로젝트]   프로젝트에서 빼기\n"
          "  jdh build exe [프로젝트] [-o 파일]  Windows 실행 파일 만들기 (라이브러리 포함)\n"
          "  jdh check [프로젝트]             실행하지 않고 검사만 (오류는 ✖ 파일:줄)\n"
-         "  jdh build html [프로젝트] [-o 파일] [--lang ko]  브라우저에서 따로 여는 HTML 만들기\n"
+         "  jdh build html [프로젝트] [-o 파일] [--lang ko] [--ram auto|MB]  브라우저에서 따로 여는 HTML 만들기\n"
+         "  jdh build apk [프로젝트] [-o 파일] [--label 앱 이름] [--pkg com.example.game] [--version-code N] [--version-name 1.0]\n"
+         "                [--orientation auto|landscape|portrait] [--icon 그림.png] [--lang ko] [--ram auto|MB]  Android 앱 (APK) 만들기\n"
+         "  jdh apk-key [path | export <파일> | import <파일>]  APK 서명 키 (웹 판의 키 파일과 같은 꼴)\n"
          "  jdh run [프로젝트]               main 실행 (이 창에 print · 서버는 Ctrl+C 로 끝냄 · 프로젝트의 run.bat 이 부름)\n"
          "  jdh open                         JawBreaker Dev. 열기\n"
          "  jdh update [--yes]               새 버전 확인 · 업데이트 (설치된 파일을 검사해 바뀐 것만 받음 · 깨진 설치도 고침)");
@@ -1583,9 +1983,25 @@ int main(int argc, char **argv) {
     if (!strcmp(a, "check")) return cmdCheck(b);
     if (!strcmp(a, "build") && b && !strcmp(b, "html")) {
         const char *pj = NULL, *out = NULL, *lang = NULL;
-        for (int i = 3; i < argc; i++) { if (!strcmp(argv[i], "-o")) { if (++i >= argc) die("-o 뒤에 파일 이름이 필요합니다"); out = argv[i]; } else if (!strcmp(argv[i], "--lang")) { if (++i >= argc) die("--lang 뒤에 언어가 필요합니다 (ko · en · ja · zh-CN · zh-TW)"); lang = argv[i]; } else pj = argv[i]; }
-        return cmdBuildHtml(pj, out, lang);
+        const char *ram = NULL;
+        for (int i = 3; i < argc; i++) { if (!strcmp(argv[i], "-o")) { if (++i >= argc) die("-o 뒤에 파일 이름이 필요합니다"); out = argv[i]; } else if (!strcmp(argv[i], "--lang")) { if (++i >= argc) die("--lang 뒤에 언어가 필요합니다 (ko · en · ja · zh-CN · zh-TW)"); lang = argv[i]; } else if (!strcmp(argv[i], "--ram")) { if (++i >= argc) die("--ram 뒤에 auto 나 MB 수가 필요합니다"); ram = argv[i]; } else pj = argv[i]; }
+        return cmdBuildHtml(pj, out, lang, ram);
     }
+    if (!strcmp(a, "build") && b && !strcmp(b, "apk")) {
+        const char *pj = NULL; ApkOpt o; memset(&o, 0, sizeof o);
+        for (int i = 3; i < argc; i++) {
+            const char *x = argv[i]; const char **dst = NULL;
+            if (!strcmp(x, "-o")) dst = &o.out; else if (!strcmp(x, "--lang")) dst = &o.lang; else if (!strcmp(x, "--label")) dst = &o.label; else if (!strcmp(x, "--pkg")) dst = &o.pkg;
+            else if (!strcmp(x, "--version-name")) dst = &o.vname; else if (!strcmp(x, "--orientation")) dst = &o.orient; else if (!strcmp(x, "--icon")) dst = &o.icon; else if (!strcmp(x, "--ram")) dst = &o.ram;
+            else if (!strcmp(x, "--version-code")) { if (++i >= argc) die("--version-code 뒤에 수가 필요합니다"); o.vcode = strtol(argv[i], NULL, 10); continue; }
+            else if (x[0] == '-') die("알 수 없는 옵션입니다: %s", x);
+            else { pj = x; continue; }
+            if (++i >= argc) die("%s 뒤에 값이 필요합니다", x);
+            *dst = argv[i];
+        }
+        return cmdBuildApk(pj, &o);
+    }
+    if (!strcmp(a, "apk-key")) return cmdApkKey(b, argc > 3 ? argv[3] : NULL);
     if (!strcmp(a, "build") && b && !strcmp(b, "exe")) {
         const char *pj = NULL, *out = NULL;
         for (int i = 3; i < argc; i++) { if (!strcmp(argv[i], "-o")) { if (++i >= argc) die("-o 뒤에 파일 이름이 필요합니다"); out = argv[i]; } else pj = argv[i]; }

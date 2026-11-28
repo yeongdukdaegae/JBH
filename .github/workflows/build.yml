@@ -289,6 +289,29 @@ jobs:
           $t = Measure-Command { $script:o2 = cmd /c "RunGame\run.bat < nul" 2>&1 | Out-String }; Write-Host $o2; Write-Host "두 번째: $([int]$t.TotalSeconds)초"
           if ($o2 -notmatch 'run ok 2') { Write-Error '고친 main 이 실행되지 않았습니다'; exit 1 }
           if ($o2 -notmatch '실행기는 그대로') { Write-Error '두 번째에도 실행기를 다시 컴파일했습니다'; exit 1 }
+      - name: APK 시험 (jdh build apk — Android SDK 의 apksigner 로 서명 v2 검사 · aapt 로 manifest 확인 · 서명 키는 CNG 로 만든 PKCS#8)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''; $env:JDH_APK_KEY = "$PWD\apk-key-test.json"
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          dist\bin\jdh.exe new project ApkGame; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe build apk ApkGame -o ApkGame.apk --label '시험 게임' --pkg com.jawbreaker.citest --version-code 5 --version-name 1.5 --orientation landscape; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe build apk ApkGame -o ApkGame2.apk; if ($LASTEXITCODE) { exit 1 }
+          $bt = (Get-ChildItem "$env:ANDROID_HOME\build-tools" -Directory | Sort-Object { [version]($_.Name -replace '[^0-9.]', '') } | Select-Object -Last 1).FullName
+          Write-Host "build-tools: $bt"
+          $v = & "$bt\apksigner.bat" verify --verbose --min-sdk-version 24 ApkGame.apk 2>&1; $v | ForEach-Object { Write-Host "  $_" }
+          $bad = 0
+          if (-not ($v | Where-Object { "$_" -match 'Verified using v2 scheme \(APK Signature Scheme v2\): true' })) { Write-Host '✖ 서명 v2 검사 실패'; $bad++ }
+          $bd = & "$bt\aapt.exe" dump badging ApkGame.apk 2>&1; $bd | Select-Object -First 8 | ForEach-Object { Write-Host "  $_" }
+          if (-not ($bd | Where-Object { "$_" -match "package: name='com.jawbreaker.citest' versionCode='5' versionName='1.5'" })) { Write-Host '✖ manifest (패키지 · 버전) 가 다릅니다'; $bad++ }
+          if (-not ($bd | Where-Object { "$_" -match "application-label:'시험 게임'" })) { Write-Host '✖ 앱 이름이 다릅니다'; $bad++ }
+          & "$bt\apksigner.bat" verify ApkGame2.apk; if ($LASTEXITCODE) { Write-Host '✖ 두 번째 APK (같은 키) 서명 검사 실패'; $bad++ }
+          # 서명 키 = PKCS#8 (웹 판의 키 파일과 같은 꼴: SEQ · INTEGER 0 · SEQ { rsaEncryption })
+          $k = Get-Content apk-key-test.json -Raw | ConvertFrom-Json; $p8 = [Convert]::FromBase64String($k.pkcs8)
+          $hex = ($p8[0..25] | ForEach-Object { $_.ToString('x2') }) -join ''
+          Write-Host "pkcs8: $hex"
+          if ($hex -notmatch '^3082....020100300d06092a864886f70d0101010500') { Write-Host '✖ 서명 키가 PKCS#8 이 아닙니다'; $bad++ }
+          if ($bad) { exit 1 }
       - name: JawBreaker Dev. 시험 (네이티브 에디터 — 프로젝트를 열고 ▶ 실행 (run.bat) · 로그 칸에 출력 · 창 그림)
         shell: pwsh
         run: |

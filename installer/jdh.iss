@@ -2,13 +2,13 @@
 [Setup]
 AppId={{6B1E6C0E-5E0B-4B1B-9C0E-4A44483D4831}
 AppName=JDH (JawBreaker Development Helper)
-AppVersion=0.8.0
+AppVersion=0.8.1
 DefaultDirName={localappdata}\Programs\JDH
 DefaultGroupName=JawBreaker
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=out
-OutputBaseFilename=JDH-Setup-0.8.0
+OutputBaseFilename=JDH-Setup-0.8.1
 Compression=lzma2
 SolidCompression=yes
 ChangesEnvironment=yes
@@ -22,6 +22,7 @@ Source: "..\dist\bin\jbdev.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\dist\editor\jbdev.html"; DestDir: "{app}\editor"; Flags: ignoreversion
 Source: "..\dist\editor\native\*"; DestDir: "{app}\editor\native"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\sdk\html\*"; DestDir: "{app}\sdk\html"; Flags: ignoreversion
+Source: "..\dist\sdk\apk\*"; DestDir: "{app}\sdk\apk"; Flags: ignoreversion
 Source: "..\dist\sdk\jdh.h"; DestDir: "{app}\sdk"; Flags: ignoreversion
 Source: "..\dist\sdk\runtime\*"; DestDir: "{app}\sdk\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\sdk\SDL2\*"; DestDir: "{app}\sdk\SDL2"; Flags: ignoreversion recursesubdirs createallsubdirs

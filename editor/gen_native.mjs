@@ -4,6 +4,7 @@
 //   docs/<언어>/<이름>.jbl   내장 라이브러리 설명서 (jawbreaker.jbl · DisPlayer.jbl …)
 //   ac-<언어>.txt            자동완성 목록 — 줄마다  라이브러리 \t 이름 \t 종류 \t 설명 \t 넣을 글자 \t 도움말  ($0 = 커서 · \n 은 "\\n")
 //   game-<언어>.html          내보낸 HTML 의 틀 — /*__JB_PROJECT__*/ 자리에 프로젝트 JSON · __JB_TITLE__ 자리에 이름
+//   apk-tpl.json              APK 의 Android 실행기 (classes.dex · resources.arsc · 기본 아이콘 · base64) — jdh build apk
 const {chromium}=await import(process.env.PW||'playwright');
 import path from 'path';import {fileURLToPath} from 'url';import fs from 'fs';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -37,5 +38,8 @@ for(const L of LANGS){
   fs.writeFileSync(OUT+'/game-'+L+'.html',r.html);
   console.log(L,'docs',Object.keys(r.docs).length,'ac',r.ac.split('\n').length-1,'html',r.html.length);
 }
+// APK 의 Android 실행기 틀 (jdh build apk) — 언어와 상관없이 하나
+{const t=await pg.evaluate(()=>{const e=document.getElementById('jbapk-tpl');return e?e.textContent.trim():'';});
+ if(!t)throw new Error('jbapk-tpl 이 없음');JSON.parse(t);fs.writeFileSync(OUT+'/apk-tpl.json',t+'\n');console.log('apk-tpl',t.length);}
 await b.close();
 if(errs.length){console.error(errs.join('\n'));process.exit(1);}
