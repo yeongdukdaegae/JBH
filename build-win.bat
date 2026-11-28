@@ -15,7 +15,7 @@ if not exist dist\editor mkdir dist\editor
 if not exist build mkdir build
 %RC% win\app.rc -O coff -o build\app.res.o || exit /b 1
 %CC% -O2 -static -Wall -o dist\bin\jdh.exe src\jdh.c build\app.res.o -lshell32 -lwinhttp || exit /b 1
-%CC% -O2 -static -Wall -mwindows -o dist\bin\jbdev.exe src\jbdev.c build\app.res.o -lshell32 -ladvapi32 || exit /b 1
+%CC% -O2 -static -Wall -mwindows -o dist\bin\jbdev.exe src\jbdev.c build\app.res.o -lcomctl32 -lcomdlg32 -lshell32 -lole32 -lgdi32 -luser32 -ladvapi32 || exit /b 1
 copy /y editor\jbdev.html dist\editor\jbdev.html >nul || exit /b 1
 if not exist dist\sdk mkdir dist\sdk
 copy /y sdk\jdh.h dist\sdk\jdh.h >nul || exit /b 1

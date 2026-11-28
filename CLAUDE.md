@@ -9,9 +9,9 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 |---|---|
 | `editor/src/jb.html` | 에디터 소스 (Lite 와 Dev. 공통 · 엔진 · 내장 실행기 포함, 약 3MB) |
 | `editor/build.py` | 소스 → `editor/out/JawBreaker-Lite.html` · `editor/jbdev.html` (Dev.) |
-| `editor/jbdev.html` | Dev. 에디터 빌드 결과 (설치 파일에 들어감 · 직접 고치지 말 것) |
+| `editor/jbdev.html` | 웹 판 빌드 결과 (내보낸 HTML 의 틀 · 직접 고치지 말 것) |
 | `src/jdh.c` | `jdh` 명령 (new lib · lib check · lib build · lib add · build exe) |
-| `src/jbdev.c` | JawBreaker Dev. 를 Edge 앱 창으로 여는 프로그램 |
+| `src/jbdev.c` | JawBreaker Dev. — Windows 네이티브 에디터 (C · Win32 · HTML 을 쓰지 않음) |
 | `sdk/jdh.h` | 사용자 라이브러리가 포함하는 헤더 |
 | `runtime/` | C 실행기 소스 (SDL2) — EXE 내보내기에 쓰임 |
 | `installer/jdh.iss` | 설치 프로그램 (Inno Setup) |
@@ -20,7 +20,10 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 
 ## 핵심 규칙
 
-- 에디터는 두 판이다. **Lite** 는 기존 에디터로 계속 지원하며 사용자 라이브러리가 봉인돼 있다 (코드가 아예 없음). **Dev.** 만 사용자 라이브러리(`.jbx`)를 불러온다.
+- 에디터는 두 판이다. **Lite** 는 기존 에디터 (HTML · 브라우저 안 실행) 로 계속 지원하며 사용자 라이브러리가 봉인돼 있다 (코드가 아예 없음). **Dev.** 는 Windows 네이티브 프로그램 (`src/jbdev.c`) 으로 바꾸는 중이다 (아래).
+- JawBreaker Dev. (네이티브 · 설치 프로그램에 들어감): 디스크의 프로젝트 폴더를 직접 열고 저장한다. 화면 = 단추 줄 · 탐색기 (TreeView) · 코드 칸 (RichEdit · 색칠) · 로그 칸 · 상태 줄. ▶ 실행 (F5) = 저장 후 프로젝트의 `run.bat` (없으면 `jdh run`) 을 창 없이 띄우고 출력 (print · 오류) 을 로그 칸으로 받음 · ■ 정지 = 작업 개체 (Job) 로 자식까지 끔 · EXE 만들기 = `jdh build exe` · 새 프로젝트 = `jdh new project`. 화면 글자는 `TR` 표 (5개 언어 · Windows 표시 언어 · 시험용 `JDH_LANG`). 지난 프로젝트는 `%APPDATA%\JDH\dev-last.txt`. `--selftest <프로젝트> <결과>` = 열고 실행해서 로그 · 창 그림을 남김 (CI).
+  - 1단계 (지금): 위 기능. 아직 없음 → 자동완성 · 내장 설명서 · 실행 전 검사 · HTML 내보내기 (`jdh build html` 로 할 예정 · `editor/jbdev.html` 의 실행기를 틀로) · 파일 만들기 · 이름 바꾸기 · 지우기 · 찾기 · 여러 파일 탭.
+  - 웹 판 (`editor/jbdev.html`) 의 사용자 라이브러리 · 신뢰 확인 · WebAssembly 는 내보낸 HTML 을 위해 남겨 둔다.
 - 소스 안의 `/*DEV-START*/ … /*DEV-END*/` 는 Dev. 에만, `/*LITE-START*/ … /*LITE-END*/` 는 Lite 에만 들어간다. 사용자 라이브러리 관련 코드는 반드시 DEV 구간 안에 둔다 (`build.py` 가 Lite 에 남았는지 검사한다).
 - 사용자 라이브러리는 **C 로 한 번만** 쓴다. 웹 (Dev. 실행 · HTML · APK) 에서는 `jdh lib build` 가 WebAssembly 로 컴파일한 것을 격리된 워커에서 돌리고, EXE 에서는 `jdh build exe` 가 같은 C 소스를 실행기와 함께 컴파일한다.
 - 컴파일러는 zig (`zig cc`). 웹은 `wasm32-wasi`, EXE 는 `x86_64-windows-gnu`.
@@ -83,7 +86,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 
 1. 창을 띄우는 게임 (DisPlayer) 을 `jdh build exe` 로 만든 EXE 의 실제 화면 확인 (CI 는 dummy 화면에서 실행 · 화면 저장까지만)
 2. APK 에서의 라이브러리 동작 확인
-3. `jbdev.exe` 설치 후 실제 PC 에서의 동작 확인 (설치 · PATH · 바로 가기 · 창)
+3. `jbdev.exe` (네이티브 에디터) 설치 후 실제 PC 에서의 동작 확인 (설치 · PATH · 바로 가기 · 창 · 한글 입력 · 화면 배율)
 
 ## 아직 확인하지 못한 것
 

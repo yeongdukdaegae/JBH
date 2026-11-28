@@ -236,11 +236,24 @@ jobs:
           $t = Measure-Command { $script:o2 = cmd /c "RunGame\run.bat < nul" 2>&1 | Out-String }; Write-Host $o2; Write-Host "두 번째: $([int]$t.TotalSeconds)초"
           if ($o2 -notmatch 'run ok 2') { Write-Error '고친 main 이 실행되지 않았습니다'; exit 1 }
           if ($o2 -notmatch '실행기는 그대로') { Write-Error '두 번째에도 실행기를 다시 컴파일했습니다'; exit 1 }
+      - name: JawBreaker Dev. 시험 (네이티브 에디터 — 프로젝트를 열고 ▶ 실행 (run.bat) · 로그 칸에 출력 · 창 그림)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''; $env:JDH_LANG = 'ko'
+          $p = Start-Process dist\bin\jbdev.exe -ArgumentList '--selftest', "$PWD\RunGame", "$PWD\jbdev-shot" -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Error '3분 안에 끝나지 않았습니다'; exit 1 }
+          Write-Host "종료 코드: $($p.ExitCode)"
+          if (-not (Test-Path jbdev-shot.log)) { Write-Error '로그를 남기지 않았습니다 (프로젝트를 열지 못함?)'; exit 1 }
+          Get-Content jbdev-shot.log -Encoding utf8
+          if (-not (Select-String -Path jbdev-shot.log -SimpleMatch 'run ok 2' -Quiet -Encoding utf8)) { Write-Error '로그 칸에 프로그램 출력이 없습니다'; exit 1 }
+          if (-not (Test-Path jbdev-shot.bmp)) { Write-Error '창 그림이 없습니다'; exit 1 }
+          Write-Host "창 그림: $((Get-Item jbdev-shot.bmp).Length) 바이트"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: JDH-test-screens
           path: |
+            jbdev-shot.bmp
             probe-exe.png
             layers-exe.png
           if-no-files-found: ignore
