@@ -10,10 +10,18 @@ run{
     srv.listentls(8792, 1, "cert/server.pfx", "jdh-test");
     print("tls port=%srv.port%");
     net.get("https://localhost:8792/hello");
-    jaw.wait(2000);
+    var int call t = 0;
+    loop [net.status == -1] and [t < 30]{
+        jaw.wait(500);
+        t = t + 1;
+    }
     print("https status=%net.status% body=%net.body%");
     net.post("https://localhost:8792/echo", "tag9", "암호 body");
-    jaw.wait(2000);
+    t = 0;
+    loop [net.status == -1] and [t < 30]{
+        jaw.wait(500);
+        t = t + 1;
+    }
     print("https post status=%net.status% body=%net.body%");
     net.get("http://127.0.0.1:8792/hello");
     jaw.wait(2000);
