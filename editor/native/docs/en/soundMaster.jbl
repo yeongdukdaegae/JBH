@@ -1,0 +1,59 @@
+// soundMaster — built-in sub-library of Magellan · sound (read-only reference)
+// It depends on Magellan (under DisPlayer): the same file needs Use DisPlayer and Use Magellan.
+//
+// ── Use ────────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Magellan call mag;
+//   Use soundMaster call sou;
+//
+// ── Adding sounds ──────────────────────
+//   add .wav · .mp3 · .ogg · .m4a to the project with ☰ Open or drag and drop (tap it in the file list to listen)
+//   mag.importFile("sfx/jump.wav") save as ("jump");   name the path like an image
+//
+// ── Speakers ───────────────────────────
+//   sou.setSpeaker("name");         make a speaker — every sound comes from a speaker (the same name again keeps it)
+//                                   · a speaker is an invisible object (id "spk.name") — read and write spk.name.Position like a camera
+//                                   · heard in every scene by default — for one scene only: sou.spk.name.belongtoScene("scene");
+//                                   · dis.disableObj("spk.name") = silent at once (no fade) · object names can no longer start with "spk."
+//   sou.setVol("speaker", 0 – 255); volume (default 255) · with a fade it changes over that time
+//   sou.setFadein("speaker", ms);   sounds grow louder over ms when they start (0 = at once)
+//   sou.setFadeout("speaker", ms);  sounds fade over ms when they stop — break · end of play time · end of repeats
+//   sou.spk.speaker.belongto("object");
+//                                   tie the speaker to an object — it moves there and becomes its child (follows it) · spatial sound ("" = untie)
+//   sou.spk.speaker.belongtoScene("scene");
+//                                   tie the speaker to a scene — heard only while in that scene, silent elsewhere ("*" = every scene · needs can.setUpScene)
+//                                   · quieter the farther it is from the screen (camera) center · panned left/right
+//                                   · silent at once (no fade) while the object is missing, disabled or not in the scene · audible again when it's back
+//
+// ── Playing ────────────────────────────
+//   sou.playSfx("speaker", "sound", ms);
+//                                   play the sound once — for at most ms milliseconds (shorter sounds play to the end · 0 = to the end)
+//                                   · doesn't wait · one speaker can play several sounds at once
+//   sou.repeatingPlay("speaker", "sound", count);
+//                                   repeat — count 0 = forever (stop with break)
+//   sou.repeatPart("speaker", "sound", start, end);
+//                                   loop only the start ~ end part (milliseconds) forever — begins at the start point · stop it with break
+//                                   · a negative end means to the end of the sound (e.g. loop the song after its intro: sou.repeatPart("bgm", "song", 8000, -1);)
+//                                   · fade-in · volume · spatial sound work like other playback · sou.repatPart is the same command
+//   sou.break("speaker");           stop every sound on that speaker (follows the fade-out)
+//   sou.break("speaker", true);     ignore the fade-out and stop at once (false = follow the fade-out)
+//
+// ── Example ────────────────────────────
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       dis.setObject([300, 0], "bird", [30, 30], "#ffd166");
+//       mag.importFile("sfx/chirp.ogg") save as ("chirp");
+//       sou.setSpeaker("birdSpk");
+//       sou.setFadein("birdSpk", 300);
+//       sou.setFadeout("birdSpk", 500);
+//       sou.spk.birdSpk.belongto("bird");          // heard from the right
+//       sou.repeatingPlay("birdSpk", "chirp", 0);
+//       jaw.wait(3000);
+//       sou.break("birdSpk");                       // fades out over 0.5 s
+//   }
+//
+// · If the browser blocks sound, tap the display once and run again.
+// · Stopping (■) or running again stops every sound.
+// · C conversion: plays the sound files at the same paths with SDL2_mixer (build with -lSDL2_mixer).
+//   In C, volume changes apply at once without a fade.

@@ -1,0 +1,62 @@
+// soundMaster — Magellan 의 하위 내장 라이브러리 · 소리 (읽기 전용 설명서)
+// Magellan(DisPlayer 하위)에 종속됩니다: 같은 파일에 Use DisPlayer 와 Use Magellan 이 있어야 합니다.
+//
+// ── 사용 ───────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Magellan call mag;
+//   Use soundMaster call sou;
+//
+// ── 소리 넣기 ──────────────────────────
+//   ☰ 불러오기 · 끌어다 놓기로 .wav · .mp3 · .ogg · .m4a 를 프로젝트에 넣음 (파일 목록에서 누르면 들어 봄)
+//   mag.importFile("sfx/jump.wav") save as ("jump");   이미지처럼 경로에 이름을 붙여 씀
+//
+// ── 스피커 ─────────────────────────────
+//   sou.setSpeaker("이름");         스피커 만들기 — 소리는 모두 스피커가 냄 (같은 이름으로 다시 하면 그대로)
+//                                   · 스피커 = 보이지 않는 오브젝트 (id "spk.이름") — 카메라처럼 spk.이름.Position 으로 읽고 바꿈
+//                                   · 기본은 모든 장면에서 들림 — 한 장면에만: sou.spk.이름.belongtoScene("장면");
+//                                   · dis.disableObj("spk.이름") = 바로 무음 (페이드 없음) · 이제 오브젝트 이름은 "spk." 으로 시작할 수 없음
+//   sou.setVol("스피커", 0 ~ 255);  볼륨 (기본 255) · 페이드가 있으면 그 시간 동안 천천히 바뀜
+//   sou.setFadein("스피커", ms);    소리가 켜질 때 ms 동안 점점 커짐 (0 = 바로)
+//   sou.setFadeout("스피커", ms);   소리가 꺼질 때 ms 동안 점점 작아짐 — break · 재생 시간 끝 · 반복 끝 모두
+//   sou.spk.스피커.belongto("오브젝트");
+//                                   스피커를 오브젝트에 귀속 — 그 오브젝트로 가서 자식이 됨 (따라감) · 공간 음향 ("" = 풀기)
+//   sou.spk.스피커.belongtoScene("장면");
+//                                   스피커를 장면에 귀속 — 그 장면에 있는 동안만 들리고 다른 장면에서는 무음 ("*" = 모든 장면 · can.setUpScene 필요)
+//                                   · 화면(카메라) 가운데에서 멀수록 작게 · 왼쪽 · 오른쪽으로 나뉘어 들림
+//                                   · 오브젝트가 없거나 꺼지거나 지금 장면에 없으면 바로 무음 (페이드 없음) · 다시 생기면 들림
+//
+// ── 재생 ───────────────────────────────
+//   sou.playSfx("스피커", "소리", ms);
+//                                   소리를 한 번 재생 — ms 밀리초까지만 (소리가 더 짧으면 끝까지 · 0 = 끝까지)
+//                                   · 기다리지 않고 바로 다음 줄 · 한 스피커에서 여러 소리가 겹쳐 날 수 있음
+//   sou.repeatingPlay("스피커", "소리", 횟수);
+//                                   반복 재생 — 횟수 0 = 무한 반복 (break 로 끔)
+//   sou.repeatPart("스피커", "소리", 시작, 끝);
+//                                   시작 ~ 끝 (밀리초) 구간만 무한 반복 — 처음엔 시작 지점부터 · break 로 끔
+//                                   · 끝이 음수면 소리 끝까지 (예: 인트로 뒤 본편만 반복: sou.repeatPart("bgm", "song", 8000, -1);)
+//                                   · 페이드 인 · 볼륨 · 공간 음향은 다른 재생과 같음 · sou.repatPart 로 써도 같은 명령
+//   sou.introPart("스피커", "소리", 시작, 끝);
+//                                   소리를 처음부터 재생하고, 끝 지점에 닿으면 시작 ~ 끝 구간만 무한 반복 (인트로가 있는 배경 음악)
+//                                   · 끝이 음수면 소리 끝까지 · C 변환에서는 repeatPart 처럼 시작 지점부터 재생됨
+//   sou.break("스피커");            그 스피커의 소리를 모두 끔 (페이드 아웃을 따름)
+//   sou.break("스피커", true);      페이드 아웃을 무시하고 바로 끔 (false = 페이드 아웃을 따름)
+//
+// ── 예 ─────────────────────────────────
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       dis.setObject([300, 0], "bird", [30, 30], "#ffd166");
+//       mag.importFile("sfx/chirp.ogg") save as ("chirp");
+//       sou.setSpeaker("birdSpk");
+//       sou.setFadein("birdSpk", 300);
+//       sou.setFadeout("birdSpk", 500);
+//       sou.spk.birdSpk.belongto("bird");          // 오른쪽에서 들림
+//       sou.repeatingPlay("birdSpk", "chirp", 0);
+//       jaw.wait(3000);
+//       sou.break("birdSpk");                       // 0.5초 동안 작아지며 꺼짐
+//   }
+//
+// · 브라우저가 소리를 막으면 화면을 한 번 누른 뒤 다시 실행하세요.
+// · 프로그램을 멈추거나(■) 다시 실행하면 소리도 모두 멈춤.
+// · C 변환: SDL2_mixer 로 같은 경로의 소리 파일을 재생합니다 (빌드에 -lSDL2_mixer).
+//   볼륨 바꾸기는 C 에서는 페이드 없이 바로 바뀝니다.

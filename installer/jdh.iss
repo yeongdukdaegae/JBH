@@ -20,6 +20,8 @@ WizardStyle=modern
 Source: "..\dist\bin\jdh.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\dist\bin\jbdev.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\dist\editor\jbdev.html"; DestDir: "{app}\editor"; Flags: ignoreversion
+Source: "..\dist\editor\native\*"; DestDir: "{app}\editor\native"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\sdk\html\*"; DestDir: "{app}\sdk\html"; Flags: ignoreversion
 Source: "..\dist\sdk\jdh.h"; DestDir: "{app}\sdk"; Flags: ignoreversion
 Source: "..\dist\sdk\runtime\*"; DestDir: "{app}\sdk\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\sdk\SDL2\*"; DestDir: "{app}\sdk\SDL2"; Flags: ignoreversion recursesubdirs createallsubdirs

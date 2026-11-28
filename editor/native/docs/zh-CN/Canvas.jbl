@@ -1,0 +1,84 @@
+// Canvas — DisPlayer 的内置子库 · 输入 · 场景 (只读参考文档)
+// 从属于 DisPlayer: 同一个文件中必须有 Use DisPlayer。
+//
+// ── 使用 ───────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Canvas call can;
+//
+// ── 值 (只读，名称随别名变化) ────────────────
+//   can.ScreenClicked            按住显示画面时为 1，否则为 0  (bit)
+//                                · 鼠标 · 触摸 · 触控笔都算 · 上方的 ✕ 栏除外
+//                                · 即使很短地轻点一下，也至少有 1 帧为 1 (每帧检查就不会漏掉)
+//                                · 画面关闭时为 0
+//   can.MouseX · can.MouseY      鼠标 (触摸) 位置 (float) — 与对象使用相同的坐标
+//                                · (0, 0) = 屏幕中央 · 向右 · 向上为 +
+//                                · 鼠标不按下只移动也会变化 · 触摸则是按下的位置 / 正在拖动的位置
+//   can.setUi("id");             把对象固定在摄像机上 (UI) — 之后的位置使用屏幕坐标 ([0, 0] = 屏幕中央 · 向上为 +)
+//                                · 摄像机移动或缩放改变时仍在原位 · 保持原大小 · 绘制在世界对象之上 (UI 之间按图层顺序)
+//                                · 按钮 · isMouseTouched 也按屏幕坐标判定 · 不与碰撞体 · 触发器相撞 · 不受绘制半径 (setRenderLimit) 影响
+//                                · 子对象 (及其子对象) 也一起成为 UI · 之后成为 UI 子对象的对象也是 UI
+//                                · 可以用 "<标签>" · 例: 血条 · 对话框 · 菜单
+//   can.setasButton("id");       把对象设为按钮 (可以用 "<标签>" · "" (自身))
+//   can.obj.id.IsButtonClicked   在该按钮上按下并在其上松开时为 1  (bit)
+//                                · 一次点击只有一次为 1 (读取后回到 0) — 在循环中每帧检查
+//                                · 设为按钮之前的点击 · 超过 0.5 秒的点击不计
+//                                · 已停用或不在当前场景的按钮为 0 · 用在非按钮对象上会报错
+//                                · 在已绑定的文件中 can.obj.IsButtonClicked = 自身
+//                                · 例: can.setasButton("start");  loop{ if [can.obj.start.IsButtonClicked]{ print("开始"); } dis.waitF(1); }
+//   can.obj.id.IsButtonPushed    按住该按钮期间为 1 (bit) — 手指 · 鼠标在按钮上保持按下 (支持多指)
+//                                · 即使按得很短也至少有 1 帧为 1 · 例: 按住时奔跑               loop{ if [can.obj.run.IsButtonPushed]{ … } dis.waitF(1); }
+//   can.obj.id.IsButtonRelease   在该按钮上按下后松开的瞬间为 1 (bit) — 不论在哪里松开 · 仅一次 (读取后为 0) · 超过 0.5 秒的不计
+//                                · 写成 IsButtonReleased 也一样 · 在已绑定的文件中像 can.obj.IsButtonPushed 这样不带 id = 自身
+//   can.bindInput("按钮 id") to ("按键");
+//                                按住该按钮期间视为按住该键 — jaw.isKeyInput("按键") 为 1
+//                                · 不是按钮则设为按钮 · 一个按钮对应一个键 (再写一次则替换 · to ("") = 解除)
+//                                · 可以用多个手指同时按多个按钮 (屏幕摇杆)
+//                                · 即使轻点一下也至少有 1 帧为 1 · 已停用或不在当前场景的按钮按不下
+//                                · 例: can.bindInput("btnLeft") to ("left");  can.bindInput("btnJump") to ("space");
+//   (按键输入 jaw.isKeyInput 已移到 jawbreaker 库)
+//                                · 移出画面后保持最后的位置 · 最初为 (0, 0)
+//   can.obj.id.isMouseTouched    鼠标 (触摸) 在该对象上时为 1 (bit)
+//                                · 矩形 · 文字以框内为准，圆形以圆 (椭圆) 内为准 · 重叠的对象全部为 1
+//                                · 触摸只在按住期间有效 · 在画面外为 0 · 与不透明度·图层无关
+//                                · 按下对象: [can.obj.id.isMouseTouched && can.ScreenClicked]
+//                                · 在已绑定的文件中 can.obj.isMouseTouched = 自身
+//
+// ── 场景 (scene) ───────────────────────
+//   can.setUpScene();            开启场景功能 (要先于场景命令!) — 当前画面是第一个场景 (无名称)
+//                                · 已有的对象都属于第一个场景
+//   can.nameScene("名称");       给当前场景命名
+//   can.setScene("名称");        创建新场景 (不切换)
+//   can.sendtoScene("名称");     切换到该场景
+//                                · 只有可以存在于该场景的对象才会显示 · 移动 · 碰撞 · 触发 · 参与鼠标判定
+//                                · 其余对象不会被删除，只是休眠，回到那个场景时原样重新出现
+//   can.popupScene("名称");      把当前场景整个暂停，并打开该场景 (菜单 · 对话窗口 · 暂停画面等)
+//                                · 被暂停的内容: 当前场景的场景代码 · 对象 · 绑定代码 · 移动 · 动画 · wait 的剩余时间
+//                                · 调用这一行的代码会等到弹出场景关闭后才到下一行
+//                                · 弹出场景的代码 (BelongScene) 每次打开都从头开始 · 弹出场景之上还可以再弹出
+//                                · 弹出场景开着时执行 sendtoScene，弹出场景和被暂停的场景都会被丢弃 · 转为 C 暂不支持
+//   can.closeScene();            关闭弹出场景 → 被暂停的场景从暂停时的状态继续 (摄像机也保持不变)
+//   can.obj.setExistableScene("场景", "id");
+//                                添加对象可以存在的场景 (多次书写则为多个场景 · "*" = 所有场景)
+//                                · 新建的对象默认只存在于创建它的场景 · id 可以用 "<标签>" · "" (自身)
+//   can.SceneName                当前场景名 (string · 没有名称则为 "")
+//   can.BelongScene("场景");     直接写在 run{ } 内 — 和 dis.BelongObj 一样把整个文件绑定到该场景
+//                                进入该场景时运行此文件的 run{ } · 离开则停止 (再次进入时从头开始)
+//   · 绑定到对象的代码在该对象不在当前场景或被停用时会休眠，之后接着运行
+//   · 例)  can.setUpScene(); can.nameScene("title"); can.setScene("game");
+//          dis.setObject([0, 0], "hud", [100, 20], "#fff"); can.obj.setExistableScene("*", "hud");
+//          if [can.ScreenClicked]{ can.sendtoScene("game"); }
+//
+// ── 例 ─────────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Canvas call can;
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       dis.setObject([0, 0], "box", [80, 80], "#5c68ff");
+//       loop{
+//           obj.box.Position = [can.MouseX, can.MouseY];   // 跟随鼠标
+//           if [can.ScreenClicked]{ obj.box.Color = "#ffd166"; }
+//           else{ obj.box.Color = "#5c68ff"; }
+//           dis.waitF(1);
+//       }
+//   }

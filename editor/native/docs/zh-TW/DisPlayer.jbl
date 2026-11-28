@@ -1,0 +1,209 @@
+// DisPlayer — 內建顯示函式庫 (唯讀參考文件)
+// 這不是用 .jb 程式碼編寫的函式庫，而是編輯器自帶的函式庫。
+//
+// ── 使用 ───────────────────────────────
+//   Use DisPlayer call dis;      別名 (dis) 可以隨意取
+//
+// ── 命令 ───────────────────────────────
+//   dis.setDisplay();            開啟鋪滿螢幕的顯示畫面
+//                                · 黑色背景，中央是灰色的 DisPlayer 標誌 (改變顏色後消失)
+//                                · 上方留白 + 右上角 ✕ (點選後關閉並停止執行)
+//                                · 座標 (0, 0) 是螢幕中央 (向右 · 向上為 +)
+//                                · 左下角以小字顯示 [screenX, screenY] (螢幕大小)
+//   dis.disableScreenScale();    隱藏角落的 [screenX, screenY]
+//   dis.enableScreenScale();     重新顯示 (預設顯示)
+//   dis.setDisplayColor("#hex"); 用十六進位制顏色碼設定顯示畫面顏色 ("#000", "#1e90ff")
+//   dis.setFont("路徑.ttf");      更改文字物件 (dis.setText) 的字型 — 所有文字都換成新字型 (僅限 .ttf)
+//                                · 字型透過開啟 · 拖放放入專案 (在檔案清單中點選可預覽)
+//                                · 使用 Magellan 時也可以用 mag.importFile("fonts/a.ttf") save as ("a"); 起的名稱: dis.setFont("a");
+//                                · 讀取完成後才到下一行 · 文字寬度也按新字型重新測量
+//                                · 這時中央的標誌會消失
+//   dis.setupObject();           在此專案中開啟物件功能 (要先於物件命令!)
+//   dis.waitF(n);                等待 n 個畫面幀 (通常 60fps → 1 幀 ≈ 16.7ms)
+//                                用在每幀執行的迴圈中:   loop{ obj.ball.Xpos = obj.ball.Xpos + 2; dis.waitF(1); }
+//                                (在不可見的標籤頁中會暫停，之後接著執行 · 轉為 C 時按視窗的幀，約 60fps)
+//
+// ── 物件 ───────────────────────────────
+//   [] 是矩陣 — 位置·大小是 (1, 2) 矩陣，位置是物件的中心
+//   dis.setObject([x, y], "id", [寬, 高], 顏色);
+//                                顏色: "#ff8800"，或像 114514 這樣的 3·6 位數字 (按十六進位制讀取)
+//                                id 相同則覆蓋 · 第一次繪製時中央的標誌消失
+//   dis.setObjCyl([x, y], "id", 半徑, 顏色);
+//                                圓形物件 — 位置是圓心 · Scale = [直徑, 直徑]
+//                                (把 Scale 的寬·高改成不同的值就是橢圓) · 碰撞判定目前仍以矩形為準
+//   dis.setObjPlg([x1, y1], [x2, y2], [x3, y3], [x4, y4], "id", 顏色);
+//                                多邊形物件 — 3 個頂點 (三角形) 或 4 個頂點 (頂點為螢幕座標 · 沿邊緣依次書寫)
+//                                · dis.setObjPlg([0, 0], [100, 0], [50, 80], "tri", "#ffffff");   ← 3 個頂點
+//                                · 位置 = 包圍頂點的矩形的中心 · Scale = 該矩形的大小 (改變後形狀按該比例拉伸)
+//                                · 移動 · 旋轉 · 不透明度 · 圖層 · 父 · 子 · UI 與其他物件相同
+//                                · 滑鼠判定 (isMouseTouched · 按鈕) 按多邊形的形狀 · 碰撞體另算 (矩形) · 不能貼紋理
+//   dis.setObjAlpha("id", 0 ~ 255);
+//                                不透明度 — 0 = 不可見 · 255 = 不透明 (預設) · 超出範圍則按 0 · 255 處理
+//   dis.setObjColor("id", 顏色);  改變顏色 (與 obj.id.Color = 顏色; 相同)
+//   dis.setObjOverlay("id", 顏色, 0 ~ 255);
+//                                按物件的形狀疊加該顏色 — 0 = 無 · 255 = 完全用該顏色覆蓋 (紋理只覆蓋不透明的部分 · 文字只覆蓋字形)
+//                                · 原來的顏色 · 紋理保持不變 (把疊加設為 0 就恢復原樣) · 物件不透明度低時疊加也相應變淡
+//   dis.rotateObj("id", 角度, ms);
+//                                在目前角度基礎上再旋轉指定角度 (度) — 逆時針為 +，負數 = 順時針 · 用 ms 毫秒逐漸旋轉 (0 = 立即)
+//                                · 旋轉途中再次呼叫，會從那個目標繼續轉 (兩次 90 = 180) · 開始後過 1 幀到下一行 · 不等待結束
+//                                · 影像 · 圓 · 文字 · 紋理 · 滑鼠判定 (isMouseTouched · 按鈕) · 碰撞體 · 觸發器一起旋轉
+//                                  (碰撞體 · 觸發器以物件中心為軸連同間距一起旋轉 · 旋轉後的碰撞體之間也能準確相撞)
+//                                · 一起移動的物件也作為一個整體一起旋轉 (位置繞軸心旋轉，角度也增加同樣的量)
+//                                  - 子物件 (及其子物件): 以父物件的軸心 (位置) 為軸
+//                                  - 用 setLink 綁在一起的物件: 以這些物件軸心的中心為軸 (兩個時為兩個軸心的中點) — 被旋轉的物件也繞該軸旋轉
+//                                  - 旋轉子物件時只有該子物件 (及其下級) 旋轉 · 父物件不變
+//                                · 可以用 "<標籤>"
+//   dis.setTilemap([x, y], "瓦片地圖");  鋪設瓦片地圖編輯器的 .tl — 地圖的 [0, 0] 點放在 [x, y] · 1 格瓦片 = tileSize 個單位
+//                                · [0, 0] 點 = 在瓦片地圖編輯器中用 ⌖ 指定的格子的中心 (未指定則為地圖中央)
+//                                · "瓦片地圖" = 用 mag.importFile("map.tl") save as ("瓦片地圖") 起的名稱，或 .tl 路徑
+//                                · 紋理包含在 .tl 中 · 每個圖層一個物件 ("名稱.layer0" …，位於其他物件之下)
+//                                · 碰撞體瓦片會自動設定為不可見的牆 ("名稱.col…") — 同一個檔案中需要 Use colliders
+//                                · 可攀爬方塊的格子不會被擋住 · 用相同名稱再次鋪設時舊的會被刪除 · 圖片繪製完成後到下一行
+//                                · 轉為 C 暫不支援
+//   dis.setRenderLimit(半徑);     只繪製主攝影機中心半徑 (螢幕像素) 以內的物件 — 0 = 無限制 (預設)
+//                                · 只要有一點在圓內就繪製 · 只減少繪製 (物理 · 碰撞 · 程式碼不變)
+//                                · 攝影機縮放為 2 時，按世界座標是 半徑 / 2
+//   ── for ms: 花時間逐漸變化 ──────
+//   dis.setObjAlpha("id", 0) for 500;           用 500ms 逐漸變化 (淡出)
+//   dis.setObjColor("id", "#ff5d8f") for 800;   顏色逐漸變化
+//   dis.setObjOverlay("id", "#ffffff", 255) for 250;   逐漸被白色覆蓋 (再設為 0 並 for 250 → 回到原來的顏色)
+//   dis.setObjScale("id", [200, 200]) for 300;  大小逐漸變化 (文字則為字號)
+//   dis.setObjPos("id", [0, 0]) for 400;        像 moveObj 一樣移動 (不等待結束)
+//                                · 一開始變化 (第一幀) 就到下一行 — 所以可以讓多個同時變化
+//                                  (要等到結束請用 jaw.wait(ms) · moveObj 要移動結束才到下一行) · for 0 / 省略 = 立即
+//                                · 再次改變同一物件 · 同一屬性時，前一個就地結束 · 用 "<標籤>" 則全部一起
+//   dis.setObjPos("id", [x, y]);            改變位置
+//   dis.setObjScale("id", [寬, 高]);         改變大小
+//   dis.setText([x, y], "文字內容", "id", 大小, 描邊, 顏色);
+//                                文字物件 — 把文字內容寫到畫面上 (位置是文字的中心)
+//                                大小 = 實際的文字高度 (螢幕單位的像素數 · 從最高的字 H·字 的頂端 ~ 最低的字 g·y 的底端)
+//                                       不論什麼字型，大小 32 時文字就是 32 格高 · 描邊 = true/false (與文字顏色形成對比的顏色)
+//                                可以用 obj.id.Text = "新文字"; 只修改內容
+//                                · 像 "第一行\n第二行" 這樣用 \n 分成多行 (居中對齊 · 行距 = 大小 × 1.2 · 寬度 = 最長的一行)
+//                                Scale 為 [文字寬度, 文字大小] (自動) · 改變 Scale 的 Y 就是改變字號
+//   dis.setTextNudge("id", "left");
+//                                文字物件的位置錨點 — 預設 "center" (位置 = 文字中心)
+//                                "left" 位置 = 左端 · "right" 右端 · "top" 頂端 · "bottom" 底端
+//                                像 "top left" 這樣兩者組合則為那個角 (也可以寫 "topleft" · "left-top")
+//                                · 文字變長或改變時錨點不變 (左對齊 · 右對齊的計分板等)
+//                                · 按下 · 觸發器等判定也按實際的文字位置 · nudgeObj 也按錨點貼靠
+//   dis.setObjNudge("id", "left");
+//                                物件 (矩形 · 圓 · 多邊形 · 圖片 · 文字) 的位置錨點 (軸心) — 方式與 setTextNudge 相同
+//                                · 設為 "left" 時位置 = 左端 → 用 setObjScale 縮小寬度時左端也不動 (血條等)
+//                                · 旋轉仍以中心為準 · 碰撞體 · 觸發器的位置不變 (位置 + 偏移)
+//   dis.nudgeObj("id", [左, 上], x 間距, y 間距);
+//                                貼到螢幕邊緣 — [左, 上] 是 bit 矩陣
+//                                [true, true] 左上 · [false, true] 右上
+//                                [true, false] 左下 · [false, false] 右下
+//                                間距 = 離邊緣的 px (要在 dis.setDisplay() 之後)
+//   dis.moveObj("id") to [x, y] for ms;     用 ms 毫秒直線移動到 [x, y]
+//   dis.moveObj("id") to [x, y] for ms ease ("sinleft");
+//                                移動的速度曲線 — 也可以寫 dis.setObjPos(…) for ms ease (…)
+//                                "linear" 勻速 (預設) · "sin" 正弦 0° ~ 90° (結尾變慢)
+//                                "sinright" 0° ~ 45° (幾乎勻速) · "sinleft" 45° ~ 90° (起步快，結尾驟然變慢)
+//                                to 後面寫 [x, y] 或 matrix[1, 2] 變數 (例: to coord)
+//                                去掉 for 則為 0 (立即移動) · 移動結束後才到下一行
+//                                (要同時移動請寫多個 run{ })
+//                                矩陣中的 obj.Xpos · obj.Ypos · obj.Xscale · obj.Yscale
+//                                = 該物件目前的值 (例: [obj.Xpos + 10, obj.Ypos])
+//   dis.setParent() ("子") as ("父");
+//                                父物件移動時子物件一起移動 (子物件也可以單獨移動)
+//                                · ( ) 內是 id 字串 — 也可以用變數 · "a" + n · "" = 自身 (已綁定的檔案)
+//                                把自身或自己的子物件設為父物件會報錯
+//   dis.setLink("id1", "id2");   把兩個物件綁在一起 — 任意一個移動時，另一個也移動同樣的距離
+//                                · 與父 · 子關係無關 (把父 · 子綁在一起也只移動一次)
+//                                · 綁在一起的會連成一組: setLink("a", "b"); setLink("b", "c"); → a · b · c 一起移動
+//                                · dis.setLink("id", ""); = 把該物件從組中移出 · 刪除物件時自動移出
+//                                · 位置 · 速度 · 碰撞 · moveObj · obj.id.Xpos = … 等任何移動都適用 · 大小 · 顏色各自獨立
+//                                · 可以用 "<標籤>" (帶該標籤的每個物件都綁上) · col.setLink 也一樣
+//   dis.escParent("id");         解除父級繼承 — 此物件脫離父物件 (位置不變 · 沒有父物件則什麼都不發生)
+//   dis.splitParent("id");       解散父物件的家庭 — 分離此物件的所有子物件 (子物件保留，位置不變)
+//   dis.removeObj("id");         刪除物件 (子物件保留，只解除父子關係)
+//   dis.disableObj("id");        停用物件 — 不繪製 · 不移動 · 沒有碰撞 · 觸發 · 滑鼠判定
+//                                (不會被刪除 · 值可以讀取和修改 · 子物件也一起停用 · 綁定的程式碼休眠)
+//   dis.enableObj("id");         重新啟用 (之前停下的速度 · 程式碼接著執行)
+//   dis.setTxtContent("id", "內容");  更改文字物件 (用 dis.setText 建立的) 的內容 — 與 obj.id.Text = "內容"; 相同
+//                                · 數字請用 "" + 值 · 可以用 "<標籤>" · "" (自身) · 不是文字物件則報錯
+//   dis.setObjLayer("id", n);    繪製順序 (圖層) — 越大越靠上 · 預設 0 · 相同時先建立的在下面
+//   dis.ascendObjLayer("id", n); 把物件及其子物件 (以及更下級的子物件) 的圖層全部上移 n · 負數則下移
+//                                · 是在各自的圖層上相加，所以父 · 子之間的順序不變 · 可以用 "<標籤>"
+//   dis.tagObj("id", "標籤");     給物件新增標籤 (可以有多個 · 重新建立後仍保留)
+//                                在 id 欄寫 "<標籤>"，帶該標籤的所有物件都執行同一個命令
+//                                (dis.setObjPos("<enemy>", [obj.Xpos, obj.Ypos - 5]);  dis.removeObj("<bullet>");
+//                                 col.setVelocity("<enemy>", [0, -50]);  dis.moveObj("<coin>") to [0, 0] for 300;)
+//                                · 矩陣中的 obj.Xpos 等，對每個物件都是該物件自己的值
+//                                · moveObj 會讓它們一起移動，全部結束後到下一行 · 沒有帶該標籤的物件則什麼都不發生
+//                                · 不能用於 getVar 這類讀取單個值的命令
+//   dis.getVar("id", "名稱") as 變數;
+//                                名稱: coord(= position) · scale · color · text
+//                                      · 元素寫作 "scale[1, 2]"
+//                                接收變數的型別必須一致:
+//                                coord/scale → matrix[1, 2] · 元素 → float · color → string
+//   obj.id.Position / obj.id.Scale / obj.id.Color / obj.id.Text
+//   obj.id.Xpos / obj.id.Ypos / obj.id.Xscale / obj.id.Yscale   (float 元素)
+//                                像變數一樣讀取和修改 (var float call x = obj.yaju.Xpos;  obj.yaju.Ypos = 300;)
+//                                (obj.yaju.Position = [100, 200];  obj.yaju.Scale[1, 1] = 50;)
+//
+// ── 檔案綁定 (直接寫在要綁定的檔案的 run{ } 內) ──────
+//   dis.BelongObj("id");         把整個檔案綁定到物件 — 在該 id 的物件被建立的那一刻
+//                                此檔案的 run{ } 會以該物件為基準從頭執行
+//                                · 不寫路徑: 帶有綁定宣告的 .jb 檔案即使沒有被呼叫也會自動讀取
+//                                · 寫在哪個 run{ } 中都會綁定整個檔案 · 寫多次則綁定到多個物件
+//                                · 如果是在尚未綁定的狀態下執行 (main · 用 sendto 執行的檔案)，就在那一行立即綁定
+//                                  → 此後這個檔案所有 run{ } 中的 obj.Xpos · "" id · 建立子物件等都以該物件為基準
+//                                  (該物件必須已經存在 · 在已綁定的執行中什麼都不做)
+//                                · 不能寫在 if · loop 中 · id 不能為空 · 不能用標籤 "<…>"
+//                                · main 不會在物件建立時另外執行，只在那一行綁定 (BelongScene 不能寫在 main 中)
+//                                · 用 dis.removeObj 刪除後，綁定的程式碼也會停止 (重新建立則從頭開始)
+//                                · 綁定到多個物件時，每個物件分別執行 (變數也各自獨立)
+//   在已綁定的檔案中:
+//     obj.Xpos · obj.Position · obj.Color · obj.Text …   不帶 id = 自身 (也可以寫 obj.Ypos = 10;)
+//     把命令的 id 欄留空為 "" 就是自身        (dis.setObjPos("", [0, 0]);  col.setVelocity("", [50, 0]);)
+//     檔案最上層的 var 和直接寫在 run{ } 內的 var = 該物件的變數 (每個物件各自獨立)
+//       → 在其他檔案中用 obj.id.變數 逐個讀取和修改 (obj.hero.hp = 50;        obj.enemy2.speed = 3;)
+//       (run{ } 內的 var 要在那一行執行之後才有 · loop · if 中的 var 不行)
+//     在這裡新建的物件會自動成為該物件的子物件 (跟隨父物件移動)
+//     綁定到父物件的檔案中的變數 (包括非 public 的區域性變數)，在子物件的綁定程式碼中只寫名稱就能讀取和修改
+//       (父 → 父的父 … 從最近的祖先開始查詢 · 自己的變數同名時以自己的為先)
+//     (在 setObjPos 這類命令的矩陣中，obj.Xpos 是目前正在更改的物件的值)
+//   例)  main.jb:    run{ dis.setupObject(); dis.setObject([0, 0], "hero", [40, 40], "#fff"); obj.hero.hp = 80; }
+//        player.jb:  var int call hp = 100;
+//                    run{ dis.BelongObj("hero"); dis.setObject([obj.Xpos, obj.Ypos + 30], "hpbar", [40, 6], "#f44"); obj.Ypos = 50; }
+//
+// ── 變數 (唯讀，名稱隨別名變化) ────────────────
+//   dis.displayX                 顯示畫面寬度 (螢幕單位)
+//   dis.displayY                 顯示畫面高度 (螢幕單位，不含上方留白)
+//                                setDisplay() 之前為 0 · 視窗大小改變時隨之改變
+//   dis.idWidthmode              bit — 橫向 (寬 ≥ 高) 時為 1，直向時為 0 (旋轉螢幕時會變)
+//
+// ── 螢幕單位 (與裝置無關，大小相同) ────────
+//   螢幕的短邊始終為 720 — 直向時寬為 720，橫向時高為 720 (長邊按螢幕比例)
+//   · 位置 · 大小 · 字號 · 速度 · 滑鼠 (can.MouseX/Y) · displayX/Y · setRenderLimit 都使用這個單位
+//   · 例: 直向手機 390 × 844 px → 720 × 1558 · 橫向 1280 × 720 的視窗 → 1280 × 720 · 角落的 [screenX, screenY] 也是這個單位
+//   · 短邊的兩端始終是 ±360 — [0, 300] 在任何裝置上都靠近上方 (直向時上下更寬)
+//
+// ── 例 ─────────────────────────────────
+//   Use DisPlayer call dis;
+//   run{
+//       dis.setDisplay();
+//       dis.setDisplayColor("#101820");
+//       print("螢幕大小: %dis.displayX% x %dis.displayY%");
+//
+//       dis.setupObject();
+//       dis.setObject([500, 500], "yaju", [200, 200], 114514);
+//       var float call w = 0;
+//       dis.getVar("yaju", "scale[1, 1]") as w;
+//       dis.setObjScale("yaju", [obj.Xscale * 2, obj.Yscale]);
+//       obj.yaju.Position[1, 2] = 300;
+//       dis.moveObj("yaju") to [obj.Xpos + 200, obj.Ypos] for 1000;
+//       dis.setText([0, 0], "SCORE 0", "score", 28, true, "#ffd166");
+//       dis.nudgeObj("score", [true, true], 16, 12);   // 貼到左上角
+//       obj.score.Text = "SCORE 10";
+//   }
+//
+// · 轉為 C: 使用 DisPlayer · colliders · Canvas · Magellan 時，會用 SDL2 開啟視窗 (彈出視窗)，以同樣的方式繪製和移動。
+//   建置:  gcc main.c -o main -pthread -lm $(sdl2-config --cflags --libs)   (使用文字時 + -lSDL2_ttf · 使用圖片時 + -lSDL2_image)
+//   · 程式在另一個執行緒中執行，視窗約 60fps · 關閉視窗時程式也結束
+//   · 沒有開啟視窗時，程式結束即結束 · 開啟了視窗則一直到關閉視窗為止 (速度 · 物理繼續)
+//   · 文字會自動查詢韓文字型 (找不到時用 JB_FONT=字型.ttf 指定)
+//   · 已綁定檔案 (BelongObj · BelongScene) 的 run 各自在不同的執行緒中同時執行

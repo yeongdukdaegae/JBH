@@ -1,0 +1,209 @@
+// DisPlayer — built-in display library (read-only reference)
+// This library lives inside the editor; it is not written in .jb code.
+//
+// ── Use ────────────────────────────────
+//   Use DisPlayer call dis;      pick any alias (dis)
+//
+// ── Commands ───────────────────────────
+//   dis.setDisplay();            open the full-screen display
+//                                · black background, grey DisPlayer logo in the middle (hidden once the color changes)
+//                                · top margin + ✕ at the top right (closes it and stops the run)
+//                                · coordinate (0, 0) is the center of the screen (right and up are +)
+//                                · a small [screenX, screenY] (screen size) sits in the bottom-left corner
+//   dis.disableScreenScale();    hide the [screenX, screenY] label
+//   dis.enableScreenScale();     show it again (on by default)
+//   dis.setDisplayColor("#hex"); set the display color as a hex code ("#000", "#1e90ff")
+//   dis.setFont("path.ttf");     change the font of text objects (dis.setText) — all text uses it (.ttf only)
+//                                · add the font with ☰ Open or drag and drop (tap it in the file list to preview)
+//                                · with Magellan, a name from mag.importFile("fonts/a.ttf") save as ("a"); works too: dis.setFont("a");
+//                                · the next line runs once it has loaded · text widths are measured again with the new font
+//                                · this hides the logo in the middle
+//   dis.setupObject();           enable objects in this project (before any object command!)
+//   dis.waitF(n);                wait n display frames (usually 60fps → 1 frame ≈ 16.7ms)
+//                                for per-frame loops:  loop{ obj.ball.Xpos = obj.ball.Xpos + 2; dis.waitF(1); }
+//                                (pauses while the tab is hidden · in C conversion the window's frames, about 60fps)
+//
+// ── Objects ────────────────────────────
+//   [] is a matrix — position and size are (1, 2) matrices; the position is the object's center
+//   dis.setObject([x, y], "id", [width, height], color);
+//                                color: "#ff8800" or a 3- or 6-digit number like 114514 (read as hex)
+//                                the same id replaces the object · the logo hides once something is drawn
+//   dis.setObjCyl([x, y], "id", radius, color);
+//                                circle object — the position is the center · Scale = [diameter, diameter]
+//                                (different Scale width/height makes an ellipse) · collisions still use its box
+//   dis.setObjPlg([x1, y1], [x2, y2], [x3, y3], [x4, y4], "id", color);
+//                                polygon object — 3 corners (a triangle) or 4 (corners in screen coordinates · in order around the edge)
+//                                · dis.setObjPlg([0, 0], [100, 0], [50, 80], "tri", "#ffffff");   ← 3 corners
+//                                · position = center of the box around the corners · Scale = that box (changing it stretches the shape)
+//                                · moving · rotating · opacity · layers · parents · children · UI work like other objects
+//                                · mouse tests (isMouseTouched · buttons) follow the polygon's shape · colliders are separate (boxes) · no textures
+//   dis.setObjAlpha("id", 0 ~ 255);
+//                                opacity — 0 = invisible · 255 = opaque (default) · values outside are clamped to 0 · 255
+//   dis.setObjColor("id", color); change the color (same as obj.id.Color = color;)
+//   dis.setObjOverlay("id", color, 0 ~ 255);
+//                                lay that color over the object in its own shape — 0 = none · 255 = fully covered (textures: opaque parts only · text: the glyphs)
+//                                · the original color · texture stay (overlay 0 = back to normal) · a lower object opacity fades the overlay too
+//   dis.rotateObj("id", angle, ms);
+//                                rotate by angle (degrees) more from the current angle — counterclockwise +, negative = clockwise · over ms (0 = at once)
+//                                · calling again while it turns adds to that target (90 twice = 180) · the next line runs a frame after it starts · the end isn't awaited
+//                                · shapes · circles · text · textures · mouse tests (isMouseTouched · buttons) · colliders · triggers all rotate
+//                                  (colliders · triggers turn around the object's center, offset included · rotated colliders collide exactly)
+//                                · whatever moves with it turns with it as one piece (positions orbit the pivot, angles add the same amount)
+//                                  - children (and theirs): around the parent's pivot (position)
+//                                  - setLink-tied objects: around the center of the tied objects' pivots (two → the midpoint) — the rotated object orbits it too
+//                                  - rotating a child turns only that child (and below) · the parent stays
+//                                · "<tag>" works
+//   dis.setTilemap([x, y], "map");  place a .tl from the tilemap editor — the map's [0, 0] point goes to [x, y] · 1 tile = tileSize units
+//                                · [0, 0] point = center of the tile chosen with ⌖ in the tilemap editor (the map center if none)
+//                                · "map" = a name from mag.importFile("map.tl") save as ("map"), or a .tl path
+//                                · textures are inside the .tl · one object per layer ("map.layer0" …, below everything else)
+//                                · collider tiles become invisible walls automatically ("map.col…") — needs Use colliders in the same file
+//                                · climb tiles are not blocked · placing the same name again removes the old one · the next line runs once images are drawn
+//                                · not supported by the C conversion yet
+//   dis.setRenderLimit(radius);  draw only objects within radius (screen px) of the main camera's center — 0 = no limit (default)
+//                                · an object touching the circle at all is drawn · only drawing is skipped (physics · collisions · code go on)
+//                                · with camera zoom 2 the world radius is radius / 2
+//   ── for ms: change over time ──
+//   dis.setObjAlpha("id", 0) for 500;           fades over 500ms (fade out)
+//   dis.setObjColor("id", "#ff5d8f") for 800;   the color shifts gradually
+//   dis.setObjOverlay("id", "#ffffff", 255) for 250;   turns white gradually (back to 0 for 250 → the original look)
+//   dis.setObjScale("id", [200, 200]) for 300;  the size changes gradually (text: the font size)
+//   dis.setObjPos("id", [0, 0]) for 400;        moves like moveObj (doesn't wait for the end)
+//                                · the next line runs as soon as the change starts (first frame) — so several can change together
+//                                  (to wait for the end use jaw.wait(ms) · moveObj waits until the move ends) · for 0 / no for = instantly
+//                                · changing the same property of the same object again ends the previous change where it is · "<tag>" changes them all together
+//   dis.setObjPos("id", [x, y]);            move
+//   dis.setObjScale("id", [width, height]); resize
+//   dis.setText([x, y], "text", "id", size, outline, color);
+//                                text object — draws the text (the position is the text's center)
+//                                size = the real text height (screen-unit pixels · top of the tallest letters H·가 to the bottom of g·y)
+//                                       any font at size 32 is 32 units tall · outline = true/false (in a color that contrasts with the text)
+//                                obj.id.Text = "new text"; changes only the text
+//                                · \n makes several lines: "line one\nline two" (centered · line spacing = size × 1.2 · width = the longest line)
+//                                Scale is [text width, text size] (automatic) · changing Scale's Y sets the font size
+//   dis.setTextNudge("id", "left");
+//                                a text object's position anchor — default "center" (position = middle of the text)
+//                                "left" position = left end · "right" right end · "top" top end · "bottom" bottom end
+//                                combine two like "top left" for that corner ("topleft" · "left-top" work too)
+//                                · the anchor stays put when the text gets longer or changes (left-aligned · right-aligned scores …)
+//                                · presses · triggers use where the text really is · nudgeObj snaps by the anchor too
+//   dis.setObjNudge("id", "left");
+//                                any object's (box · circle · polygon · image · text) position anchor (pivot) — works like setTextNudge
+//                                · with "left" the position is the left end → shrinking the width with setObjScale keeps the left end put (HP bars …)
+//                                · rotation still turns around the middle · collider · trigger positions stay as they were (position + offset)
+//   dis.nudgeObj("id", [left, up], x gap, y gap);
+//                                snap to a screen edge — [left, up] is a bit matrix
+//                                [true, true] top left · [false, true] top right
+//                                [true, false] bottom left · [false, false] bottom right
+//                                gap = px away from the edge (after dis.setDisplay())
+//   dis.moveObj("id") to [x, y] for ms;     move in a straight line to [x, y] over ms
+//   dis.moveObj("id") to [x, y] for ms ease ("sinleft");
+//                                the speed curve of the move — dis.setObjPos(…) for ms ease (…) works too
+//                                "linear" steady (default) · "sin" sine 0° to 90° (slows at the end)
+//                                "sinright" 0° to 45° (almost steady) · "sinleft" 45° to 90° (fast out, slows hard at the end)
+//                                to takes [x, y] or a matrix[1, 2] variable (e.g. to coord)
+//                                without for it is 0 (jumps) · the next line runs after the move ends
+//                                (to move several at once, use several run{ } blocks)
+//                                inside the matrix, obj.Xpos · obj.Ypos · obj.Xscale · obj.Yscale
+//                                = that object's current values (e.g. [obj.Xpos + 10, obj.Ypos])
+//   dis.setParent() ("child") as ("parent");
+//                                when the parent moves the child moves with it (the child can still move on its own)
+//                                · the ( ) hold id strings — variables · "a" + n work too · "" = itself (bound file)
+//                                an object can't be its own parent or its child's child
+//   dis.setLink("id1", "id2");   tie two objects together — whichever moves, the other moves by the same amount
+//                                · independent of parent/child links (tying a parent and child still moves each once)
+//                                · links chain: setLink("a", "b"); setLink("b", "c"); → a · b · c move together
+//                                · dis.setLink("id", ""); = take that object out of its group · deleting it does too
+//                                · any movement counts: position · velocity · collisions · moveObj · obj.id.Xpos = … · size and color stay separate
+//                                · "<tag>" works (each tagged object is tied) · col.setLink is the same command
+//   dis.escParent("id");         leave the parent — this object detaches from its parent (stays in place · no parent = nothing happens)
+//   dis.splitParent("id");       break up the family — detaches all of this object's children (they stay in place)
+//   dis.removeObj("id");         delete an object (its children stay, without a parent)
+//   dis.disableObj("id");        disable an object — not drawn · doesn't move · no collisions · triggers · mouse hits
+//                                (not deleted · values can still be read and changed · children are disabled too · bound code pauses)
+//   dis.enableObj("id");         enable it again (velocity and code continue from where they stopped)
+//   dis.setTxtContent("id", "content");  change the text of a text object (made with dis.setText) — same as obj.id.Text = "content";
+//                                · numbers as "" + value · "<tag>" · "" (itself) work · an error on non-text objects
+//   dis.setObjLayer("id", n);    drawing order (layer) — higher draws on top · default 0 · same layer: created first is below
+//   dis.ascendObjLayer("id", n); raise the layer of the object and all its children (and theirs) by n · negative lowers
+//                                · added to each one's own layer, so the order between parent and children stays · "<tag>" works
+//   dis.tagObj("id", "tag");     add a tag to an object (several allowed · kept when re-created)
+//                                write "<tag>" in an id field to run the command on every object with that tag
+//                                (dis.setObjPos("<enemy>", [obj.Xpos, obj.Ypos - 5]);  dis.removeObj("<bullet>");
+//                                 col.setVelocity("<enemy>", [0, -50]);  dis.moveObj("<coin>") to [0, 0] for 300;)
+//                                · obj.Xpos etc. inside the matrix are each object's own values
+//                                · moveObj moves them all together and continues when all finish · no tagged objects = nothing happens
+//                                · not for commands that read one value, like getVar
+//   dis.getVar("id", "name") as variable;
+//                                name: coord (= position) · scale · color · text
+//                                      · elements like "scale[1, 2]"
+//                                the receiving variable must match:
+//                                coord/scale → matrix[1, 2] · element → float · color → string
+//   obj.id.Position / obj.id.Scale / obj.id.Color / obj.id.Text
+//   obj.id.Xpos / obj.id.Ypos / obj.id.Xscale / obj.id.Yscale   (float elements)
+//                                read and write like variables (var float call x = obj.yaju.Xpos;  obj.yaju.Ypos = 300;)
+//                                (obj.yaju.Position = [100, 200];  obj.yaju.Scale[1, 1] = 50;)
+//
+// ── Binding files (directly inside a run{ } of the file to bind) ──
+//   dis.BelongObj("id");         binds this whole file to an object — the moment the object with that id
+//                                is created, this file's run{ } blocks run from the start for that object
+//                                · no path: .jb files with a binding are read automatically, nobody has to call them
+//                                · any run{ } binds the whole file · use it more than once to bind to several objects
+//                                · code that is running unbound (main · a file started with sendto) is bound right at that line
+//                                  → from then on obj.Xpos · "" ids · creating children … in all of this file's run{ } use that object
+//                                  (the object must already exist · in code that is already bound the line does nothing)
+//                                · not allowed inside if · loop · the id can't be empty · no "<tag>"
+//                                · main isn't started again when the object is created; it is only bound at that line (no BelongScene in main)
+//                                · dis.removeObj stops the bound code too (creating it again starts over)
+//                                · bound to several objects, it runs separately for each (own variables)
+//   Inside a bound file:
+//     obj.Xpos · obj.Position · obj.Color · obj.Text …   without an id = this object (obj.Ypos = 10; works too)
+//     an empty "" id in a command means this object   (dis.setObjPos("", [0, 0]);  col.setVelocity("", [50, 0]);)
+//     top-level vars and vars directly inside run{ } = the object's variables (separate for each object)
+//       → other files read and write each one as obj.id.variable (obj.hero.hp = 50;  obj.enemy2.speed = 3;)
+//       (a var inside run{ } exists once its line has run · vars inside loop · if don't count)
+//     objects created here automatically become this object's children (they follow it)
+//     variables of files bound to a parent object (local ones too, not just public) can be read and written
+//       by name in the child's bound code (searched parent → grandparent …; your own variable of the same name wins)
+//     (inside the matrix of commands like setObjPos, obj.Xpos is the value of the object being changed)
+//   e.g. main.jb:    run{ dis.setupObject(); dis.setObject([0, 0], "hero", [40, 40], "#fff"); obj.hero.hp = 80; }
+//        player.jb:  var int call hp = 100;
+//                    run{ dis.BelongObj("hero"); dis.setObject([obj.Xpos, obj.Ypos + 30], "hpbar", [40, 6], "#f44"); obj.Ypos = 50; }
+//
+// ── Variables (read-only; names follow your alias) ──
+//   dis.displayX                 display width (screen units)
+//   dis.displayY                 display height (screen units, without the top margin)
+//                                0 before setDisplay() · follows window resizes
+//   dis.idWidthmode              bit — 1 in landscape (width ≥ height), 0 in portrait (changes when the screen turns)
+//
+// ── Screen units (the same size on any device) ──
+//   the short side of the screen is always 720 — portrait: width 720 · landscape: height 720 (the long side follows the screen's ratio)
+//   · positions · sizes · font sizes · speeds · the mouse (can.MouseX/Y) · displayX/Y · setRenderLimit all use these units
+//   · e.g. a portrait phone 390 × 844 px → 720 × 1558 · a landscape 1280 × 720 window → 1280 × 720 · the corner [screenX, screenY] too
+//   · the short side's edges are always ±360 — [0, 300] is near the top on every device (portrait has more room up and down)
+//
+// ── Example ────────────────────────────
+//   Use DisPlayer call dis;
+//   run{
+//       dis.setDisplay();
+//       dis.setDisplayColor("#101820");
+//       print("display size: %dis.displayX% x %dis.displayY%");
+//
+//       dis.setupObject();
+//       dis.setObject([500, 500], "yaju", [200, 200], 114514);
+//       var float call w = 0;
+//       dis.getVar("yaju", "scale[1, 1]") as w;
+//       dis.setObjScale("yaju", [obj.Xscale * 2, obj.Yscale]);
+//       obj.yaju.Position[1, 2] = 300;
+//       dis.moveObj("yaju") to [obj.Xpos + 200, obj.Ypos] for 1000;
+//       dis.setText([0, 0], "SCORE 0", "score", 28, true, "#ffd166");
+//       dis.nudgeObj("score", [true, true], 16, 12);   // snap to the top left
+//       obj.score.Text = "SCORE 10";
+//   }
+//
+// · C conversion: using DisPlayer · colliders · Canvas · Magellan opens an SDL2 window (pop-up) that draws and moves the same way.
+//   build:  gcc main.c -o main -pthread -lm $(sdl2-config --cflags --libs)   (+ -lSDL2_ttf for text · + -lSDL2_image for images)
+//   · the program runs in its own thread and the window at about 60fps · closing the window ends the program
+//   · without a window the program ends when it finishes · with one, it stays until you close it (velocity · physics keep going)
+//   · text looks for a Korean font automatically (otherwise set JB_FONT=font.ttf)
+//   · bound files (BelongObj · BelongScene) run their run blocks in their own threads at the same time

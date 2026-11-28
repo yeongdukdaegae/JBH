@@ -17,6 +17,10 @@ if not exist build mkdir build
 %CC% -O2 -static -Wall -o dist\bin\jdh.exe src\jdh.c build\app.res.o -lshell32 -lwinhttp || exit /b 1
 %CC% -O2 -static -Wall -mwindows -o dist\bin\jbdev.exe src\jbdev.c build\app.res.o -lcomctl32 -lcomdlg32 -lshell32 -lole32 -lgdi32 -luser32 -ladvapi32 || exit /b 1
 copy /y editor\jbdev.html dist\editor\jbdev.html >nul || exit /b 1
+xcopy /e /i /q /y editor\native\docs dist\editor\native\docs >nul || exit /b 1
+copy /y editor\native\ac-*.txt dist\editor\native\ >nul || exit /b 1
+if not exist dist\sdk\html mkdir dist\sdk\html
+copy /y editor\native\game-*.html dist\sdk\html\ >nul || exit /b 1
 if not exist dist\sdk mkdir dist\sdk
 copy /y sdk\jdh.h dist\sdk\jdh.h >nul || exit /b 1
 xcopy /e /i /q /y runtime\src dist\sdk\runtime\src >nul || exit /b 1

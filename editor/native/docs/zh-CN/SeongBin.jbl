@@ -1,0 +1,41 @@
+// SeongBin — Canvas 的内置子库 · 摄像机 (相机) (只读参考文档)
+// 从属于 Canvas (DisPlayer 的子库): 同一个文件中必须有 Use DisPlayer 和 Use Canvas。
+//
+// ── 使用 ───────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Canvas call can;
+//   Use SeongBin call seo;
+//
+// ── 命令 ───────────────────────────────
+//   seo.setUpCam();                 开启摄像机功能 — 会生成默认摄像机 cam.default
+//                                   · cam.default: 每次进入场景时重新生成 (中央 [0, 0] · 缩放 1 · 不跟随) · 存在于所有场景
+//   seo.setCam("名称");             创建摄像机 — 不可见的对象 (id 为 "cam.名称")
+//                                   · 存在于创建它的场景 (用 can.obj.setExistableScene 可加到其他场景) · 不能停用
+//                                   · 场景的主摄像机默认是 cam.default — 主摄像机的位置就是屏幕中央
+//                                   · 从此对象名称不能以 "cam." 开头 (扬声器的 "spk." 也一样)
+//   seo.setMainCamas("名称");       更换当前场景的主摄像机 (多个摄像机 · "default" = cam.default)
+//   seo.cam.名称.setZoom(缩放);     缩放 (1 = 原样 · 2 = 放大两倍 · 必须大于 0)
+//   seo.cam.名称.moveCamto([x, y]) for ms;
+//                                   用 ms 毫秒把摄像机移到 [x, y] (等到结束 · 没有 for 则立即到位) · 跟随会被解除
+//   seo.cam.名称.follow("id");      跟随对象 — 每一帧该对象都在屏幕中央 (不能跟随摄像机)
+//   seo.cam.名称.followOut();       停止跟随
+//
+// ── 摄像机 = 对象 ──────────────────────
+//   cam.名称.Position · cam.名称.Xpos · cam.名称.Ypos …   和 obj.id 一样读取和修改 (cam.main.Xpos = 100;)
+//   dis.setObjPos("cam.main", [0, 0]);  · dis.setLink("cam.main", "hud");   命令的 id 也可以写 "cam.名称"
+//   · 与摄像机绑在一起 (setLink) 或作为子对象挂上的对象会和摄像机一起移动 → 固定在屏幕上的 HUD
+//   · 有摄像机时 can.MouseX · can.MouseY · isMouseTouched · 按钮 · bindInput 使用世界坐标 (以摄像机为准)
+//
+// ── 例 ─────────────────────────────────
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       seo.setUpCam();
+//       seo.setCam("main");
+//       dis.setObject([0, 0], "player", [40, 40], "#4de2b4");
+//       seo.cam.main.follow("player");
+//       seo.cam.main.setZoom(1.5);
+//       loop{ if [jaw.isKeyInput("right")]{ obj.player.Xpos = obj.player.Xpos + 4; } dis.waitF(1); }
+//   }
+//
+// · 转为 C: 以相同的摄像机位置 · 缩放绘制 (文字也按同样的比例缩放)。

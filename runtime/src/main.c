@@ -262,6 +262,7 @@ static void usage(const char *a0) {
         "  --size WxH        창 크기 (기본 1280x720)\n"
         "  --fullscreen      전체 화면\n"
         "  --check           검사만 하고 실행하지 않음\n"
+        "  --no-box          오류를 메시지 상자로 보이지 않음 (콘솔에만)\n"
         "  --mute            소리 끔\n"
         "  --shot 파일.png --shot-at ms   그 시각의 화면을 PNG 로 저장하고 끝 (테스트용)\n"
         "  --keys \"ms:키:d|u,…\"   그 시각에 키를 누르고 뗌 (테스트용)\n"
@@ -276,12 +277,14 @@ int main(int argc, char **argv) {
         if (!strcmp(JB_EXE_DIR, ".") && strchr(argv[0], '/')) { char *d = jb_strdup(argv[0]); *strrchr(d, '/') = 0; JB_EXE_DIR = d; }
     }
     const char *target = NULL;
+    int noBox = 0;
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         if (!strcmp(a, "-h") || !strcmp(a, "--help")) { usage(argv[0]); return 0; }
         else if (!strcmp(a, "--size") && i + 1 < argc) { sscanf(argv[++i], "%dx%d", &RT_OPT.winW, &RT_OPT.winH); }
         else if (!strcmp(a, "--fullscreen")) RT_OPT.fullscreen = 1;
         else if (!strcmp(a, "--check")) RT_OPT.checkOnly = 1;
+        else if (!strcmp(a, "--no-box")) noBox = 1;   /* jdh run · check: 오류는 콘솔에만 (메시지 상자 없이) */
         else if (!strcmp(a, "--mute")) RT_OPT.mute = 1;
         else if (!strcmp(a, "--log")) RT_OPT.sysLog = 1;
         else if (!strcmp(a, "--shot") && i + 1 < argc) RT_OPT.shot = argv[++i];
@@ -295,7 +298,7 @@ int main(int argc, char **argv) {
 #endif
     char *exe = selfExe();
     if (!target && exe && loadPayload(exe)) {   /* 편집기에서 EXE 로 변환한 게임 */
-        RT_OPT.box = 1;
+        RT_OPT.box = !noBox;
         char *dir = jb_strdup(exe); char *sl = strrchr(dir, '/'); if (sl) *sl = 0; JB_EXE_DIR = dir;
         char *base = sl ? sl + 1 : exe; size_t bl = strlen(base); if (bl > 4 && (!strcmp(base + bl - 4, ".exe") || !strcmp(base + bl - 4, ".EXE"))) bl -= 4;
         P.root = jb_fmt("%s/%.*s_data", dir, (int)bl, base);

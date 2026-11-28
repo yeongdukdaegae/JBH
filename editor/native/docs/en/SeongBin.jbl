@@ -1,0 +1,41 @@
+// SeongBin — built-in sub-library of Canvas · cameras (read-only reference)
+// It depends on Canvas (under DisPlayer): the same file needs Use DisPlayer and Use Canvas.
+//
+// ── Use ────────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Canvas call can;
+//   Use SeongBin call seo;
+//
+// ── Commands ───────────────────────────
+//   seo.setUpCam();                 turn cameras on — the default camera cam.default appears
+//                                   · cam.default: fresh each time a scene is entered (center [0, 0] · zoom 1 · not following) · exists in every scene
+//   seo.setCam("name");             make a camera — an invisible object (its id is "cam.name")
+//                                   · it exists in the scene it was made in (add more with can.obj.setExistableScene) · can't be disabled
+//                                   · each scene's main camera is cam.default by default — the main camera's position is the screen center
+//                                   · object names can no longer start with "cam." (nor "spk." for speakers)
+//   seo.setMainCamas("name");       change the current scene's main camera (several cameras · "default" = cam.default)
+//   seo.cam.name.setZoom(factor);   zoom (1 = as is · 2 = twice as large · must be more than 0)
+//   seo.cam.name.moveCamto([x, y]) for ms;
+//                                   move the camera to [x, y] over ms (waits until done · without for it jumps) · stops following
+//   seo.cam.name.follow("id");      follow an object — it stays at the screen center every frame (not another camera)
+//   seo.cam.name.followOut();       stop following
+//
+// ── Cameras are objects ────────────────
+//   cam.name.Position · cam.name.Xpos · cam.name.Ypos …   read and write like obj.id (cam.main.Xpos = 100;)
+//   dis.setObjPos("cam.main", [0, 0]);  · dis.setLink("cam.main", "hud");   "cam.name" works as a command id too
+//   · objects tied (setLink) or parented to a camera move with it → a HUD that stays on screen
+//   · with a camera, can.MouseX · can.MouseY · isMouseTouched · buttons · bindInput use world coordinates
+//
+// ── Example ────────────────────────────
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       seo.setUpCam();
+//       seo.setCam("main");
+//       dis.setObject([0, 0], "player", [40, 40], "#4de2b4");
+//       seo.cam.main.follow("player");
+//       seo.cam.main.setZoom(1.5);
+//       loop{ if [jaw.isKeyInput("right")]{ obj.player.Xpos = obj.player.Xpos + 4; } dis.waitF(1); }
+//   }
+//
+// · C conversion: draws with the same camera position and zoom (text scales too).

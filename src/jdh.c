@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <ctype.h>
@@ -989,15 +990,157 @@ static int cmdRun(const char *projArg) {
     cmdBuildExe(pd, out, 1, base);
     printf("▶ %s\n", out);
 #ifdef _WIN32
-    char *cmd = fmtdup("\"%s\"", out);
+    char *cmd = fmtdup("\"%s\" --no-box", out);   /* 오류는 이 창에만 (메시지 상자 없이) */
 #else
-    char *cmd = fmtdup("wine \"%s\"", out);   /* Windows 가 아니면 wine 으로 (시험용) */
+    char *cmd = fmtdup("wine \"%s\" --no-box", out);   /* Windows 가 아니면 wine 으로 (시험용) */
 #endif
     int r = run(cmd);
 #ifndef _WIN32
     if (r != -1 && WIFEXITED(r)) r = WEXITSTATUS(r);
 #endif
     return r;
+}
+/* jdh check [프로젝트] — 실행하지 않고 검사만 (jdh run 과 같은 실행기 · 오류는 "✖ 파일:줄  메시지") */
+static int cmdCheck(const char *projArg) {
+    const char *pd = projDir(projArg);
+    char *bd = fmtdup("%s/build/jdh/run", pd); mkdirs(bd);
+    char *base = fmtdup("%s/build/jdh/run-base.exe", pd), *out = fmtdup("%s/%s.exe", bd, projName(pd));
+    cmdBuildExe(pd, out, 1, base);
+#ifdef _WIN32
+    char *cmd = fmtdup("\"%s\" --no-box --check", out);
+#else
+    char *cmd = fmtdup("wine \"%s\" --no-box --check", out);
+#endif
+    int r = run(cmd);
+#ifndef _WIN32
+    if (r != -1 && WIFEXITED(r)) r = WEXITSTATUS(r);
+#endif
+    return r;
+}
+/* jdh build html [프로젝트] [-o 파일] [--lang ko|en|ja|zh-CN|zh-TW] — 브라우저에서 따로 여는 HTML 하나 (웹 판 실행기 · 사용자 라이브러리 포함)
+ *   틀: SDK 의 html/game-<언어>.html (editor/gen_native.mjs 가 만듦) — /\*__JB_PROJECT__*\/ 자리에 프로젝트 JSON · __JB_TITLE__ 자리에 이름
+ *   라이브러리의 권한 (files.read · network) 은 선언한 대로 허락해 넣음 (만드는 사람이 그 프로젝트의 주인) */
+typedef struct { char *s; size_t n, cap; } Sb;   /* 이어 붙이는 버퍼 */
+static void sbPut(Sb *b, const char *t, size_t n) {
+    if (b->n + n + 1 > b->cap) { b->cap = (b->n + n + 1) * 2; b->s = realloc(b->s, b->cap); if (!b->s) die("메모리가 부족합니다"); }
+    memcpy(b->s + b->n, t, n); b->n += n; b->s[b->n] = 0;
+}
+static void sbStr(Sb *b, const char *t) { sbPut(b, t, strlen(t)); }
+static void jsonStr(Sb *o, const char *s, size_t n) {
+    sbPut(o, "\"", 1);
+    size_t run0 = 0;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = (unsigned char)s[i]; char e[8]; int el = 0;
+        if (c == '"' || c == '\\') { e[0] = '\\'; e[1] = (char)c; el = 2; }
+        else if (c == '\n') { memcpy(e, "\\n", 2); el = 2; }
+        else if (c == '\t') { memcpy(e, "\\t", 2); el = 2; }
+        else if (c < 0x20 || c == '<') { snprintf(e, sizeof e, "\\u%04x", c); el = 6; }
+        if (el) { sbPut(o, s + run0, i - run0); sbPut(o, e, (size_t)el); run0 = i + 1; }
+    }
+    sbPut(o, s + run0, n - run0); sbPut(o, "\"", 1);
+}
+static int utf8Text(const unsigned char *b, size_t n) {   /* 올바른 UTF-8 · 0 바이트 없음 */
+    for (size_t i = 0; i < n;) {
+        unsigned c = b[i]; if (!c) return 0;
+        int k = c < 0x80 ? 0 : (c >> 5) == 6 ? 1 : (c >> 4) == 14 ? 2 : (c >> 3) == 30 ? 3 : -1;
+        if (k < 0 || (k && i + k >= n)) return 0;
+        for (int q = 1; q <= k; q++) if ((b[i + q] & 0xC0) != 0x80) return 0;
+        i += k + 1;
+    }
+    return 1;
+}
+static const char *mimeOf(const char *p) {
+    const char *x = strrchr(p, '.'); if (!x) return "application/octet-stream";
+    static const char *M[][2] = {{".png","image/png"},{".jpg","image/jpeg"},{".jpeg","image/jpeg"},{".gif","image/gif"},{".webp","image/webp"},{".bmp","image/bmp"},
+        {".wav","audio/wav"},{".mp3","audio/mpeg"},{".ogg","audio/ogg"},{".m4a","audio/mp4"},{".ttf","font/ttf"},{".otf","font/otf"},{NULL,NULL}};
+    for (int i = 0; M[i][0]; i++) if (!strcasecmp(x, M[i][0])) return M[i][1];
+    return "application/octet-stream";
+}
+static int binExt(const char *p) { const char *m = mimeOf(p); return strcmp(m, "application/octet-stream") || endsWith(p, ".jbx"); }
+static char *b64(const unsigned char *b, size_t n) {
+    static const char T[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    char *o = xalloc((n + 2) / 3 * 4 + 1), *w = o;
+    for (size_t i = 0; i < n; i += 3) {
+        unsigned v = b[i] << 16 | (i + 1 < n ? b[i + 1] << 8 : 0) | (i + 2 < n ? b[i + 2] : 0);
+        *w++ = T[v >> 18 & 63]; *w++ = T[v >> 12 & 63]; *w++ = i + 1 < n ? T[v >> 6 & 63] : '='; *w++ = i + 2 < n ? T[v & 63] : '=';
+    }
+    *w = 0; return o;
+}
+static char *projField(const char *pd, const char *key) {   /* project.jbs 의 "키 = 값" (없으면 NULL) */
+    char *p = fmtdup("%s/project.jbs", pd); unsigned char *t = readAll(p, NULL); free(p); if (!t) return NULL;
+    size_t kl = strlen(key); char *val = NULL;
+    for (char *ln = strtok((char*)t, "\n"); ln; ln = strtok(NULL, "\n")) {
+        while (*ln == ' ' || *ln == '\t') ln++;
+        if (!strncmp(ln, key, kl) && (ln[kl] == ' ' || ln[kl] == '\t' || ln[kl] == '=')) { char *eq = strchr(ln, '='); if (eq) { eq++; while (*eq == ' ' || *eq == '\t') eq++; size_t L = strlen(eq); while (L && (eq[L-1] == '\r' || eq[L-1] == ' ' || eq[L-1] == '\t')) eq[--L] = 0; val = xdup(eq); } }
+    }
+    free(t); return val;
+}
+static const char *uiLang(void) {
+    const char *e = getenv("JDH_LANG"); if (e && *e) return e;
+#ifdef _WIN32
+    LANGID id = GetUserDefaultUILanguage(); WORD pri = PRIMARYLANGID(id), sub = SUBLANGID(id);
+    return pri == LANG_KOREAN ? "ko" : pri == LANG_JAPANESE ? "ja" : pri == LANG_CHINESE ? (sub == SUBLANG_CHINESE_SIMPLIFIED || sub == SUBLANG_CHINESE_SINGAPORE ? "zh-CN" : "zh-TW") : "en";
+#else
+    return "ko";
+#endif
+}
+static int cmdBuildHtml(const char *projArg, const char *outArg, const char *lang) {
+    const char *pd = projDir(projArg);
+    char *sdk = sdkDir(); if (!sdk) die("jdh.h 를 찾을 수 없습니다 — JDH 를 다시 설치하거나 환경 변수 JDH_HOME 을 확인하세요");
+    if (!lang) lang = uiLang();
+    const char *te = getenv("JDH_HTML_TEMPLATE");   /* 시험용: 틀 파일 */
+    char *tp = te && *te ? xdup(te) : fmtdup("%s/html/game-%s.html", sdk, lang);
+    if (!isFile(tp)) { free(tp); tp = fmtdup("%s/html/game-ko.html", sdk); }
+    size_t tl; unsigned char *tpl = readAll(tp, &tl);
+    if (!tpl) die("HTML 틀이 없습니다: %s — JDH 를 다시 설치해 주세요", tp);
+    /* 파일들 */
+    PList pl = { NULL, 0 }; projScan(pd, "", &pl);
+    char *ext = fmtdup("%s/ext", pd); DIR *d = opendir(ext); Sb grant = {0}, net = {0};
+    if (d) { struct dirent *e; while ((e = readdir(d))) if (endsWith(e->d_name, ".jbx")) {
+        pl.path = realloc(pl.path, sizeof(char*) * (pl.n + 1)); pl.path[pl.n++] = fmtdup("ext/%s", e->d_name);
+        char *jp = fmtdup("%s/%s", ext, e->d_name); unsigned char *raw; size_t rl; JV *j = jbxManifest(jp, &raw, &rl);
+        const char *id = jgets(j, "id"); JV *pm = jget(j, "permissions");
+        if (id && pm && pm->k == J_ARR) for (int q = 0; q < pm->n; q++) if (pm->items[q]->k == J_STR) {
+            if (!strcmp(pm->items[q]->str, "files.read")) { if (grant.n) sbStr(&grant, ","); jsonStr(&grant, id, strlen(id)); }
+            if (!strcmp(pm->items[q]->str, "network")) { if (net.n) sbStr(&net, ","); jsonStr(&net, id, strlen(id)); }
+        }
+        free(jp);
+    } closedir(d); }
+    qsort(pl.path, pl.n, sizeof(char*), cmpStr);
+    char *name = projField(pd, "name"), *mainf = projField(pd, "main");
+    Sb js = {0}; sbStr(&js, "{\"name\":"); jsonStr(&js, name ? name : "", name ? strlen(name) : 0);
+    sbStr(&js, ",\"main\":"); jsonStr(&js, mainf ? mainf : "main.jb", strlen(mainf ? mainf : "main.jb"));
+    sbStr(&js, ",\"files\":{");
+    int nf = 0;
+    for (int i = 0; i < pl.n; i++) {
+        if (endsWith(pl.path[i], ".bat")) continue;   /* run.bat 등은 넣지 않음 */
+        char *fp = fmtdup("%s/%s", pd, pl.path[i]); size_t len; unsigned char *b = readAll(fp, &len); free(fp);
+        if (!b) continue;
+        if (nf++) sbStr(&js, ",");
+        jsonStr(&js, pl.path[i], strlen(pl.path[i])); sbStr(&js, ":");
+        if (!binExt(pl.path[i]) && utf8Text(b, len)) {   /* 글자 파일 (줄 끝 \r\n → \n) */
+            size_t o = 0; for (size_t q = 0; q < len; q++) if (!(b[q] == '\r' && q + 1 < len && b[q + 1] == '\n')) b[o++] = b[q];
+            jsonStr(&js, (const char *)b, o);
+        } else { char *e64 = b64(b, len); sbStr(&js, "\"data:"); sbStr(&js, mimeOf(pl.path[i])); sbStr(&js, ";base64,"); sbStr(&js, e64); sbStr(&js, "\""); free(e64); }
+        free(b);
+    }
+    sbStr(&js, "}");
+    if (grant.n) { sbStr(&js, ",\"extGrant\":["); sbStr(&js, grant.s); sbStr(&js, "]"); }
+    if (net.n) { sbStr(&js, ",\"extNet\":["); sbStr(&js, net.s); sbStr(&js, "]"); }
+    sbStr(&js, "}");
+    /* 틀에 넣기 */
+    const char *mk = "/*__JB_PROJECT__*/"; char *t = (char *)tpl; char *at = strstr(t, mk);
+    if (!at) die("HTML 틀이 올바르지 않습니다 (%s) — JDH 를 다시 설치해 주세요", tp);
+    Sb esc = {0}; const char *nm = name ? name : "Jawbreaker";
+    for (const char *q = nm; *q; q++) { if (*q == '<') sbStr(&esc, "&lt;"); else if (*q == '>') sbStr(&esc, "&gt;"); else if (*q == '&') sbStr(&esc, "&amp;"); else if (*q == '"') sbStr(&esc, "&quot;"); else sbPut(&esc, q, 1); }
+    Sb html = {0}; *at = 0; char *rest = at + strlen(mk);
+    char *ti = strstr(t, "__JB_TITLE__");
+    if (ti) { *ti = 0; sbStr(&html, t); sbStr(&html, esc.s ? esc.s : ""); sbStr(&html, ti + 12); } else sbStr(&html, t);
+    sbStr(&html, js.s); sbStr(&html, rest);
+    char *out = outArg ? xdup(outArg) : fmtdup("%s/%s.html", pd, projName(pd));
+    writeAll(out, html.s, html.n);
+    printf("✔ 만들었습니다: %s (%.1f MB · 파일 %d개%s)\n  브라우저로 열면 바로 실행됩니다\n", out, html.n / 1048576.0, nf, grant.n || net.n ? " · 라이브러리 권한은 선언한 대로" : "");
+    return 0;
 }
 /* ---------- 업데이트 ----------
  *   새 버전은 GitHub 릴리스에: jdh-latest.txt (버전 · 목록의 SHA-256) · jdh-manifest.txt (파일 목록) · jdh-*.pack (파일을 이어 붙인 묶음)
@@ -1397,6 +1540,8 @@ static void usage(void) {
          "  jdh lib list [프로젝트]          적용된 라이브러리 보기\n"
          "  jdh lib remove <id> [프로젝트]   프로젝트에서 빼기\n"
          "  jdh build exe [프로젝트] [-o 파일]  Windows 실행 파일 만들기 (라이브러리 포함)\n"
+         "  jdh check [프로젝트]             실행하지 않고 검사만 (오류는 ✖ 파일:줄)\n"
+         "  jdh build html [프로젝트] [-o 파일] [--lang ko]  브라우저에서 따로 여는 HTML 만들기\n"
          "  jdh run [프로젝트]               main 실행 (이 창에 print · 서버는 Ctrl+C 로 끝냄 · 프로젝트의 run.bat 이 부름)\n"
          "  jdh open                         JawBreaker Dev. 열기\n"
          "  jdh update [--yes]               새 버전 확인 · 업데이트 (설치된 파일을 검사해 바뀐 것만 받음 · 깨진 설치도 고침)");
@@ -1424,6 +1569,12 @@ int main(int argc, char **argv) {
         if (!strcmp(b, "project")) return cmdNewProject(argv[3]);
     }
     if (!strcmp(a, "run")) return cmdRun(b);
+    if (!strcmp(a, "check")) return cmdCheck(b);
+    if (!strcmp(a, "build") && b && !strcmp(b, "html")) {
+        const char *pj = NULL, *out = NULL, *lang = NULL;
+        for (int i = 3; i < argc; i++) { if (!strcmp(argv[i], "-o")) { if (++i >= argc) die("-o 뒤에 파일 이름이 필요합니다"); out = argv[i]; } else if (!strcmp(argv[i], "--lang")) { if (++i >= argc) die("--lang 뒤에 언어가 필요합니다 (ko · en · ja · zh-CN · zh-TW)"); lang = argv[i]; } else pj = argv[i]; }
+        return cmdBuildHtml(pj, out, lang);
+    }
     if (!strcmp(a, "build") && b && !strcmp(b, "exe")) {
         const char *pj = NULL, *out = NULL;
         for (int i = 3; i < argc; i++) { if (!strcmp(argv[i], "-o")) { if (++i >= argc) die("-o 뒤에 파일 이름이 필요합니다"); out = argv[i]; } else pj = argv[i]; }

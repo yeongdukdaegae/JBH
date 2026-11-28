@@ -21,10 +21,13 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 ## 핵심 규칙
 
 - 에디터는 두 판이다. **Lite** 는 기존 에디터 (HTML · 브라우저 안 실행) 로 계속 지원하며 사용자 라이브러리가 봉인돼 있다 (코드가 아예 없음). **Dev.** 는 Windows 네이티브 프로그램 (`src/jbdev.c`) 으로 바꾸는 중이다 (아래).
-- JawBreaker Dev. (네이티브 · 설치 프로그램에 들어감): 디스크의 프로젝트 폴더를 직접 열고 저장한다. 화면 = 단추 줄 · 탐색기 (TreeView) · 코드 칸 (RichEdit · 색칠) · 로그 칸 · 상태 줄. ▶ 실행 (F5) = 저장 후 프로젝트의 `run.bat` (없으면 `jdh run`) 을 창 없이 띄우고 출력 (print · 오류) 을 로그 칸으로 받음 · ■ 정지 = 작업 개체 (Job) 로 자식까지 끔 · EXE 만들기 = `jdh build exe` · 새 프로젝트 = `jdh new project`. 화면 글자는 `TR` 표 (5개 언어 · Windows 표시 언어 · 시험용 `JDH_LANG`). 지난 프로젝트는 `%APPDATA%\JDH\dev-last.txt`. `--selftest <프로젝트> <결과>` = 열고 실행해서 로그 · 창 그림을 남김 (CI).
-  - 1단계 (지금): 위 기능. 아직 없음 → 자동완성 · 내장 설명서 · 실행 전 검사 · HTML 내보내기 (`jdh build html` 로 할 예정 · `editor/jbdev.html` 의 실행기를 틀로) · 파일 만들기 · 이름 바꾸기 · 지우기 · 찾기 · 여러 파일 탭.
-  - 웹 판 (`editor/jbdev.html`) 의 사용자 라이브러리 · 신뢰 확인 · WebAssembly 는 내보낸 HTML 을 위해 남겨 둔다.
-- 소스 안의 `/*DEV-START*/ … /*DEV-END*/` 는 Dev. 에만, `/*LITE-START*/ … /*LITE-END*/` 는 Lite 에만 들어간다. 사용자 라이브러리 관련 코드는 반드시 DEV 구간 안에 둔다 (`build.py` 가 Lite 에 남았는지 검사한다).
+- JawBreaker Dev. (네이티브 · 설치 프로그램에 들어감): 디스크의 프로젝트 폴더를 직접 열고 저장한다 (브라우저 저장 공간 없음). 화면 = 단추 줄 (새 프로젝트 · 폴더 열기 · 저장 · 검사 · ▶ 실행 · ■ 정지 · EXE 만들기 · HTML 만들기) · 탐색기 (TreeView · 오른쪽 단추 = 새 파일 · 새 폴더 · 이름 바꾸기 · 지우기 (휴지통) · 탐색기에서 열기 · 맨 아래 「내장 설명서」 = 읽기 전용) · 탭 (여러 파일 · 가운데 단추 / Ctrl+W 닫기 · Ctrl+Tab) · 코드 칸 (RichEdit · 색칠) · 로그 칸 · 상태 줄.
+  - ▶ 실행 (F5) = 모두 저장 후 프로젝트의 `run.bat` (없으면 `jdh run`) 을 창 없이 띄우고 출력을 로그 칸으로 · ■ 정지 = 작업 개체 (Job) 로 자식까지 끔 · 검사 (F7) = `jdh check` · EXE = `jdh build exe` · HTML = `jdh build html --lang <화면 언어>` · 새 프로젝트 = `jdh new project`.
+  - 로그 칸의 "✖ 파일:줄" 을 두 번 누르면 그 파일 · 그 줄로. 찾기 Ctrl+F · 바꾸기 Ctrl+H · 다음 F3 (Windows 찾기 창). 자동완성 = 별칭 뒤 `.` 를 치면 그 라이브러리 목록 (`Use 라이브러리 call 별칭;` 을 읽음) · Ctrl+Space = 지금 단어 (jawbreaker · 문장 틀 · `Use ` 뒤는 라이브러리 이름) · ↑↓ · Enter/Tab · Esc · `$0` 자리에 커서.
+  - 설명서 · 자동완성 목록 · HTML 틀은 웹 판에서 뽑는다: `python3 editor/build.py` 다음 `node editor/gen_native.mjs` → `editor/native/` (docs/<언어>/*.jbl · ac-<언어>.txt · game-<언어>.html · 저장소에 넣음). 설치본: `editor\native\` (jbdev 가 bin\..\editor\native 에서 찾음) · `sdk\html\game-*.html` (jdh build html 의 틀 · 시험용 `JDH_HTML_TEMPLATE`).
+  - 화면 글자는 `TR` 표 (5개 언어 · Windows 표시 언어 · 시험용 `JDH_LANG`). 지난 프로젝트는 `%APPDATA%\JDH\dev-last.txt`. `--selftest <프로젝트> <결과>` = 열기 → 검사 → 실행 → HTML → 자동완성 → 설명서를 차례로 하고 로그 · 창 그림을 남김 (CI).
+- `jdh check [프로젝트]`: `jdh run` 과 같은 실행기로 `--check` (실행하지 않고 검사 · 오류는 "✖ 파일:줄  메시지"). 실행기의 `--no-box` = 오류를 메시지 상자 없이 콘솔에만 (jdh run · check 가 씀).
+- `jdh build html [프로젝트] [-o 파일] [--lang 언어]`: 틀의 `/*__JB_PROJECT__*/` 자리에 프로젝트 JSON (`name` · `main` · `files` = 글자 파일은 글자 · 그림 · 소리 · 글꼴 · .jbx 는 data: 주소 · run.bat 은 뺌) · `__JB_TITLE__` 에 이름. 사용자 라이브러리의 files.read · network 는 선언한 대로 허락해 넣는다 (`extGrant` · `extNet`).
 - 사용자 라이브러리는 **C 로 한 번만** 쓴다. 웹 (Dev. 실행 · HTML · APK) 에서는 `jdh lib build` 가 WebAssembly 로 컴파일한 것을 격리된 워커에서 돌리고, EXE 에서는 `jdh build exe` 가 같은 C 소스를 실행기와 함께 컴파일한다.
 - 컴파일러는 zig (`zig cc`). 웹은 `wasm32-wasi`, EXE 는 `x86_64-windows-gnu`.
 - 웹에서 라이브러리는 에디터 · 저장 공간에 닿지 못한다. 프로젝트 파일은 선언에 `files.read` 권한이 있고 사용자가 허락한 경우에만, 그 프로젝트의 파일을 읽기 전용으로 연다 (쓰기는 없음 · `ext/` 는 못 읽음). 허락은 신뢰 확인 창에서 고른다. 내보낸 HTML · APK 는 에디터에서 허락한 것을 그대로 가진다. EXE 는 격리가 없으므로 선언만 있으면 읽는다.

@@ -1,0 +1,71 @@
+// colliders — DisPlayer 的内置子库 (只读参考文档)
+// 从属于 DisPlayer: 同一个文件中必须有 Use DisPlayer，
+// 并且只能用于通过 dis.setupObject() 创建的对象。
+//
+// ── 使用 ───────────────────────────────
+//   Use DisPlayer call dis;
+//   Use colliders call col;
+//
+// ── 命令 ───────────────────────────────
+//   col.setVelocity("id", [x, y]);   速度向量 (px/秒，向右·向上为 +)
+//                                    · 矩阵中的 obj.Xvel · obj.Yvel = 该对象当前的速度
+//                                      (例: col.setVelocity("ball", [obj.Xvel, obj.Yvel - 10]);)
+//   col.setVelocityX("id", 速度);    只改变水平速度 (垂直不变) · col.setVelocityY("id", 速度) 只改垂直
+//                                      (例: col.setVelocityX("p", 120);  col.setVelocityY("p", obj.Yvel + 300);)
+//
+// ── 速度属性 (像变量一样读取和修改) ─────
+//   obj.id.Velocity   matrix[1, 2]     obj.id.Xvel · obj.id.Yvel   float
+//                                    (obj.ball.Yvel = 0;  也可以用 getVar("ball", "velocity"))
+//                                    · 在修改或固定之前，速度会一直保持
+//                                      (程序结束后只要画面还开着就继续移动 · 按 ✕ 停止)
+//                                    · [0, 0] 则停止 · 按画面帧平滑移动
+//                                    · 用 moveObj 移动期间由 moveObj 决定位置
+//   col.setAnchor("id", true);       固定 — 把速度设为 0，不再按速度移动
+//   col.setAnchor("id", false);      解除 — 之后可以用 setVelocity 再次移动
+//   col.setLink("id1", "id2");      与 dis.setLink 相同 — 用于把碰撞体和图像绑在一起移动
+//
+// ── 碰撞体 (矩形碰撞) ───────────────────
+//   col.setCollider([x, y], [宽, 高], "id", 弹性系数, 重力);
+//                                    · [x, y] 是碰撞体中心的屏幕坐标 (与对象使用相同的坐标)
+//                                    · 若存在该 id 的对象则附着在它上面 — 附着后按当时的间距跟随对象
+//                                      (要与对象完全重合: 直接用对象的位置 · 在已绑定的文件中用 [obj.Xpos, obj.Ypos])
+//                                    · 若不存在则在 [x, y] 创建不可见的碰撞体 (墙 · 地面) — 静止时被撞也不会被推动
+//                                    · 弹性系数 0 ~ 1 (0 = 不反弹，1 = 完全反弹) · 取两个物体中较大的值
+//                                    · 重力 true = 向下加速 (默认 980 px/秒² · 用 col.setGravity 修改)
+//                                    · 被固定 (setAnchor true) 的对象会成为不动的墙 · 地面
+//                                    · 写成 setColider 也是同一个命令
+//   col.setColliderVisible(true);    显示碰撞体边框 (默认: 不显示)
+//   col.setGravity(f);               重力倍率 — 1 = 980 px/秒² (默认)，0.5 = 一半，0 = 无重力，负数 = 向上
+//
+// ── 碰撞通知 (只读) ─────────────────────
+//   col.obj.id.isCollided            bit — 上一帧与其他碰撞体相撞 (被压住接触期间也算) 则为 1，否则为 0
+//   col.obj.id.collidedObj           string — 最后撞到的碰撞体 (对象) 的 id · 在相撞的瞬间写入 (还没有则为 "")
+//                                    · 没有碰撞体则为 0 · "" · 在已绑定的文件中 col.obj.isCollided = 自身
+//                                    · 写成 obj.id.isCollided 也一样 · 用 setLink 绑在一起的 · 父 · 子之间不会相撞
+//                                    · 两个都静止 (被固定) 的碰撞体之间不算相撞
+//   例: if [col.obj.ball.isCollided && col.obj.ball.collidedObj == "floor"] { … }
+//
+// ── 触发器 (无碰撞的判定区域) ───────────
+//   col.setTrigger([x, y], [宽, 高], "id", hold);
+//                                    · [x, y] = 触发器中心的屏幕坐标 · 若存在该 id 的对象则附着其上 (按该间距跟随)，否则创建不可见的触发器
+//                                    · 其他对象碰到边界或内部时
+//                                      obj.id.IsTrigged = 1 (bit) · obj.id.TriggedId = 碰到的对象 id (string)
+//                                    · hold false: 只在接触期间为 1，离开后为 0
+//                                      hold true: 碰到一次后保持为 1，直到用 obj.id.IsTrigged = 0; 解除
+//                                    · 接触判定: 有碰撞体时以碰撞体为准，没有时以对象大小为准
+//                                    · setColliderVisible(true) 时以黄色虚线显示
+//
+// ── 例 ─────────────────────────────────
+//   Use jawbreaker call jaw;
+//   Use DisPlayer call dis;
+//   Use colliders call col;
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       dis.setObject([60, 100], "ball", [40, 40], "#4de2b4");
+//       col.setVelocity("ball", [120, 60]);   // 每秒向右 120、向上 60
+//       jaw.wait(2000);
+//       col.setVelocity("ball", [0, 0]);      // 停止
+//   }
+//
+// · 转为 C 后也按相同的物理规则移动 (参见 DisPlayer.jbl 中关于转为 C 的说明)。

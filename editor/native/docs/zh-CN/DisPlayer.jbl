@@ -1,0 +1,209 @@
+// DisPlayer — 内置显示库 (只读参考文档)
+// 这不是用 .jb 代码编写的库，而是编辑器自带的库。
+//
+// ── 使用 ───────────────────────────────
+//   Use DisPlayer call dis;      别名 (dis) 可以随意取
+//
+// ── 命令 ───────────────────────────────
+//   dis.setDisplay();            打开铺满屏幕的显示画面
+//                                · 黑色背景，中央是灰色的 DisPlayer 标志 (改变颜色后消失)
+//                                · 上方留白 + 右上角 ✕ (点击后关闭并停止运行)
+//                                · 坐标 (0, 0) 是屏幕中央 (向右 · 向上为 +)
+//                                · 左下角以小字显示 [screenX, screenY] (屏幕大小)
+//   dis.disableScreenScale();    隐藏角落的 [screenX, screenY]
+//   dis.enableScreenScale();     重新显示 (默认显示)
+//   dis.setDisplayColor("#hex"); 用十六进制颜色码设置显示画面颜色 ("#000", "#1e90ff")
+//   dis.setFont("路径.ttf");      更改文本对象 (dis.setText) 的字体 — 所有文字都换成新字体 (仅限 .ttf)
+//                                · 字体通过打开 · 拖放放入项目 (在文件列表中点击可预览)
+//                                · 使用 Magellan 时也可以用 mag.importFile("fonts/a.ttf") save as ("a"); 起的名称: dis.setFont("a");
+//                                · 读取完成后才到下一行 · 文字宽度也按新字体重新测量
+//                                · 这时中央的标志会消失
+//   dis.setupObject();           在此项目中开启对象功能 (要先于对象命令!)
+//   dis.waitF(n);                等待 n 个画面帧 (通常 60fps → 1 帧 ≈ 16.7ms)
+//                                用在每帧执行的循环中:   loop{ obj.ball.Xpos = obj.ball.Xpos + 2; dis.waitF(1); }
+//                                (在不可见的标签页中会暂停，之后接着运行 · 转为 C 时按窗口的帧，约 60fps)
+//
+// ── 对象 ───────────────────────────────
+//   [] 是矩阵 — 位置·大小是 (1, 2) 矩阵，位置是对象的中心
+//   dis.setObject([x, y], "id", [宽, 高], 颜色);
+//                                颜色: "#ff8800"，或像 114514 这样的 3·6 位数字 (按十六进制读取)
+//                                id 相同则覆盖 · 第一次绘制时中央的标志消失
+//   dis.setObjCyl([x, y], "id", 半径, 颜色);
+//                                圆形对象 — 位置是圆心 · Scale = [直径, 直径]
+//                                (把 Scale 的宽·高改成不同的值就是椭圆) · 碰撞判定目前仍以矩形为准
+//   dis.setObjPlg([x1, y1], [x2, y2], [x3, y3], [x4, y4], "id", 颜色);
+//                                多边形对象 — 3 个顶点 (三角形) 或 4 个顶点 (顶点为屏幕坐标 · 沿边缘依次书写)
+//                                · dis.setObjPlg([0, 0], [100, 0], [50, 80], "tri", "#ffffff");   ← 3 个顶点
+//                                · 位置 = 包围顶点的矩形的中心 · Scale = 该矩形的大小 (改变后形状按该比例拉伸)
+//                                · 移动 · 旋转 · 不透明度 · 图层 · 父 · 子 · UI 与其他对象相同
+//                                · 鼠标判定 (isMouseTouched · 按钮) 按多边形的形状 · 碰撞体另算 (矩形) · 不能贴纹理
+//   dis.setObjAlpha("id", 0 ~ 255);
+//                                不透明度 — 0 = 不可见 · 255 = 不透明 (默认) · 超出范围则按 0 · 255 处理
+//   dis.setObjColor("id", 颜色);  改变颜色 (与 obj.id.Color = 颜色; 相同)
+//   dis.setObjOverlay("id", 颜色, 0 ~ 255);
+//                                按对象的形状叠加该颜色 — 0 = 无 · 255 = 完全用该颜色覆盖 (纹理只覆盖不透明的部分 · 文字只覆盖字形)
+//                                · 原来的颜色 · 纹理保持不变 (把叠加设为 0 就恢复原样) · 对象不透明度低时叠加也相应变淡
+//   dis.rotateObj("id", 角度, ms);
+//                                在当前角度基础上再旋转指定角度 (度) — 逆时针为 +，负数 = 顺时针 · 用 ms 毫秒逐渐旋转 (0 = 立即)
+//                                · 旋转途中再次调用，会从那个目标继续转 (两次 90 = 180) · 开始后过 1 帧到下一行 · 不等待结束
+//                                · 图像 · 圆 · 文字 · 纹理 · 鼠标判定 (isMouseTouched · 按钮) · 碰撞体 · 触发器一起旋转
+//                                  (碰撞体 · 触发器以对象中心为轴连同间距一起旋转 · 旋转后的碰撞体之间也能准确相撞)
+//                                · 一起移动的对象也作为一个整体一起旋转 (位置绕轴心旋转，角度也增加同样的量)
+//                                  - 子对象 (及其子对象): 以父对象的轴心 (位置) 为轴
+//                                  - 用 setLink 绑在一起的对象: 以这些对象轴心的中心为轴 (两个时为两个轴心的中点) — 被旋转的对象也绕该轴旋转
+//                                  - 旋转子对象时只有该子对象 (及其下级) 旋转 · 父对象不变
+//                                · 可以用 "<标签>"
+//   dis.setTilemap([x, y], "瓦片地图");  铺设瓦片地图编辑器的 .tl — 地图的 [0, 0] 点放在 [x, y] · 1 格瓦片 = tileSize 个单位
+//                                · [0, 0] 点 = 在瓦片地图编辑器中用 ⌖ 指定的格子的中心 (未指定则为地图中央)
+//                                · "瓦片地图" = 用 mag.importFile("map.tl") save as ("瓦片地图") 起的名称，或 .tl 路径
+//                                · 纹理包含在 .tl 中 · 每个图层一个对象 ("名称.layer0" …，位于其他对象之下)
+//                                · 碰撞体瓦片会自动设置为不可见的墙 ("名称.col…") — 同一个文件中需要 Use colliders
+//                                · 可攀爬方块的格子不会被挡住 · 用相同名称再次铺设时旧的会被删除 · 图片绘制完成后到下一行
+//                                · 转为 C 暂不支持
+//   dis.setRenderLimit(半径);     只绘制主摄像机中心半径 (屏幕像素) 以内的对象 — 0 = 无限制 (默认)
+//                                · 只要有一点在圆内就绘制 · 只减少绘制 (物理 · 碰撞 · 代码不变)
+//                                · 摄像机缩放为 2 时，按世界坐标是 半径 / 2
+//   ── for ms: 花时间逐渐变化 ──────
+//   dis.setObjAlpha("id", 0) for 500;           用 500ms 逐渐变化 (淡出)
+//   dis.setObjColor("id", "#ff5d8f") for 800;   颜色逐渐变化
+//   dis.setObjOverlay("id", "#ffffff", 255) for 250;   逐渐被白色覆盖 (再设为 0 并 for 250 → 回到原来的颜色)
+//   dis.setObjScale("id", [200, 200]) for 300;  大小逐渐变化 (文字则为字号)
+//   dis.setObjPos("id", [0, 0]) for 400;        像 moveObj 一样移动 (不等待结束)
+//                                · 一开始变化 (第一帧) 就到下一行 — 所以可以让多个同时变化
+//                                  (要等到结束请用 jaw.wait(ms) · moveObj 要移动结束才到下一行) · for 0 / 省略 = 立即
+//                                · 再次改变同一对象 · 同一属性时，前一个就地结束 · 用 "<标签>" 则全部一起
+//   dis.setObjPos("id", [x, y]);            改变位置
+//   dis.setObjScale("id", [宽, 高]);         改变大小
+//   dis.setText([x, y], "文本内容", "id", 大小, 描边, 颜色);
+//                                文本对象 — 把文本内容写到画面上 (位置是文字的中心)
+//                                大小 = 实际的文字高度 (屏幕单位的像素数 · 从最高的字 H·字 的顶端 ~ 最低的字 g·y 的底端)
+//                                       不论什么字体，大小 32 时文字就是 32 格高 · 描边 = true/false (与文字颜色形成对比的颜色)
+//                                可以用 obj.id.Text = "新文字"; 只修改内容
+//                                · 像 "第一行\n第二行" 这样用 \n 分成多行 (居中对齐 · 行距 = 大小 × 1.2 · 宽度 = 最长的一行)
+//                                Scale 为 [文字宽度, 文字大小] (自动) · 改变 Scale 的 Y 就是改变字号
+//   dis.setTextNudge("id", "left");
+//                                文本对象的位置锚点 — 默认 "center" (位置 = 文字中心)
+//                                "left" 位置 = 左端 · "right" 右端 · "top" 顶端 · "bottom" 底端
+//                                像 "top left" 这样两者组合则为那个角 (也可以写 "topleft" · "left-top")
+//                                · 文字变长或改变时锚点不变 (左对齐 · 右对齐的计分板等)
+//                                · 按下 · 触发器等判定也按实际的文字位置 · nudgeObj 也按锚点贴靠
+//   dis.setObjNudge("id", "left");
+//                                对象 (矩形 · 圆 · 多边形 · 图片 · 文字) 的位置锚点 (轴心) — 方式与 setTextNudge 相同
+//                                · 设为 "left" 时位置 = 左端 → 用 setObjScale 缩小宽度时左端也不动 (血条等)
+//                                · 旋转仍以中心为准 · 碰撞体 · 触发器的位置不变 (位置 + 偏移)
+//   dis.nudgeObj("id", [左, 上], x 间距, y 间距);
+//                                贴到屏幕边缘 — [左, 上] 是 bit 矩阵
+//                                [true, true] 左上 · [false, true] 右上
+//                                [true, false] 左下 · [false, false] 右下
+//                                间距 = 离边缘的 px (要在 dis.setDisplay() 之后)
+//   dis.moveObj("id") to [x, y] for ms;     用 ms 毫秒直线移动到 [x, y]
+//   dis.moveObj("id") to [x, y] for ms ease ("sinleft");
+//                                移动的速度曲线 — 也可以写 dis.setObjPos(…) for ms ease (…)
+//                                "linear" 匀速 (默认) · "sin" 正弦 0° ~ 90° (结尾变慢)
+//                                "sinright" 0° ~ 45° (几乎匀速) · "sinleft" 45° ~ 90° (起步快，结尾骤然变慢)
+//                                to 后面写 [x, y] 或 matrix[1, 2] 变量 (例: to coord)
+//                                去掉 for 则为 0 (立即移动) · 移动结束后才到下一行
+//                                (要同时移动请写多个 run{ })
+//                                矩阵中的 obj.Xpos · obj.Ypos · obj.Xscale · obj.Yscale
+//                                = 该对象当前的值 (例: [obj.Xpos + 10, obj.Ypos])
+//   dis.setParent() ("子") as ("父");
+//                                父对象移动时子对象一起移动 (子对象也可以单独移动)
+//                                · ( ) 内是 id 字符串 — 也可以用变量 · "a" + n · "" = 自身 (已绑定的文件)
+//                                把自身或自己的子对象设为父对象会报错
+//   dis.setLink("id1", "id2");   把两个对象绑在一起 — 任意一个移动时，另一个也移动同样的距离
+//                                · 与父 · 子关系无关 (把父 · 子绑在一起也只移动一次)
+//                                · 绑在一起的会连成一组: setLink("a", "b"); setLink("b", "c"); → a · b · c 一起移动
+//                                · dis.setLink("id", ""); = 把该对象从组中移出 · 删除对象时自动移出
+//                                · 位置 · 速度 · 碰撞 · moveObj · obj.id.Xpos = … 等任何移动都适用 · 大小 · 颜色各自独立
+//                                · 可以用 "<标签>" (带该标签的每个对象都绑上) · col.setLink 也一样
+//   dis.escParent("id");         解除父级继承 — 此对象脱离父对象 (位置不变 · 没有父对象则什么都不发生)
+//   dis.splitParent("id");       解散父对象的家庭 — 分离此对象的所有子对象 (子对象保留，位置不变)
+//   dis.removeObj("id");         删除对象 (子对象保留，只解除父子关系)
+//   dis.disableObj("id");        停用对象 — 不绘制 · 不移动 · 没有碰撞 · 触发 · 鼠标判定
+//                                (不会被删除 · 值可以读取和修改 · 子对象也一起停用 · 绑定的代码休眠)
+//   dis.enableObj("id");         重新启用 (之前停下的速度 · 代码接着运行)
+//   dis.setTxtContent("id", "内容");  更改文本对象 (用 dis.setText 创建的) 的内容 — 与 obj.id.Text = "内容"; 相同
+//                                · 数字请用 "" + 值 · 可以用 "<标签>" · "" (自身) · 不是文本对象则报错
+//   dis.setObjLayer("id", n);    绘制顺序 (图层) — 越大越靠上 · 默认 0 · 相同时先创建的在下面
+//   dis.ascendObjLayer("id", n); 把对象及其子对象 (以及更下级的子对象) 的图层全部上移 n · 负数则下移
+//                                · 是在各自的图层上相加，所以父 · 子之间的顺序不变 · 可以用 "<标签>"
+//   dis.tagObj("id", "标签");     给对象添加标签 (可以有多个 · 重新创建后仍保留)
+//                                在 id 栏写 "<标签>"，带该标签的所有对象都执行同一个命令
+//                                (dis.setObjPos("<enemy>", [obj.Xpos, obj.Ypos - 5]);  dis.removeObj("<bullet>");
+//                                 col.setVelocity("<enemy>", [0, -50]);  dis.moveObj("<coin>") to [0, 0] for 300;)
+//                                · 矩阵中的 obj.Xpos 等，对每个对象都是该对象自己的值
+//                                · moveObj 会让它们一起移动，全部结束后到下一行 · 没有带该标签的对象则什么都不发生
+//                                · 不能用于 getVar 这类读取单个值的命令
+//   dis.getVar("id", "名称") as 变量;
+//                                名称: coord(= position) · scale · color · text
+//                                      · 元素写作 "scale[1, 2]"
+//                                接收变量的类型必须一致:
+//                                coord/scale → matrix[1, 2] · 元素 → float · color → string
+//   obj.id.Position / obj.id.Scale / obj.id.Color / obj.id.Text
+//   obj.id.Xpos / obj.id.Ypos / obj.id.Xscale / obj.id.Yscale   (float 元素)
+//                                像变量一样读取和修改 (var float call x = obj.yaju.Xpos;  obj.yaju.Ypos = 300;)
+//                                (obj.yaju.Position = [100, 200];  obj.yaju.Scale[1, 1] = 50;)
+//
+// ── 文件绑定 (直接写在要绑定的文件的 run{ } 内) ──────
+//   dis.BelongObj("id");         把整个文件绑定到对象 — 在该 id 的对象被创建的那一刻
+//                                此文件的 run{ } 会以该对象为基准从头运行
+//                                · 不写路径: 带有绑定声明的 .jb 文件即使没有被调用也会自动读取
+//                                · 写在哪个 run{ } 中都会绑定整个文件 · 写多次则绑定到多个对象
+//                                · 如果是在尚未绑定的状态下运行 (main · 用 sendto 运行的文件)，就在那一行立即绑定
+//                                  → 此后这个文件所有 run{ } 中的 obj.Xpos · "" id · 创建子对象等都以该对象为基准
+//                                  (该对象必须已经存在 · 在已绑定的运行中什么都不做)
+//                                · 不能写在 if · loop 中 · id 不能为空 · 不能用标签 "<…>"
+//                                · main 不会在对象创建时另外运行，只在那一行绑定 (BelongScene 不能写在 main 中)
+//                                · 用 dis.removeObj 删除后，绑定的代码也会停止 (重新创建则从头开始)
+//                                · 绑定到多个对象时，每个对象分别运行 (变量也各自独立)
+//   在已绑定的文件中:
+//     obj.Xpos · obj.Position · obj.Color · obj.Text …   不带 id = 自身 (也可以写 obj.Ypos = 10;)
+//     把命令的 id 栏留空为 "" 就是自身        (dis.setObjPos("", [0, 0]);  col.setVelocity("", [50, 0]);)
+//     文件顶层的 var 和直接写在 run{ } 内的 var = 该对象的变量 (每个对象各自独立)
+//       → 在其他文件中用 obj.id.变量 逐个读取和修改 (obj.hero.hp = 50;        obj.enemy2.speed = 3;)
+//       (run{ } 内的 var 要在那一行运行之后才有 · loop · if 中的 var 不行)
+//     在这里新建的对象会自动成为该对象的子对象 (跟随父对象移动)
+//     绑定到父对象的文件中的变量 (包括非 public 的局部变量)，在子对象的绑定代码中只写名称就能读取和修改
+//       (父 → 父的父 … 从最近的祖先开始查找 · 自己的变量同名时以自己的为先)
+//     (在 setObjPos 这类命令的矩阵中，obj.Xpos 是当前正在更改的对象的值)
+//   例)  main.jb:    run{ dis.setupObject(); dis.setObject([0, 0], "hero", [40, 40], "#fff"); obj.hero.hp = 80; }
+//        player.jb:  var int call hp = 100;
+//                    run{ dis.BelongObj("hero"); dis.setObject([obj.Xpos, obj.Ypos + 30], "hpbar", [40, 6], "#f44"); obj.Ypos = 50; }
+//
+// ── 变量 (只读，名称随别名变化) ────────────────
+//   dis.displayX                 显示画面宽度 (屏幕单位)
+//   dis.displayY                 显示画面高度 (屏幕单位，不含上方留白)
+//                                setDisplay() 之前为 0 · 窗口大小改变时随之改变
+//   dis.idWidthmode              bit — 横屏 (宽 ≥ 高) 时为 1，竖屏时为 0 (旋转屏幕时会变)
+//
+// ── 屏幕单位 (与设备无关，大小相同) ────────
+//   屏幕的短边始终为 720 — 竖屏时宽为 720，横屏时高为 720 (长边按屏幕比例)
+//   · 位置 · 大小 · 字号 · 速度 · 鼠标 (can.MouseX/Y) · displayX/Y · setRenderLimit 都使用这个单位
+//   · 例: 竖屏手机 390 × 844 px → 720 × 1558 · 横向 1280 × 720 的窗口 → 1280 × 720 · 角落的 [screenX, screenY] 也是这个单位
+//   · 短边的两端始终是 ±360 — [0, 300] 在任何设备上都靠近上方 (竖屏时上下更宽)
+//
+// ── 例 ─────────────────────────────────
+//   Use DisPlayer call dis;
+//   run{
+//       dis.setDisplay();
+//       dis.setDisplayColor("#101820");
+//       print("屏幕大小: %dis.displayX% x %dis.displayY%");
+//
+//       dis.setupObject();
+//       dis.setObject([500, 500], "yaju", [200, 200], 114514);
+//       var float call w = 0;
+//       dis.getVar("yaju", "scale[1, 1]") as w;
+//       dis.setObjScale("yaju", [obj.Xscale * 2, obj.Yscale]);
+//       obj.yaju.Position[1, 2] = 300;
+//       dis.moveObj("yaju") to [obj.Xpos + 200, obj.Ypos] for 1000;
+//       dis.setText([0, 0], "SCORE 0", "score", 28, true, "#ffd166");
+//       dis.nudgeObj("score", [true, true], 16, 12);   // 贴到左上角
+//       obj.score.Text = "SCORE 10";
+//   }
+//
+// · 转为 C: 使用 DisPlayer · colliders · Canvas · Magellan 时，会用 SDL2 打开窗口 (弹窗)，以同样的方式绘制和移动。
+//   构建:  gcc main.c -o main -pthread -lm $(sdl2-config --cflags --libs)   (使用文字时 + -lSDL2_ttf · 使用图片时 + -lSDL2_image)
+//   · 程序在另一个线程中运行，窗口约 60fps · 关闭窗口时程序也结束
+//   · 没有打开窗口时，程序结束即结束 · 打开了窗口则一直到关闭窗口为止 (速度 · 物理继续)
+//   · 文字会自动查找韩文字体 (找不到时用 JB_FONT=字体.ttf 指定)
+//   · 已绑定文件 (BelongObj · BelongScene) 的 run 各自在不同的线程中同时运行

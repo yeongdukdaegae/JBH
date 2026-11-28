@@ -1,0 +1,71 @@
+// colliders — built-in sub-library of DisPlayer (read-only reference)
+// It depends on DisPlayer: the same file needs Use DisPlayer,
+// and it works on objects created after dis.setupObject().
+//
+// ── Use ────────────────────────────────
+//   Use DisPlayer call dis;
+//   Use colliders call col;
+//
+// ── Commands ───────────────────────────
+//   col.setVelocity("id", [x, y]);   velocity vector (px per second, right and up are +)
+//                                    · inside the matrix, obj.Xvel · obj.Yvel = that object's current velocity
+//                                      (e.g. col.setVelocity("ball", [obj.Xvel, obj.Yvel - 10]);)
+//   col.setVelocityX("id", speed);   change only the horizontal velocity (vertical stays) · col.setVelocityY("id", speed) only the vertical
+//                                      (e.g. col.setVelocityX("p", 120);  col.setVelocityY("p", obj.Yvel + 300);)
+//
+// ── Velocity properties (read and write like variables) ──
+//   obj.id.Velocity   matrix[1, 2]     obj.id.Xvel · obj.id.Yvel   float
+//                                    (obj.ball.Yvel = 0;  getVar("ball", "velocity") works too)
+//                                    · the velocity stays until you change it or anchor the object
+//                                      (it keeps moving after the program ends while the display is open · ✕ stops it)
+//                                    · [0, 0] stops it · motion follows the display's frames, so it is smooth
+//                                    · while moveObj is moving it, moveObj sets the position
+//   col.setAnchor("id", true);       anchor — sets the velocity to 0 and velocity no longer moves it
+//   col.setAnchor("id", false);      release — setVelocity moves it again
+//   col.setLink("id1", "id2");      same as dis.setLink — e.g. tie a collider and a picture together
+//
+// ── Colliders (box collisions) ─────────
+//   col.setCollider([x, y], [width, height], "id", bounciness, gravity);
+//                                    · [x, y] is the collider's center in screen coordinates (same as objects)
+//                                    · if object id exists the collider attaches to it — afterwards it follows the object at that gap
+//                                      (to match the object exactly, pass the object's position · in a bound file [obj.Xpos, obj.Ypos])
+//                                    · otherwise an invisible collider (wall · floor) is made at [x, y] — it isn't pushed while it stands still
+//                                    · bounciness 0 – 1 (0 = no bounce, 1 = full bounce) · the larger of the two is used
+//                                    · gravity true = speeds up downward (980 px/s² by default · change it with col.setGravity)
+//                                    · anchored objects (setAnchor true) become fixed walls and floors
+//                                    · setColider is the same command
+//   col.setColliderVisible(true);    show collider outlines (hidden by default)
+//   col.setGravity(f);               gravity scale — 1 = 980 px/s² (default), 0.5 = half, 0 = none, negative = upward
+//
+// ── Collision info (read-only) ─────────
+//   col.obj.id.isCollided            bit — 1 if it hit another collider in the last frame (also while pressed against it), else 0
+//   col.obj.id.collidedObj           string — id of the collider (object) it last hit · written the moment it hits ("" until then)
+//                                    · 0 · "" without a collider · in a bound file col.obj.isCollided = the object itself
+//                                    · obj.id.isCollided works too · linked (setLink) and parent/child objects never collide
+//                                    · two still (anchored) colliders don't count as hitting
+//   e.g. if [col.obj.ball.isCollided && col.obj.ball.collidedObj == "floor"] { … }
+//
+// ── Triggers (areas with no collision) ──
+//   col.setTrigger([x, y], [width, height], "id", hold);
+//                                    · [x, y] = the trigger's center in screen coordinates · attaches to object id if it exists (follows it at that gap), otherwise makes an invisible trigger
+//                                    · when another object touches its edge or inside,
+//                                      obj.id.IsTrigged = 1 (bit) · obj.id.TriggedId = that object's id (string)
+//                                    · hold false: 1 only while touching, 0 once it leaves
+//                                      hold true: stays 1 after a touch until you set obj.id.IsTrigged = 0;
+//                                    · touching uses the other object's collider if it has one, otherwise its size
+//                                    · with setColliderVisible(true) triggers show as yellow dashed boxes
+//
+// ── Example ────────────────────────────
+//   Use jawbreaker call jaw;
+//   Use DisPlayer call dis;
+//   Use colliders call col;
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       dis.setObject([60, 100], "ball", [40, 40], "#4de2b4");
+//       col.setVelocity("ball", [120, 60]);   // 120 right and 60 up per second
+//       jaw.wait(2000);
+//       col.setVelocity("ball", [0, 0]);      // stop
+//   }
+//
+// · C conversion runs the same physics (see the C conversion note in DisPlayer.jbl).

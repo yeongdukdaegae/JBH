@@ -1,0 +1,71 @@
+// colliders — DisPlayer の下位組み込みライブラリ (読み取り専用リファレンス)
+// DisPlayer に従属します: 同じファイルに Use DisPlayer が必要で、
+// dis.setupObject() で作ったオブジェクトにだけ使います。
+//
+// ── 使い方 ─────────────────────────────
+//   Use DisPlayer call dis;
+//   Use colliders call col;
+//
+// ── コマンド ───────────────────────────
+//   col.setVelocity("id", [x, y]);   速度ベクトル (px/秒、右・上が +)
+//                                    · 行列の中の obj.Xvel · obj.Yvel = そのオブジェクトの現在の速度
+//                                      (例: col.setVelocity("ball", [obj.Xvel, obj.Yvel - 10]);)
+//   col.setVelocityX("id", 速度);    横の速度だけ変える (縦はそのまま) · col.setVelocityY("id", 速度) は縦だけ
+//                                      (例: col.setVelocityX("p", 120);  col.setVelocityY("p", obj.Yvel + 300);)
+//
+// ── 速度プロパティ (変数のように読み書きする) ──
+//   obj.id.Velocity   matrix[1, 2]     obj.id.Xvel · obj.id.Yvel   float
+//                                    (obj.ball.Yvel = 0;  getVar("ball", "velocity") も可)
+//                                    · 変えるか固定するまで速度はそのまま保たれる
+//                                      (プログラムが終わっても画面が開いていれば動き続ける · ✕ で止まる)
+//                                    · [0, 0] なら停止 · 画面のフレームに合わせてなめらかに動く
+//                                    · moveObj で移動している間は moveObj が位置を決める
+//   col.setAnchor("id", true);       固定する — 速度を 0 にし、速度では動かなくなる
+//   col.setAnchor("id", false);      解除する — 以後 setVelocity でまた動く
+//   col.setLink("id1", "id2");      dis.setLink と同じ — コライダーと絵を結んで一緒に動かすとき
+//
+// ── コライダー (四角形の衝突) ───────────
+//   col.setCollider([x, y], [幅, 高さ], "id", 反発係数, 重力);
+//                                    · [x, y] はコライダーの中心の画面座標 (オブジェクトと同じ座標)
+//                                    · id のオブジェクトがあればそのオブジェクトに付く — 付けた後は今の間隔のままオブジェクトについていく
+//                                      (オブジェクトとぴったり重ねるには: オブジェクトの位置をそのまま · バインドされたファイルでは [obj.Xpos, obj.Ypos])
+//                                    · なければ見えないコライダー (壁 · 床) を [x, y] に作る — 止まっている間はぶつかられても押されない
+//                                    · 反発係数 0 ~ 1 (0 = 跳ねない、1 = そのまま跳ねる) · 2 つの物体のうち大きい値を使う
+//                                    · 重力 true = 下へ加速する (デフォルト 980 px/秒² · col.setGravity で変更)
+//                                    · 固定した (setAnchor true) オブジェクトは動かない壁 · 床になる
+//                                    · setColider と書いても同じコマンド
+//   col.setColliderVisible(true);    コライダーの枠を表示 (デフォルト: 非表示)
+//   col.setGravity(f);               重力の倍率 — 1 = 980 px/秒² (デフォルト)、0.5 = 半分、0 = 無重力、負 = 上向き
+//
+// ── 衝突の通知 (読み取り専用) ───────────
+//   col.obj.id.isCollided            bit — 前のフレームで別のコライダーにぶつかっていれば (押されて触れている間も) 1、そうでなければ 0
+//   col.obj.id.collidedObj           string — 最後にぶつかったコライダー (オブジェクト) の id · ぶつかった瞬間に書き込まれる (まだなければ "")
+//                                    · コライダーがなければ 0 · "" · バインドされたファイルでは col.obj.isCollided = 自分自身
+//                                    · obj.id.isCollided と書いても同じ · setLink で結んだもの · 親 · 子同士はぶつからない
+//                                    · 両方とも止まっている (固定した) コライダー同士は衝突として数えない
+//   例: if [col.obj.ball.isCollided && col.obj.ball.collidedObj == "floor"] { … }
+//
+// ── トリガー (衝突のない判定エリア) ─────
+//   col.setTrigger([x, y], [幅, 高さ], "id", hold);
+//                                    · [x, y] = トリガーの中心の画面座標 · id のオブジェクトがあれば付く (その間隔のままついていく)、なければ見えないトリガーを作る
+//                                    · 別のオブジェクトが境界か内側に触れると
+//                                      obj.id.IsTrigged = 1 (bit) · obj.id.TriggedId = 触れたオブジェクトの id (string)
+//                                    · hold false: 触れている間だけ 1、離れると 0
+//                                      hold true: 一度触れると obj.id.IsTrigged = 0; で解除するまで 1
+//                                    · 接触の判定は、コライダーがあればコライダー、なければオブジェクトのサイズ基準
+//                                    · setColliderVisible(true) なら黄色い点線で表示される
+//
+// ── 例 ─────────────────────────────────
+//   Use jawbreaker call jaw;
+//   Use DisPlayer call dis;
+//   Use colliders call col;
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       dis.setObject([60, 100], "ball", [40, 40], "#4de2b4");
+//       col.setVelocity("ball", [120, 60]);   // 1 秒に右へ 120、上へ 60
+//       jaw.wait(2000);
+//       col.setVelocity("ball", [0, 0]);      // 停止
+//   }
+//
+// · C 変換でも同じ物理で動きます (DisPlayer.jbl の C 変換の説明を参照)。

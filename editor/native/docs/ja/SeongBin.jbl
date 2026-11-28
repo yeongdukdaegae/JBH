@@ -1,0 +1,41 @@
+// SeongBin — Canvas の下位組み込みライブラリ · カメラ (読み取り専用リファレンス)
+// Canvas (DisPlayer の下位) に従属します: 同じファイルに Use DisPlayer と Use Canvas が必要です。
+//
+// ── 使い方 ─────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Canvas call can;
+//   Use SeongBin call seo;
+//
+// ── コマンド ───────────────────────────
+//   seo.setUpCam();                 カメラ機能をオン — デフォルトカメラ cam.default ができる
+//                                   · cam.default: シーンに入るたびに新しく (中央 [0, 0] · 倍率 1 · 追従なし) · すべてのシーンにある
+//   seo.setCam("名前");             カメラを作成 — 見えないオブジェクト (id は "cam.名前")
+//                                   · 作ったシーンにある (can.obj.setExistableScene で他のシーンにも) · 無効化はできない
+//                                   · シーンのメインカメラはデフォルトで cam.default — メインカメラの位置が画面の中央
+//                                   · 今後オブジェクト名は "cam." で始められない (スピーカーの "spk." も)
+//   seo.setMainCamas("名前");       現在のシーンのメインカメラを変える (複数のカメラ · "default" = cam.default)
+//   seo.cam.名前.setZoom(倍率);     倍率 (1 = そのまま · 2 = 2 倍に大きく見える · 0 より大きいこと)
+//   seo.cam.名前.moveCamto([x, y]) for ms;
+//                                   ms かけてカメラを [x, y] へ移動 (終わるまで待つ · for がなければ即座に) · 追従は解除される
+//   seo.cam.名前.follow("id");      オブジェクトを追いかける — 毎フレームそのオブジェクトが画面の中央 (カメラは追いかけられない)
+//   seo.cam.名前.followOut();       追いかけるのをやめる
+//
+// ── カメラ = オブジェクト ──────────────
+//   cam.名前.Position · cam.名前.Xpos · cam.名前.Ypos …   obj.id と同じように読み書きする (cam.main.Xpos = 100;)
+//   dis.setObjPos("cam.main", [0, 0]);  · dis.setLink("cam.main", "hud");   コマンドの id にも "cam.名前"
+//   · カメラに結ぶ (setLink) か子として付けたオブジェクトはカメラと一緒に動く → 画面に貼り付いた HUD
+//   · カメラがあると can.MouseX · can.MouseY · isMouseTouched · ボタン · bindInput はワールド座標 (カメラ基準)
+//
+// ── 例 ─────────────────────────────────
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       seo.setUpCam();
+//       seo.setCam("main");
+//       dis.setObject([0, 0], "player", [40, 40], "#4de2b4");
+//       seo.cam.main.follow("player");
+//       seo.cam.main.setZoom(1.5);
+//       loop{ if [jaw.isKeyInput("right")]{ obj.player.Xpos = obj.player.Xpos + 4; } dis.waitF(1); }
+//   }
+//
+// · C 変換: 同じカメラ位置 · 倍率で描画します (文字も倍率に合わせて)。

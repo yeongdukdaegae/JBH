@@ -1,0 +1,62 @@
+// soundMaster — Magellan 的内置子库 · 声音 (只读参考文档)
+// 从属于 Magellan (DisPlayer 的子库): 同一个文件中必须有 Use DisPlayer 和 Use Magellan。
+//
+// ── 使用 ───────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Magellan call mag;
+//   Use soundMaster call sou;
+//
+// ── 放入声音 ───────────────────────────
+//   通过 ☰ 打开 · 拖放把 .wav · .mp3 · .ogg · .m4a 放入项目 (在文件列表中点击可试听)
+//   mag.importFile("sfx/jump.wav") save as ("jump");   和图片一样给路径起名后使用
+//
+// ── 扬声器 ─────────────────────────────
+//   sou.setSpeaker("名称");         创建扬声器 — 声音都由扬声器发出 (用相同名称再次执行则保持不变)
+//                                   · 扬声器 = 不可见的对象 (id "spk.名称") — 和摄像机一样用 spk.名称.Position 读取和修改
+//                                   · 默认在所有场景都能听到 — 只在一个场景: sou.spk.名称.belongtoScene("场景");
+//                                   · dis.disableObj("spk.名称") = 立即静音 (无淡出) · 从此对象名称不能以 "spk." 开头
+//   sou.setVol("扬声器", 0 ~ 255);  音量 (默认 255) · 有淡入淡出时会在那段时间内慢慢变化
+//   sou.setFadein("扬声器", ms);    声音开始时用 ms 毫秒逐渐变大 (0 = 立即)
+//   sou.setFadeout("扬声器", ms);   声音停止时用 ms 毫秒逐渐变小 — break · 播放时间结束 · 重复结束 都适用
+//   sou.spk.扬声器.belongto("对象");
+//                                   把扬声器绑定到对象 — 移到该对象处并成为其子对象 (跟随移动) · 空间音效 ("" = 解除)
+//   sou.spk.扬声器.belongtoScene("场景");
+//                                   把扬声器绑定到场景 — 只有在该场景时能听到，其他场景静音 ("*" = 所有场景 · 需要 can.setUpScene)
+//                                   · 离屏幕 (摄像机) 中央越远声音越小 · 分左 · 右声道
+//                                   · 对象不存在、被停用或不在当前场景时立即静音 (无淡出) · 重新出现后又能听到
+//
+// ── 播放 ───────────────────────────────
+//   sou.playSfx("扬声器", "声音", ms);
+//                                   播放一次声音 — 最多 ms 毫秒 (声音更短则播到结束 · 0 = 播到结束)
+//                                   · 不等待，直接到下一行 · 一个扬声器可以同时发出多个声音
+//   sou.repeatingPlay("扬声器", "声音", 次数);
+//                                   重复播放 — 次数 0 = 无限重复 (用 break 停止)
+//   sou.repeatPart("扬声器", "声音", 起点, 终点);
+//                                   只无限重复起点 ~ 终点 (毫秒) 这一段 — 第一次从起点开始 · 用 break 停止
+//                                   · 终点为负数则到声音结束 (例: 只重复前奏之后的正片: sou.repeatPart("bgm", "song", 8000, -1);)
+//                                   · 淡入 · 音量 · 空间音效与其他播放相同 · 写成 sou.repatPart 也是同一个命令
+//   sou.introPart("扬声器", "声音", 起点, 终点);
+//                                   从头播放声音，到达终点后只无限重复起点 ~ 终点这一段 (带前奏的背景音乐)
+//                                   · 终点为负数则到声音结束 · 转为 C 时会像 repeatPart 一样从起点开始播放
+//   sou.break("扬声器");            停止该扬声器的所有声音 (遵循淡出)
+//   sou.break("扬声器", true);      忽略淡出，立即停止 (false = 遵循淡出)
+//
+// ── 例 ─────────────────────────────────
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       dis.setObject([300, 0], "bird", [30, 30], "#ffd166");
+//       mag.importFile("sfx/chirp.ogg") save as ("chirp");
+//       sou.setSpeaker("birdSpk");
+//       sou.setFadein("birdSpk", 300);
+//       sou.setFadeout("birdSpk", 500);
+//       sou.spk.birdSpk.belongto("bird");          // 从右边传来
+//       sou.repeatingPlay("birdSpk", "chirp", 0);
+//       jaw.wait(3000);
+//       sou.break("birdSpk");                       // 用 0.5 秒逐渐变小后停止
+//   }
+//
+// · 如果浏览器阻止了声音，请点一下画面后重新运行。
+// · 停止程序 (■) 或重新运行时，声音也会全部停止。
+// · 转为 C: 用 SDL2_mixer 播放相同路径的声音文件 (构建时加 -lSDL2_mixer)。
+//   在 C 中，音量变化没有淡入淡出，会立即改变。

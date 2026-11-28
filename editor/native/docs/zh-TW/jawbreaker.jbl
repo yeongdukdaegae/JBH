@@ -1,0 +1,206 @@
+// jawbreaker — 基礎內建函式庫 (唯讀參考文件)
+//
+// ── 專案 (工程) 結構 ───────────────────
+//   專案資料夾/
+//     project.jbs      根目錄必須有 1 個。表明這個資料夾是專案
+//     main.jb          程式碼檔案 (.jb)
+//     lib/             存放函式庫檔案 (.jbl)
+//       base.jbl       Lib id base;
+//       greet.jbl      Lib id greet parent base;
+//
+// ── project.jbs 的格式 ─────────────────
+//   jbs 1              (第一行，必需)
+//   name = 名稱
+//   main = main.jb     ▶ 執行的預設檔案
+//
+// ── 程式碼檔案 (.jb) ───────────────────
+//   Use jawbreaker call jaw;     用別名使用函式庫 id
+//   var 型別 call 名稱 = 值;     最上層只能寫 Use, var, run
+//   var public 型別 call 名稱;   整個專案 (所有 .jb · .jbl) 共用的變數
+//                                · 宣告時不能賦值 → 在 run 中寫 名稱 = 值;
+//                                · 在其他檔案中寫相同的宣告就是同一個變數 (型別必須相同)
+//   run{ ... }                   要執行的程式碼寫在 run 裡! 寫多個則全部同時執行
+//                                (最上層的 var 是共享的 · 用 wait 調整順序 ·
+//                                 一個 run 中出現 terminate/錯誤時全部停止)
+//
+// ── 命令 (jaw.命令 / 直接寫命令 都可以) ───────────
+//   print(值) / log(值)   輸出到除錯日誌
+//   wait(ms)              等待 ms 毫秒
+//   isKeyInput("按鍵")    按住該鍵時為 1，否則為 0  (bit · 用在運算式中)
+//   fileExists("路徑")    專案中有該檔案時為 1，沒有則為 0  (bit · 用在運算式中)
+//                         · 路徑: 以專案為準 (./ ../ 以此檔案為準) · 寫資料夾時，其中有檔案則為 1
+//                         · 本次執行中用 genJson 建立的檔案也算 · C 可執行檔案: 以執行所在的資料夾為準
+//                         · 例: if [jaw.fileExists("save/s.json")]{ jaw.loadJson("save/s.json", "sav"); }
+//                         · 字母 "a"~"z" · 數字 "0"~"9" · "space" "enter" "esc" "tab" "backspace"
+//                           "up" "down" "left" "right" "shift" "ctrl" "alt" (不區分大小寫)
+//                         · 即使處於輸入法狀態也按鍵位識別 ("a" = A 鍵的位置) · 即使按得很短也至少有 1 幀為 1
+//                         · 畫面 (DisPlayer) 開啟時識別所有按鍵 · 沒有畫面執行時
+//                           只識別在編輯器 (輸入框) 之外按下的鍵 (按下執行按鈕後馬上按鍵即可)
+//                         · 用 keyClick / keyPush 按下的鍵 · 用 can.bindInput 綁定到按鍵的按鈕也為 1
+//                         · 例: if [jaw.isKeyInput("right")]{ obj.p.Xpos = obj.p.Xpos + 4; }
+//   keyClick("按鍵")      如同輕按了一下該鍵 (isKeyInput 在 1 幀內為 1)
+//   keyPush("按鍵")       如同一直按住該鍵 (直到 keyRlse 為止為 1)
+//   keyRlse("按鍵")       鬆開用 keyPush · keyClick 按下的鍵 (實際按鍵要鬆手才為 0)
+//   terminate()           結束所有正在進行的任務 (同時執行的 run 也全部結束)
+//   sendto("路徑")        轉到專案內的 .jb 檔案 — 目前 run 到此結束 (不再返回)
+//                         · 下一行不會執行 · 同一檔案的其他 run{ } 不受影響 · 畫面 · 物件 · 聲音保持不變
+//                         · 可以互相反覆跳轉 (選單 → 遊戲 → 選單 …，次數不限)
+//                         (以專案根目錄為準，./ ../ 以目前檔案為準，路徑必須是帶引號的字面值)
+//   setup("路徑")         同時執行專案內的 .jb 檔案 (不等待，直接到下一行)
+//                         · 程式要等 setup 的檔案也全部結束後才結束
+//   goTo(行)              跳到該行的陳述式並從那裡繼續 (行號是編輯器左側的數字)
+//                         · 只能跳到目前區塊或其外層區塊中的陳述式 (例如跳出 loop 回到前面)
+//                         · 不能進入內層區塊 · 其他函式 · 其他 run · 必須是以該行開頭的陳述式
+//                         · 例: 回到繪製選單的那一行 — goTo(42);          · 轉為 C 時行號必須是數字字面值
+//                         · 上下增刪行後行號會變，請注意
+//   break()               跳出迴圈 — 跳出最內層的 loop
+//                         (在 loop 之外的 if 中則跳出該條件陳述式)
+//   return()              回到迴圈開頭 — 回到最內層 loop 的條件檢查
+//                         (在 loop 之外的 if 中則回到該條件陳述式的開頭 (條件檢查))
+//   return(值)            在回傳值的函式中回傳該值並退出 (參見下面的函式庫)
+//
+// ── 語法 ───────────────────────────────
+//   var 型別 call 名稱;          型別: int float string bit  (matrix · list 見下文)
+//   名稱 = 值;
+//   "句子 %名稱% 句子"           %變數名% → 變數的值 (也可以寫 %別名.變數%，%% = % 字元)
+//   "Wild %dex[n]% appeared!"   也可以寫 %串列[索引]% · %矩陣[列, 欄]% · %c[1][2]% (方括號內是運算式)
+//   "Wild " dex[n] " appeared!" 在字串前後直接寫值就會連線起來 (= "Wild " + dex[n] + " appeared!")
+//                                · 空格要寫在引號內 · 例: print("Lv." lv "        HP " hp * 2);
+//   if [條件]{ } else if [條件]{ } else{ }
+//   loop [條件]{ }               條件為真時重複 (代替 while)
+//   [條件] and [條件]            把多個方括號條件連起來寫 (if · loop 都可以)
+//                                也可以用 and · or · xor (只有其一) · nand · nor · not [條件] · && · ||
+//                                優先順序 not > and · nand > xor > or · nor  ·  用 ( ) 分組
+//                                例: if [hp > 0] and not [jaw.isKeyInput("esc")] or ([x < 0] xor [y < 0]){ }
+//   loop{ }                      無限重複 (用 terminate() 結束)
+//   loop for 1000{ }             重複 1000 毫秒 (開始時確定結束時刻 · 每次重複開始前檢查時間)
+//   loop [條件] for 3000{ }      條件為真且未超過 3000ms 時重複
+//                                break() · return() 照常可用 · 裡面也可以用 wait · waitF
+//
+// ── 矩陣 (matrix) ──────────────────────
+//   var matrix[列, 欄] call m;          只能放 float 的矩陣 (索引從 1 開始)
+//   var public matrix[1, 4] call coord; 也可以是 public
+//   m = [1, 1, 4 | 5, 1, 4];            , = 下一欄 · | = 下一列 (大小必須一致)
+//   m[1, 4] = 4;                        單個元素像 float 變數一樣讀取和修改
+//   var float call x = m[2, 1];
+//   print(m);  "值 %m%"                 → [1, 1, 4 | 5, 1, 4]
+//
+// ── 串列 (list) ────────────────────────
+//   var list call anthropic;            空串列 (串列元素為數字或字串 · 可以混用)
+//   var list call b = [1, 2, "三"];     建立時放入初始元素
+//   anthropic[a]                        第 a 個元素 (索引從 1 開始) — 修改: anthropic[2] = "x";
+//                                       放到範圍之外的索引時會延長到那裡 · 中間的空元素為 0
+//                                       (b = [1, 2]; b[5] = 9; → [1, 2, 0, 0, 9] · 讀取只能在範圍內)
+//   anthropic.add(值);                  新增到末尾
+//   anthropic.insert(索引, 值);         插入到該位置 (後面的元素各後移一格)
+//   anthropic.remove(索引);             移除該元素
+//   anthropic.clear();                  全部清空
+//   anthropic.length                    元素個數 (int)
+//   anthropic.find(值)                  值第一次出現的索引 (沒有則為 0)
+//   print(anthropic);  "%anthropic%"    → [1, 2, "三"]
+//   · 把串列元素寫在數字的位置時檢查它是不是數字，寫在字串的位置時檢查它是不是字串 (執行時檢查)
+//     (var int call x = b[1] + 1;   var string call s = b[3];)
+//   · 串列元素之間的 + : 其中有字串則連線，否則相加 · - * / 按浮點數計算
+//   · b = a; 是複製 (修改 b 不影響 a) · 不能作為函式參數 (請使用 public 串列)
+//
+// ── compound ───────────────────────────
+//   與串列相同，但串列元素可以放任何東西 — 數字 · 字串 · 矩陣 · 串列 · compound
+//   var compound call c = [1, "名稱", [1, 2 | 3, 4], b];   (b 是串列變數)
+//   c.add(m);  c.insert(1, b);  c.remove(2);  c.clear();  c.length  c.find(值)   與串列相同
+//   c[3][1, 2]                          該元素是矩陣時取它的元素 (修改: c[3][1, 2] = 5;)
+//   c[4][2]                             該元素是串列 · compound 時取它的元素 (修改: c[4][2] = "x";)
+//   var matrix[2, 2] call m2 = c[3];    取出某個元素時，會在執行時檢查使用處的型別
+//   var list call l2 = c[4];            (矩陣連大小也檢查 · 串列 · compound · 數字 · 字串)
+//   print(c);                           → [1, "名稱", [1, 2 | 3, 4], [1, 2, "三"]]
+//   · 放入時複製 (放入後修改原變數，c 中的內容不變) · == 和 find 會比較到內部
+//   · 串列 (list) 仍然只能放數字 · 字串 — 要放矩陣 · 串列請用 compound
+//   · compound 中的 [ … ] 如果包含字串 · 串列 · 其他 [ … ] 等就是 compound，只有數字則是矩陣 (如 [x, y] 位置)
+//       var compound call party = [["皮卡丘", 35, [0, 0]], ["傑尼龜", 44, [1, 2]]];   → party[2][1] = "傑尼龜" · party[1][3] = [0, 0] (矩陣)
+//       party.add(["妙蛙種子", 45, [3, 3]]);   party[1] = ["雷丘", 60, [0, 0]];   party[1][2] = party[1][2] - 10;
+//       var compound call bag = [];         [] = 空串列 · compound
+//
+// ── data (原樣的位元組) ───────────────
+//   var data call d = 值;          什麼都能放進來、也能放進任何變數的「資料」(一組位元組)
+//                                · 數字 → 8 位元組浮點數 · 字串 → UTF-8 · 矩陣 · 清單 · compound → JSON 文字
+//   var int call n = d;            取出時按接收的型別強行讀取 — 不合適就跳過
+//                                · 數字僅限 8 位元組 · 字串僅限正確的 UTF-8 · 清單 · 矩陣 · compound 僅限 JSON [ ]
+//                                · 跳過時: 賦值保持原值 · 宣告 · 參數為預設值
+//   print(d);   "" + d             以十六進位顯示 (超過 64 位元組時顯示前 32 位元組 … (大小 B))
+//                                · 不能計算 (+ - == …) · 不能放進清單 · compound (先放進其他型別)
+//   data.d.getPart(開始, 結束)     該區間的位元組 (data · 在運算式中) — 序號從 0 開始 · 不含結束 (getPart(0, 4) = 前 4 位元組)
+//                                · 超出範圍的部分被截掉 · 結束 < 開始 時為空 data
+//   data.d.setPart(開始, 結束, 值); 把該區間換成值的位元組 (長度可以不同 · 開始 = 結束 時為插入)
+//                                · 連接到攝影機 · 麥克風的 data 先解除連接 (修改那一刻的位元組)
+//   jaw.copyFileData("路徑") as ("變數"); 把專案檔案的位元組放進 data 變數 (本次執行寫入的檔案也可以)
+//   jaw.overWriteFile(值, "路徑"); 用值的位元組覆寫檔案 · 寫入位置與 genJson 相同
+//                                · 不能寫入程式碼 (.jb · .jbl) · project.jbs · ext/
+//
+// ── 數學函式 (用在運算式中 · 也可以寫 jaw.sin(30)) ──
+//   sin(度) cos(度) tan(度)            角度預設為“度”   sin(30) → 0.5
+//   sinRad(x) cosRad(x) tanRad(x)      名稱末尾的 Rad = 弧度   sinRad(pi() / 2) → 1
+//   asin acos atan atan2(y, x)         結果為度  (asinRad … atan2Rad 為弧度)
+//   sqrt(x) pow(a, b) ln(x) log10(x)   pi()
+//   abs(x) min(a, b) max(a, b)         都是 int 則結果為 int
+//   floor(x) ceil(x) round(x)          → int
+//   random(a, b)                       a 以上、b 以下 (不含 b) 的隨機浮點數
+//   無法計算的值 (sqrt(-1), asin(2) …) 會產生執行階段錯誤
+//   矩陣之間的 + - 等運算目前還沒有 (元素之間可以)
+//
+// ── 字串函式 (用在運算式中 · 也可以寫 jaw.strLen(s)) ──
+//   字元索引從 1 開始 · 漢字 · 表情符號也算一個字元
+//   strLen(s)                       字元數 → int                strLen("你我他") → 3
+//   subStr(s, 起點, 個數)            從第“起點”個字元開始取“個數”個   subStr("Jawbreaker", 4, 5) → "break"
+//   charAt(s, n)                    第 n 個字元 (沒有則為 "")
+//   findStr(s, t)                   t 第一次出現的字元索引 → int (沒有則為 0)
+//   replaceStr(s, 查詢內容, 替換內容)  全部替換
+//   upperStr(s) · lowerStr(s)       英文轉大寫 · 小寫
+//   trimStr(s)                      去掉首尾的空格 · 換行
+//   startsWith(s, t) · endsWith(s, t)   以 t 開頭 · 結尾時為 1 (bit)
+//   toInt(s) · toFloat(s)           字串 → 數字 (不是數字則為 0)   toInt(" 42 ") → 42
+//   splitStr(s, 分隔符)              拆分成 list — 只能直接放入串列變數
+//                                   var list call a = splitStr("a,b,c", ",");   (分隔符 "" = 逐個字元)
+//   數字 → 字串用 "" + 值     (例: "分數: " + score)
+//
+// ── 儲存 JSON ──────────────────────────
+//   jaw.setJson("id", 值);           把值以 id 存起來 (當時的副本) — 數字 · 字串 · 矩陣 · 串列 · compound
+//                                    直接寫 [ … ] 則為 compound:   jaw.setJson("save", [3, "Lee", [10, 20]]);
+//                                    · 用相同的 id 再寫一次則被替換
+//   jaw.genJson("路徑.json", "id");   把存起來的值儲存為 JSON 檔案   → [3,"Lee",[10,20]]
+//                                    · 數字 → 數字 · 字串 → "…" · 串列 · compound → [ … ]
+//                                    · 矩陣: 只有一列時為 [x, y]，多列時為 [[…], […]]
+//                                    · 路徑: 以專案為準 (以 ./ 開頭則以此檔案為準) · 可以寫 資料夾/名稱.json · 已存在則覆蓋
+//                                    · 編輯器: 專案中會生成 .json 檔案 (在檔案管理中可見 · 儲存後才會留下)
+//                                    · C 可執行檔案: 寫到執行所在的資料夾 · 匯出的 HTML: 下載該檔案
+//   jaw.loadJson("路徑.json", "變數");  讀取 JSON 檔案並放入 compound 變數 (原來的值會被替換)
+//                                    var compound call sav;   jaw.loadJson("save/s.json", "sav");   print(sav[2]);
+//                                    · 變數名要寫在 "引號" 中 · 該變數必須是 compound
+//                                    · [ ] → compound · 數字 · 字串保持不變 · true/false → 1/0 · null → 0
+//                                    · 以矩陣儲存的 [x, y] 也會讀成 compound (像 sav[3][1] 這樣取出)
+//                                    · 最外層不是 [ ] 時變成 [值] · 不讀取 { } (物件) (報錯)
+//                                    · 本次執行中用 genJson 寫的檔案也能立即讀取 · C 可執行檔案以執行所在的資料夾為準
+//
+// ── 函式庫 (.jbl，lib/ 資料夾) ─────────
+//   Lib id greet parent base;    用 id 區分，parent 可選
+//   只能定義 var / func — 原樣繼承父函式庫的函式·變數
+//   func hello(string who){ ... }
+//   在其他檔案中:   Use greet call g;   g.hello("x");
+//   func int add(int a, int b){ return(a + b); }
+//                                回傳值的函式 — func 後面寫回傳型別 (int float string bit matrix[列, 欄] list compound)
+//   在其他檔案中:   var int call s = g.add(1, 2);   print(g.add(3, 4) * 2);
+//   · 沒有 return(值) 就結束時回傳 0 / "" / 空串列 / 全 0 矩陣 · 也可以像 g.add(1, 2); 這樣作為陳述式呼叫 (值被丟棄)
+//   · 參數 · 回傳值也可以是 list · compound · matrix[列, 欄] — 傳入和回傳時都會複製 (在函式內修改不影響傳入的變數)
+//       func compound hit(compound mon, int dmg){ mon[2] = mon[2] - dmg; return(mon); }
+//       func matrix[1, 2] mid(matrix[1, 2] a, matrix[1, 2] b){ return([(a[1, 1] + b[1, 1]) / 2, (a[1, 2] + b[1, 2]) / 2]); }
+//       var compound call p = ["皮卡丘", 35]; p = g.hit(p, 10);   也可以像 g.hit(["傑尼龜", 44], 3); 這樣直接傳 [ … ]
+//     · 回傳的串列 · compound 要放入變數，或交給 print · 其他函式使用 (暫時還不能像 g.f()[1] 這樣直接取出)
+//   · 在運算式中呼叫的函式不會等待，會一次執行到底
+//     → 其中不能使用 wait · dis.waitF · moveObj … for · sendto
+//
+// ── 內建函式庫 ─────────────────────────
+//   jawbreaker   本文件
+//   DisPlayer    畫面函式庫 → 參見 DisPlayer.jbl   (Use DisPlayer call dis;)
+//   colliders    DisPlayer 的子函式庫 · 速度 → 參見 colliders.jbl   (Use colliders call col;)
+//   Canvas       DisPlayer 的子函式庫 · 輸入 (點選 · 滑鼠) · 場景 → 參見 Canvas.jbl   (Use Canvas call can;)
+//   Magellan     DisPlayer 的子函式庫 · 圖片 · 紋理 · 聲音檔案 → 參見 Magellan.jbl   (Use Magellan call mag;)
+//   soundMaster  Magellan 的子函式庫 · 揚聲器 · 音效 · 空間音效 → 參見 soundMaster.jbl   (Use soundMaster call sou;)
+//   SeongBin     Canvas 的子函式庫 · 攝影機 → 參見 SeongBin.jbl   (Use SeongBin call seo;)

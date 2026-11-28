@@ -1,0 +1,206 @@
+// jawbreaker — core built-in library (read-only reference)
+//
+// ── Project layout ─────────────────────
+//   projectFolder/
+//     project.jbs      exactly one at the root; marks the folder as a project
+//     main.jb          code file (.jb)
+//     lib/             library files (.jbl)
+//       base.jbl       Lib id base;
+//       greet.jbl      Lib id greet parent base;
+//
+// ── project.jbs format ─────────────────
+//   jbs 1              (first line, required)
+//   name = Name
+//   main = main.jb     ▶ the file Run starts
+//
+// ── Code files (.jb) ───────────────────
+//   Use jawbreaker call jaw;     use a library id under an alias
+//   var type call name = value;  the top level allows only Use, var, run
+//   var public type call name;   a variable shared by the whole project (every .jb · .jbl)
+//                                · no value at declaration → set it in run with name = value;
+//                                · the same declaration in another file is the same variable (same type)
+//   run{ ... }                   code runs only inside run! Several run blocks run at the same time
+//                                (top-level vars are shared · use wait to order them ·
+//                                 terminate or an error in one run stops them all)
+//
+// ── Commands (jaw.command or just command) ──
+//   print(value) / log(value)  print to the debug log
+//   wait(ms)              wait ms milliseconds
+//   isKeyInput("key")     1 while that key is held, otherwise 0  (bit · in expressions)
+//   fileExists("path")    1 if that file is in the project, otherwise 0  (bit · in expressions)
+//                         · path: from the project root (./ ../ = from this file) · a folder gives 1 if it has files
+//                         · also sees files made by genJson in this run · C executable: from the folder it runs in
+//                         · e.g. if [jaw.fileExists("save/s.json")]{ jaw.loadJson("save/s.json", "sav"); }
+//                         · letters "a"–"z" · digits "0"–"9" · "space" "enter" "esc" "tab" "backspace"
+//                           "up" "down" "left" "right" "shift" "ctrl" "alt" (case doesn't matter)
+//                         · letters are also found by key position (other layouts / IMEs) · even a quick press stays 1 for at least 1 frame
+//                         · every key while the display (DisPlayer) is open · without a display, only keys pressed
+//                           outside the editor's text area (press keys right after clicking Run)
+//                         · keys pressed with keyClick / keyPush and buttons bound with can.bindInput count too
+//                         · e.g. if [jaw.isKeyInput("right")]{ obj.p.Xpos = obj.p.Xpos + 4; }
+//   keyClick("key")       act as if the key was tapped (isKeyInput is 1 for 1 frame)
+//   keyPush("key")        act as if the key is held down (1 until keyRlse)
+//   keyRlse("key")        release a key pressed with keyPush · keyClick (a real key is 0 once you let go)
+//   terminate()           end everything that is running (every run block too)
+//   sendto("path")        move on to a .jb file in the project — this run ends here (it doesn't come back)
+//                         · the next line doesn't run · other run{ } blocks of the same file go on · the display · objects · sound stay
+//                         · files may keep sending to each other (menu → game → menu …, no limit)
+//                         (relative to the project root; ./ ../ are relative to this file; the path must be a quoted constant)
+//   setup("path")         run a .jb file in the project alongside (continues without waiting)
+//                         · the program ends only after files started by setup finish
+//   goTo(line)            jump to the statement on that line and continue from there (the number in the editor's gutter)
+//                         · only to a statement in the current block or a block around it (e.g. leave a loop and go back up)
+//                         · not into an inner block · another function · another run · the line must start a statement
+//                         · e.g. go back to the line that draws a menu — goTo(42);   · the C conversion needs a number constant
+//                         · adding or removing lines above changes the numbers
+//   break()               leave the loop — exits the innermost loop
+//                         (inside an if outside any loop: leaves that if)
+//   return()              back to the loop's start — the innermost loop's condition check
+//                         (inside an if outside any loop: back to that if's condition)
+//   return(value)         in a value-returning function: return that value and leave (see Libraries)
+//
+// ── Syntax ─────────────────────────────
+//   var type call name;          types: int float string bit  (matrix · list below)
+//   name = value;
+//   "text %name% text"           %name% → the variable's value (%alias.var% works too, %% = a % sign)
+//   "Wild %dex[n]% appeared!"   %list[index]% · %matrix[row, col]% · %c[1][2]% too (an expression inside the brackets)
+//   "Wild " dex[n] " appeared!" a value written right before or after a string is joined (= "Wild " + dex[n] + " appeared!")
+//                                · put spaces inside the quotes · e.g. print("Lv." lv "  HP " hp * 2);
+//   if [condition]{ } else if [condition]{ } else{ }
+//   loop [condition]{ }          repeat while the condition is true (instead of while)
+//   [cond] and [cond]            chain several bracket conditions (if · loop)
+//                                and · or · xor (exactly one) · nand · nor · not [cond] · && · || work too
+//                                precedence not > and · nand > xor > or · nor  ·  group with ( )
+//                                e.g. if [hp > 0] and not [jaw.isKeyInput("esc")] or ([x < 0] xor [y < 0]){ }
+//   loop{ }                      repeat forever (end with break() or terminate())
+//   loop for 1000{ }             repeat for 1000 milliseconds (the end time is set at the start · checked before each pass)
+//   loop [condition] for 3000{ } repeat while the condition holds and 3000 ms haven't passed
+//                                break() · return() work as usual · wait · waitF inside are fine
+//
+// ── Matrices ───────────────────────────
+//   var matrix[rows, cols] call m;      a matrix of floats (indexes start at 1)
+//   var public matrix[1, 4] call coord; public works too
+//   m = [1, 1, 4 | 5, 1, 4];            , = next column · | = next row (sizes must match)
+//   m[1, 4] = 4;                        one element reads and writes like a float variable
+//   var float call x = m[2, 1];
+//   print(m);  "value %m%"              → [1, 1, 4 | 5, 1, 4]
+//
+// ── Lists ──────────────────────────────
+//   var list call anthropic;            an empty list (items are numbers or strings · mixing is fine)
+//   var list call b = [1, 2, "three"];  start with items
+//   anthropic[a]                        the a-th item (indexes start at 1) — change it: anthropic[2] = "x";
+//                                       assigning past the end grows the list to that index · the gap items are 0
+//                                       (b = [1, 2]; b[5] = 9; → [1, 2, 0, 0, 9] · reading must stay in range)
+//   anthropic.add(value);               add at the end
+//   anthropic.insert(index, value);     insert at that position (later items shift back)
+//   anthropic.remove(index);            remove that item
+//   anthropic.clear();                  remove everything
+//   anthropic.length                    number of items (int)
+//   anthropic.find(value)               index of the first match (0 if none)
+//   print(anthropic);  "%anthropic%"    → [1, 2, "three"]
+//   · an item used where a number is expected must be a number, where a string is expected a string
+//     (checked when it runs: var int call x = b[1] + 1;   var string call s = b[3];)
+//   · item + item joins text if either is a string, otherwise adds · - * / calculate as floats
+//   · b = a; copies (changing b leaves a alone) · not allowed as function parameters (use a public list)
+//
+// ── compound ───────────────────────────
+//   like a list, but an item can be anything: number · string · matrix · list · compound
+//   var compound call c = [1, "name", [1, 2 | 3, 4], b];   (b is a list variable)
+//   c.add(m);  c.insert(1, b);  c.remove(2);  c.clear();  c.length  c.find(value)   same as lists
+//   c[3][1, 2]                          an element of a matrix item (change it: c[3][1, 2] = 5;)
+//   c[4][2]                             an item of a list · compound item (change it: c[4][2] = "x";)
+//   var matrix[2, 2] call m2 = c[3];    taking an item out checks the expected type when it runs
+//   var list call l2 = c[4];            (matrices including size · list · compound · number · string)
+//   print(c);                           → [1, "name", [1, 2 | 3, 4], [1, 2, "three"]]
+//   · items are copied in (changing the original variable later leaves c alone) · == and find compare all the way in
+//   · a list still holds only numbers and strings — use compound for matrices and lists
+//   · a [ … ] inside a compound is a compound when it holds strings · lists · another [ … ] etc., and a matrix when it holds only numbers (like an [x, y] position)
+//       var compound call party = [["Pikachu", 35, [0, 0]], ["Squirtle", 44, [1, 2]]];   → party[2][1] = "Squirtle" · party[1][3] = [0, 0] (matrix)
+//       party.add(["Bulbasaur", 45, [3, 3]]);   party[1] = ["Raichu", 60, [0, 0]];   party[1][2] = party[1][2] - 10;
+//       var compound call bag = [];         [] = an empty list · compound
+//
+// ── data (raw bytes) ───────────────────
+//   var data call d = value;       "data" (a bundle of bytes) that takes anything and goes into anything
+//                                · number → 8-byte float · string → UTF-8 · matrix · list · compound → JSON text
+//   var int call n = d;            reading it forces the bytes into the receiving type — skipped if they do not fit
+//                                · numbers only from 8 bytes · strings only from valid UTF-8 · list · matrix · compound only from JSON [ ]
+//                                · when skipped: an assignment keeps the old value · a declaration · parameter gets the default
+//   print(d);   "" + d             shown as hex (over 64 bytes: the first 32 bytes … (size B))
+//                                · no calculation (+ - == …) · cannot go into a list · compound (move it into another type first)
+//   data.d.getPart(start, end)     the bytes of that range (data · in expressions) — indexes from 0 · end excluded (getPart(0, 4) = first 4 bytes)
+//                                · out-of-range parts are cut off · end < start gives empty data
+//   data.d.setPart(start, end, v); replace that range with the bytes of v (the length may differ · start = end inserts)
+//                                · data connected to the camera · microphone is disconnected first (the bytes of that moment are changed)
+//   jaw.copyFileData("path") as ("var"); put a project file's bytes into a data variable (files written this run too)
+//   jaw.overWriteFile(v, "path");  overwrite a file with the bytes of v · written to the same place as genJson
+//                                · cannot write code (.jb · .jbl) · project.jbs · ext/
+//
+// ── Math functions (in expressions · jaw.sin(30) works too) ──
+//   sin(deg) cos(deg) tan(deg)         angles are in degrees by default   sin(30) → 0.5
+//   sinRad(x) cosRad(x) tanRad(x)      the Rad suffix = radians   sinRad(pi() / 2) → 1
+//   asin acos atan atan2(y, x)         results in degrees  (asinRad … atan2Rad give radians)
+//   sqrt(x) pow(a, b) ln(x) log10(x)   pi()
+//   abs(x) min(a, b) max(a, b)         int when all values are ints
+//   floor(x) ceil(x) round(x)          → int
+//   random(a, b)                       random number from a up to (not including) b
+//   values that can't be calculated (sqrt(-1), asin(2) …) are run errors
+//   no matrix-to-matrix + - yet (elements can be calculated)
+//
+// ── String functions (in expressions · jaw.strLen(s) works too) ──
+//   characters are numbered from 1 · a Hangul syllable or an emoji is one character
+//   strLen(s)                       number of characters → int   strLen("abc") → 3
+//   subStr(s, from, count)          count characters from the from-th   subStr("Jawbreaker", 4, 5) → "break"
+//   charAt(s, n)                    the n-th character ("" if none)
+//   findStr(s, t)                   position of the first t → int (0 if none)
+//   replaceStr(s, old, new)         replace every old
+//   upperStr(s) · lowerStr(s)       A-Z upper · lower case
+//   trimStr(s)                      remove spaces · line breaks at both ends
+//   startsWith(s, t) · endsWith(s, t)   1 (bit) if s starts · ends with t
+//   toInt(s) · toFloat(s)           string → number (0 if it isn't a number)   toInt(" 42 ") → 42
+//   splitStr(s, sep)                split into a list — only straight into a list variable
+//                                   var list call a = splitStr("a,b,c", ",");   (sep "" = one character each)
+//   number → string: "" + value   (e.g. "score: " + score)
+//
+// ── Saving JSON ────────────────────────
+//   jaw.setJson("id", value);        keep a value under id (a copy at that moment) — number · string · matrix · list · compound
+//                                    a bare [ … ] is a compound:  jaw.setJson("save", [3, "Lee", [10, 20]]);
+//                                    · writing the same id again replaces it
+//   jaw.genJson("path.json", "id");  save the kept value as a JSON file   → [3,"Lee",[10,20]]
+//                                    · number → number · string → "…" · list · compound → [ … ]
+//                                    · matrix: one row → [x, y], several rows → [[…], […]]
+//                                    · path: from the project root (./ = from this file) · folder/name.json works · overwrites
+//                                    · editor: a .json file appears in the project (explorer · save the project to keep it)
+//                                    · C program: written relative to the folder it runs in · exported HTML: the file downloads
+//   jaw.loadJson("path.json", "var");  read a JSON file into a compound variable (its old value is replaced)
+//                                    var compound call sav;   jaw.loadJson("save/s.json", "sav");   print(sav[2]);
+//                                    · the variable name goes in "quotes" · that variable must be a compound
+//                                    · [ ] → compound · numbers · strings as they are · true/false → 1/0 · null → 0
+//                                    · a matrix saved as [x, y] comes back as a compound (take items like sav[3][1])
+//                                    · a non-[ ] top level becomes [value] · { } (objects) aren't read (error)
+//                                    · files written by genJson in this run are read right away · a C program reads relative to its folder
+//
+// ── Libraries (.jbl, lib/ folder) ──────
+//   Lib id greet parent base;    identified by id; parent is optional
+//   define only var / func — inherits the parent's functions and variables
+//   func hello(string who){ ... }
+//   from another file:  Use greet call g;   g.hello("x");
+//   func int add(int a, int b){ return(a + b); }
+//                                a value-returning function — the return type follows func (int float string bit matrix[rows, cols] list compound)
+//   from another file:  var int call s = g.add(1, 2);   print(g.add(3, 4) * 2);
+//   · ending without return(value) gives 0 / "" / an empty list / a zero matrix · calling it as a statement g.add(1, 2); is fine (value dropped)
+//   · parameters and return values can be list · compound · matrix[rows, cols] — copied when passed and returned (changing it inside leaves the caller's variable alone)
+//       func compound hit(compound mon, int dmg){ mon[2] = mon[2] - dmg; return(mon); }
+//       func matrix[1, 2] mid(matrix[1, 2] a, matrix[1, 2] b){ return([(a[1, 1] + b[1, 1]) / 2, (a[1, 2] + b[1, 2]) / 2]); }
+//       var compound call p = ["Pikachu", 35]; p = g.hit(p, 10);   a bare [ … ] works too: g.hit(["Squirtle", 44], 3);
+//     · a returned list · compound goes into a variable, print or another function (taking an item right away like g.f()[1] isn't supported yet)
+//   · a function called inside an expression runs to the end at once, without waiting
+//     → wait · dis.waitF · moveObj … for · sendto can't be used inside it
+//
+// ── Built-in libraries ─────────────────
+//   jawbreaker   this reference
+//   DisPlayer    display library → see DisPlayer.jbl   (Use DisPlayer call dis;)
+//   colliders    under DisPlayer · velocity → see colliders.jbl   (Use colliders call col;)
+//   Canvas       under DisPlayer · input (clicks · mouse) · scenes → see Canvas.jbl   (Use Canvas call can;)
+//   Magellan     under DisPlayer · images · textures · sound files → see Magellan.jbl   (Use Magellan call mag;)
+//   soundMaster  under Magellan · speakers · sound effects · spatial sound → see soundMaster.jbl   (Use soundMaster call sou;)
+//   SeongBin     under Canvas · cameras → see SeongBin.jbl   (Use SeongBin call seo;)

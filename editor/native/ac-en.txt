@@ -1,0 +1,159 @@
+jawbreaker	sin	func	(x)	sin($0)	sine (angle in degrees)
+jawbreaker	cos	func	(x)	cos($0)	cosine (angle in degrees)
+jawbreaker	tan	func	(x)	tan($0)	tangent (angle in degrees)
+jawbreaker	asin	func	(x)	asin($0)	arcsine → degrees (value -1 to 1)
+jawbreaker	acos	func	(x)	acos($0)	arccosine → degrees (value -1 to 1)
+jawbreaker	atan	func	(x)	atan($0)	arctangent → degrees
+jawbreaker	atan2	func	(a, b)	atan2($0)	atan2(y, x) → degrees (direction)
+jawbreaker	sinRad	func	(x)	sinRad($0)	sine (angle in radians)
+jawbreaker	cosRad	func	(x)	cosRad($0)	cosine (angle in radians)
+jawbreaker	tanRad	func	(x)	tanRad($0)	tangent (angle in radians)
+jawbreaker	asinRad	func	(x)	asinRad($0)	arcsine → radians
+jawbreaker	acosRad	func	(x)	acosRad($0)	arccosine → radians
+jawbreaker	atanRad	func	(x)	atanRad($0)	arctangent → radians
+jawbreaker	atan2Rad	func	(a, b)	atan2Rad($0)	atan2(y, x) → radians
+jawbreaker	sqrt	func	(x)	sqrt($0)	square root (0 or more)
+jawbreaker	pow	func	(a, b)	pow($0)	pow(a, b) = a to the power b
+jawbreaker	ln	func	(x)	ln($0)	natural log (value above 0)
+jawbreaker	log10	func	(x)	log10($0)	base-10 log (value above 0)
+jawbreaker	abs	func	(x)	abs($0)	absolute value
+jawbreaker	floor	func	(x)	floor($0)	round down → int
+jawbreaker	ceil	func	(x)	ceil($0)	round up → int
+jawbreaker	round	func	(x)	round($0)	round → int
+jawbreaker	min	func	(a, b)	min($0)	the smaller of two
+jawbreaker	max	func	(a, b)	max($0)	the larger of two
+jawbreaker	random	func	(a, b)	random($0)	random(a, b) = random number from a up to (not including) b
+jawbreaker	pi	func	()	pi($0)	pi 3.14159…
+jawbreaker	strLen	func	(s) → int	strLen($0)	number of characters
+jawbreaker	subStr	func	(s, from, n) → string	subStr($0)	n characters starting at character from
+jawbreaker	charAt	func	(s, n) → string	charAt($0)	the n-th character ("" if none)
+jawbreaker	findStr	func	(s, t) → int	findStr($0)	position of the first t (0 if none)
+jawbreaker	replaceStr	func	(s, old, new) → string	replaceStr($0)	replace every old with new
+jawbreaker	upperStr	func	(s) → string	upperStr($0)	to upper case (A-Z)
+jawbreaker	lowerStr	func	(s) → string	lowerStr($0)	to lower case (a-z)
+jawbreaker	trimStr	func	(s) → string	trimStr($0)	remove spaces · line breaks at both ends
+jawbreaker	startsWith	func	(s, t) → bit	startsWith($0)	1 if s starts with t
+jawbreaker	endsWith	func	(s, t) → bit	endsWith($0)	1 if s ends with t
+jawbreaker	toInt	func	(s) → int	toInt($0)	string → int (0 if not a number)
+jawbreaker	toFloat	func	(s) → float	toFloat($0)	string → float (0 if not a number)
+jawbreaker	splitStr	func	(s, sep) → list	splitStr($0)	a list split by sep — only straight into a list variable
+jawbreaker	isKeyInput	func	("key") → bit	isKeyInput("$0")	jawbreaker · 1 while that key is held ("a", "space", "up" …)
+jawbreaker	fileExists	func	("경로") → bit	fileExists("$0")	jawbreaker · 1 if that file (folder) is in the project
+jawbreaker	log	builtin	(value)	log($0);	jawbreaker · print to the debug log
+jawbreaker	print	builtin	(value)	print($0);	jawbreaker · print to the debug log
+jawbreaker	wait	builtin	(int ms)	wait($0);	jawbreaker · wait ms milliseconds
+jawbreaker	terminate	builtin	()	terminate();$0	jawbreaker · end everything that is running
+jawbreaker	break	builtin	()	break();$0	jawbreaker · leave the innermost loop (or the if, outside loops)
+jawbreaker	return	builtin	()	return();$0	jawbreaker · back to the innermost loop's condition check
+jawbreaker	goTo	builtin	(int 줄)	goTo($0);	jawbreaker · jump to the statement on that line (current or outer block · e.g. back to a menu)
+jawbreaker	label	builtin	("name")	label("$0");	jawbreaker · name this line (goTo("name") jumps here)
+jawbreaker	keyClick	builtin	(string key)	keyClick("$0");	jawbreaker · act as if the key was tapped (1 frame)
+jawbreaker	keyPush	builtin	(string key)	keyPush("$0");	jawbreaker · act as if the key is held (until keyRlse)
+jawbreaker	keyRlse	builtin	(string key)	keyRlse("$0");	jawbreaker · release a key pressed with keyPush · keyClick
+jawbreaker	setJson	builtin	("id", value)	setJson($0);	jawbreaker · keep a value as JSON (anything, e.g. a compound · copied at that moment)
+jawbreaker	genJson	builtin	("path.json", "id")	genJson($0);	jawbreaker · save the kept JSON to a file
+jawbreaker	loadJson	builtin	("path.json", "variable")	loadJson($0);	jawbreaker · read a JSON file into a compound variable
+jawbreaker	copyFileData	builtin	("path") as ("data var")	copyFileData("$0");	jawbreaker · put a project file's bytes into a data variable
+jawbreaker	overWriteFile	builtin	(value, "path")	overWriteFile($0);	jawbreaker · overwrite a file with the bytes of the value (same place as genJson)
+jawbreaker	exportFile	builtin	("path.json", "file name")	exportFile($0);	jawbreaker · download that file to the device, obfuscated
+jawbreaker	openFile	builtin	("path.json")	openFile("$0");	jawbreaker · choose a file on the device and bring it to that path (waits until chosen)
+DisPlayer	BelongObj	func	("id")	BelongObj("$0");	DisPlayer · inside run{ } · binds this whole file to an object (runs when the object is created)
+DisPlayer	waitF	func	(int frames)	waitF($0);	DisPlayer · wait n display frames (60fps ≈ 16.7ms)
+DisPlayer	setDisplay	func	()	setDisplay();$0	DisPlayer · open the full-screen display · (0, 0) = bottom left
+DisPlayer	setDisplayColor	func	(string hex)	setDisplayColor("#$0");	DisPlayer · set the display color (e.g. "#1e90ff")
+DisPlayer	setFont	func	("path.ttf")	setFont("$0");	DisPlayer · font of text objects (.ttf · a Magellan file name works too)
+DisPlayer	setupObject	func	()	setupObject();$0	DisPlayer · enable objects in this project
+DisPlayer	setObject	func	([x, y], "id", [width, height], color)	setObject([$0, 0], "id", [100, 100], "#ffffff");	DisPlayer · create or replace an object · position is its center
+DisPlayer	setObjScale	func	("id", [width, height])	setObjScale("$0", [obj.Xscale, obj.Yscale]);	DisPlayer · resize · obj.Xscale / obj.Yscale = current values
+DisPlayer	setObjPos	func	("id", [x, y])	setObjPos("$0", [obj.Xpos, obj.Ypos]);	DisPlayer · move · obj.Xpos / obj.Ypos = current values
+DisPlayer	getVar	func	("id", "name") as variable	getVar("$0", "coord") as ;	DisPlayer · read coord · scale · color · "scale[1, 2]" into a variable
+DisPlayer	moveObj	func	("id") to [x, y] for ms	moveObj("$0") to [obj.Xpos, obj.Ypos] for 500;	DisPlayer · move to [x, y] over ms (waits until done · without for it jumps)
+DisPlayer	setText	func	([x, y], "text", "id", size, outline, color)	setText([$0, 0], "글자", "id", 32, true, "#ffffff");	DisPlayer · text object · change the text with obj.id.Text · outline is true/false
+DisPlayer	nudgeObj	func	("id", [left, up], x gap, y gap)	nudgeObj("$0", [true, true], 16, 16);	DisPlayer · snap to a screen edge · [true, true] = top left, [false, false] = bottom right
+DisPlayer	setTextNudge	func	("id", "anchor")	setTextNudge("$0", "left");	DisPlayer · text position anchor · "center" · "left" · "right" · "top" · "bottom" · "top left" …
+DisPlayer	setObjNudge	func	("id", "anchor")	setObjNudge("$0", "left");	DisPlayer · object position anchor (pivot) · with "left" the left end stays put when the size changes (HP bars …)
+DisPlayer	enableScreenScale	func	()	enableScreenScale();$0	DisPlayer · show the [screenX, screenY] corner label (default)
+DisPlayer	disableScreenScale	func	()	disableScreenScale();$0	DisPlayer · hide the [screenX, screenY] corner label
+DisPlayer	setParent	func	() ("child") as ("parent")	setParent() ("$0") as ("");	DisPlayer · the child moves with its parent (and can still move on its own)
+DisPlayer	setLink	func	("id1", "id2")	setLink("$0", "");	DisPlayer · tie two objects — whichever moves, both move ("" = untie)
+DisPlayer	removeObj	func	("id")	removeObj("$0");	DisPlayer · delete an object (its children stay)
+DisPlayer	escParent	func	("id")	escParent("$0");	DisPlayer · leave the parent — detach from it
+DisPlayer	splitParent	func	("id")	splitParent("$0");	DisPlayer · break up the family — detach all children
+DisPlayer	setObjLayer	func	("id", int layer)	setObjLayer($0);	DisPlayer · drawing order — higher is on top (default 0)
+DisPlayer	ascendObjLayer	func	("id", int n)	ascendObjLayer("$0", 1);	DisPlayer · raise the layer of the object and its children by n (negative = lower)
+DisPlayer	setTxtContent	func	("id", "content")	setTxtContent("$0", "");	DisPlayer · change a text object's content (same as obj.id.Text = "content";)
+DisPlayer	tagObj	func	("id", "tag")	tagObj($0);	DisPlayer · add a tag → "<tag>" in an id field calls them all
+DisPlayer	setObjCyl	func	([x, y], "id", radius, color)	setObjCyl([$0, 0], "id", 50, "#ffffff");	DisPlayer · create or replace a circle object · position is the center
+DisPlayer	setObjPlg	func	([x, y], [x, y], [x, y], [x, y], "id", 색)	setObjPlg([$0, 0], [100, 0], [50, 80], "id", "#ffffff");	DisPlayer · a polygon object from 3 or 4 corners (leave out the 4th for 3)
+DisPlayer	setObjAlpha	func	("id", 0 ~ 255)	setObjAlpha("$0", 128);	DisPlayer · opacity — 0 invisible · 255 opaque
+DisPlayer	disableObj	func	("id")	disableObj("$0");	DisPlayer · disable — not drawn · doesn't move (children too)
+DisPlayer	enableObj	func	("id")	enableObj("$0");	DisPlayer · enable again
+DisPlayer	setObjColor	func	("id", color)	setObjColor("$0", "#ffffff");	DisPlayer · change the color · gradually with for ms
+DisPlayer	setObjOverlay	func	("id", 색, 0 ~ 255)	setObjOverlay("$0", "#ffffff", 128);	DisPlayer · 모양 그대로 색을 덧씌움 · for ms 면 서서히
+DisPlayer	setGlow	func	("id", color, strength)	setGlow($0);	DisPlayer · glow — that color spreads around the shape (strength = distance · 0 = off)
+DisPlayer	rotateObj	func	("id", angle, ms)	rotateObj("$0", 90, 500);	DisPlayer · rotate by angle (degrees) more from the current angle — counterclockwise + · over ms (0 = at once)
+DisPlayer	setRenderLimit	func	(int radius)	setRenderLimit($0);	DisPlayer · draw only within this radius (screen px) of the main camera · 0 = no limit
+DisPlayer	setTilemap	func	([x, y], "타일맵")	setTilemap($0);	DisPlayer · Place a tilemap (.tl) — the map's [0, 0] point (⌖) goes to [x, y] · colliders automatic (needs colliders)
+DisPlayer	displayX	var	int	displayX	DisPlayer · display width (screen units · the short side = 720)
+DisPlayer	displayY	var	int	displayY	DisPlayer · display height (screen units · the short side = 720)
+DisPlayer	idWidthmode	var	bit	idWidthmode	DisPlayer · 1 in landscape (width ≥ height) · 0 in portrait
+colliders	setVelocity	func	("id", [x, y])	setVelocity("$0", [0, 0]);	colliders · velocity vector (px/s, up is +) · [0, 0] stops
+colliders	setVelocityX	func	("id", 속도)	setVelocityX("$0", 0);	colliders · horizontal velocity only (vertical stays)
+colliders	setVelocityY	func	("id", 속도)	setVelocityY("$0", 0);	colliders · vertical velocity only (horizontal stays · up is +)
+colliders	setAnchor	func	("id", bit)	setAnchor("$0", true);	colliders · anchor (true) / release (false)
+colliders	setCollider	func	([x, y], [가로, 세로], "id", 탄성, 중력)	setCollider([0, 0], [$0, ], "id", 0.5, true);	colliders · create a collider (attaches to object id if it exists)
+colliders	setTrigger	func	([x, y], [가로, 세로], "id", hold)	setTrigger([0, 0], [$0, ], "id", false);	colliders · area with no collision → obj.id.IsTrigged · TriggedId
+colliders	setGravity	func	(f)	setGravity($0);	colliders · gravity scale (1 = 980 px/s², 0 = none, negative = upward)
+colliders	setColliderVisible	func	(bit)	setColliderVisible(true$0);	colliders · show collider outlines (hidden by default)
+colliders	setLink	func	("id1", "id2")	setLink("$0", "");	colliders · tie two objects (same as dis.setLink) — they move together
+colliders	obj	keyword	object	obj.	col.obj.id.isCollided · collidedObj — collision info
+Canvas	ScreenClicked	var	bit	ScreenClicked	Canvas · 1 while the screen is pressed
+Canvas	setUi	func	("id")	setUi("$0");	Canvas · fix an object to the camera (UI · position = screen coordinate)
+Canvas	bindInput	func	("button id") to ("key")	bindInput("$0") to ("");	Canvas · holding the button counts as holding the key (jaw.isKeyInput)
+Canvas	setasButton	func	("id")	setasButton("$0");	Canvas · make the object a button (can.obj.id.IsButtonClicked)
+Canvas	setUpScene	func	()	setUpScene();$0	Canvas · enable scenes
+Canvas	nameScene	func	("name")	nameScene("$0");	Canvas · name the current scene
+Canvas	setScene	func	("name")	setScene("$0");	Canvas · create a new scene
+Canvas	popupScene	func	("name")	popupScene("$0");	Canvas · freeze this scene and open that one (close with closeScene)
+Canvas	closeScene	func	()	closeScene();$0	Canvas · close the popup scene → the frozen scene resumes
+Canvas	sendtoScene	func	("name")	sendtoScene("$0");	Canvas · move to that scene
+Canvas	SceneName	var	string	SceneName	Canvas · current scene name
+Canvas	BelongScene	func	("scene")	BelongScene("$0");	Canvas · inside run{ } · binds this whole file to a scene (runs when the scene is entered)
+Canvas	obj	keyword	object	obj.	can.obj.id.isMouseTouched — 1 while the mouse is over the object
+Canvas	MouseX	var	float	MouseX	Canvas · mouse (touch) x — center 0, right +
+Canvas	MouseY	var	float	MouseY	Canvas · mouse (touch) y — center 0, up +
+Magellan	importFolder	func	("경로")	importFolder("$0");	Magellan · name every file in a folder (name = file name without extension)
+Magellan	importFile	func	("path") save as ("id")	importFile("$0") save as ("");	Magellan · give a path a short name (shared by the whole program · nothing is copied)
+Magellan	setasTexture	func	("image name", [x1, y1], [x2, y2]) save as ("id")	setasTexture("$0", [0, 0], [32, 32]) save as ("");	Magellan · make that part of an image a texture (texture id)
+Magellan	wearTexture	func	("object id", "texture id")	wearTexture("$0", "");	Magellan · put a texture on an object ("" = remove)
+Magellan	setasAnime	func	(["texture", …], ms, "id")	setasAnime(["$0"], 100, "");	Magellan · chain textures every ms into an animation
+Magellan	obj	keyword	object	obj.	mag.obj.id.runAnime("anime", speed) · applyAnime · breakAnime · animeFrame
+Magellan	setObjTexture	func	("id", "image name", [x1, y1], [x2, y2])	setObjTexture("$0", "", [0, 0], [32, 32]);	Magellan · put that part of an image straight on an object (older way)
+soundMaster	setSpeaker	func	("id")	setSpeaker("$0");	soundMaster · make a speaker
+soundMaster	playSfx	func	("speaker", "sound", ms)	playSfx("$0", "", 0);	soundMaster · play once (up to ms · 0 = to the end)
+soundMaster	repeatPart	func	("speaker", "sound", start ms, end ms)	repeatPart("$0", "", 0, -1);	soundMaster · loop the start ~ end part forever (negative end = to the end)
+soundMaster	introPart	func	("speaker", "sound", start ms, end ms)	introPart("$0", "", 0, -1);	soundMaster · 처음부터 재생한 뒤 시작 ~ 끝 구간 무한 반복
+soundMaster	repeatingPlay	func	("speaker", "sound", count)	repeatingPlay("$0", "", 0);	soundMaster · repeat (0 = forever)
+soundMaster	setVol	func	("speaker", 0–255)	setVol("$0", 255);	soundMaster · volume
+soundMaster	break	func	("speaker")	break("$0");	soundMaster · stop the speaker (fade-out)
+soundMaster	break	func	("스피커", true)	break($0);	soundMaster · stop a speaker at once (ignore the fade)
+soundMaster	setFadein	func	("speaker", ms)	setFadein("$0", 300);	soundMaster · fade on start
+soundMaster	setFadeout	func	("speaker", ms)	setFadeout("$0", 300);	soundMaster · fade on stop
+soundMaster	spk	keyword	speaker	spk.	sou.spk.speaker.belongto("object") — spatial sound
+SeongBin	setUpCam	func	()	setUpCam();$0	SeongBin · turn cameras on
+SeongBin	setCam	func	("name")	setCam("$0");	SeongBin · make a camera (id "cam.name")
+SeongBin	setMainCamas	func	("name")	setMainCamas("$0");	SeongBin · main camera of the current scene
+SeongBin	cam	keyword	camera	cam.	seo.cam.name.setZoom / moveCamto / follow / followOut
+@stmt	if	snippet		if [$0]{\n    \n}	condition
+@stmt	else	snippet		else{\n    $0\n}	otherwise
+@stmt	else if	snippet		else if [$0]{\n    \n}	another condition
+@stmt	loop	snippet		loop [$0]{\n    \n}	repeat while the condition is true
+@stmt	loop{}	snippet		loop{\n    $0\n}	repeat forever (leave with break)
+@stmt	var	snippet		var $0	declare a variable
+@lib	jawbreaker	lib			
+@lib	DisPlayer	lib			
+@lib	colliders	lib			
+@lib	Canvas	lib			
+@lib	Magellan	lib			
+@lib	soundMaster	lib			
+@lib	SeongBin	lib			

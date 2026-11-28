@@ -1,0 +1,206 @@
+// jawbreaker — 基本の組み込みライブラリ (読み取り専用リファレンス)
+//
+// ── プロジェクトの構成 ─────────────────
+//   プロジェクトフォルダ/
+//     project.jbs      ルートに必ず 1 つ。このフォルダがプロジェクトであることを示す
+//     main.jb          コードファイル (.jb)
+//     lib/             ライブラリファイル (.jbl) 置き場
+//       base.jbl       Lib id base;
+//       greet.jbl      Lib id greet parent base;
+//
+// ── project.jbs の形式 ─────────────────
+//   jbs 1              (1 行目、必須)
+//   name = 名前
+//   main = main.jb     ▶ 実行する基本ファイル
+//
+// ── コードファイル (.jb) ───────────────
+//   Use jawbreaker call jaw;     ライブラリ id をエイリアスで使う
+//   var 型 call 名前 = 値;       トップレベルには Use, var, run だけ
+//   var public 型 call 名前;     プロジェクト全体 (すべての .jb · .jbl) で共有する変数
+//                                · 宣言時に値は入れられない → run の中で 名前 = 値;
+//                                · 他のファイルでも同じ宣言を書けば同じ変数 (型は同じであること)
+//   run{ ... }                   実行するコードは run の中に! 複数書くとすべて同時に実行
+//                                (トップレベルの var は共有 · wait で順番を合わせる ·
+//                                 1 つの run で terminate/エラーが起きると全部止まる)
+//
+// ── コマンド (jaw.コマンド / コマンドだけ、どちらも可) ──
+//   print(値) / log(値)   デバッグログに出力
+//   wait(ms)              ms ミリ秒待つ
+//   isKeyInput("キー")    そのキーを押していれば 1、そうでなければ 0  (bit · 式の中で)
+//   fileExists("パス")    プロジェクトにそのファイルがあれば 1、なければ 0  (bit · 式の中で)
+//                         · パス: プロジェクト基準 (./ ../ はこのファイル基準) · フォルダを書くと、その中にファイルがあるとき 1
+//                         · 今回の実行で genJson で作ったファイルも · C の実行ファイル: 実行したフォルダ基準
+//                         · 例: if [jaw.fileExists("save/s.json")]{ jaw.loadJson("save/s.json", "sav"); }
+//                         · 文字 "a"~"z" · 数字 "0"~"9" · "space" "enter" "esc" "tab" "backspace"
+//                           "up" "down" "left" "right" "shift" "ctrl" "alt" (大文字小文字の区別なし)
+//                         · IME がオンでもキーの位置で判定 ("a" = A キーの位置) · 短く押しても最低 1 フレームは 1
+//                         · 画面 (DisPlayer) が開いていればすべてのキー · 画面なしで実行中なら
+//                           エディタ (入力欄) の外で押したキーだけ (実行ボタンを押した後すぐにキーを押せばよい)
+//                         · keyClick / keyPush で押したキー · can.bindInput でキーに結んだボタンも 1
+//                         · 例: if [jaw.isKeyInput("right")]{ obj.p.Xpos = obj.p.Xpos + 4; }
+//   keyClick("キー")      そのキーを軽く押したように (1 フレームの間 isKeyInput が 1)
+//   keyPush("キー")       そのキーを押したままにしたように (keyRlse するまで 1)
+//   keyRlse("キー")       keyPush · keyClick で押したキーを離す (実際のキーは指を離さないと 0 にならない)
+//   terminate()           実行中の処理をすべて終了 (同時に実行中の run もすべて)
+//   sendto("パス")        プロジェクト内の .jb ファイルへ移る — 現在の run はここで終了 (戻らない)
+//                         · 次の行は実行されない · 同じファイルの他の run{ } はそのまま · 画面 · オブジェクト · 音は維持
+//                         · 互いに何度移ってもよい (メニュー → ゲーム → メニュー …、回数制限なし)
+//                         (プロジェクトのルート基準、./ ../ は現在のファイル基準、パスはダブルクォートで囲んだリテラルであること)
+//   setup("パス")         プロジェクト内の .jb ファイルを同時に実行 (待たずにすぐ次の行へ)
+//                         · プログラムは setup したファイルまですべて終わると終了
+//   goTo(行)              その行の文へ移り、そこから続ける (行番号はエディタ左の数字)
+//                         · 現在のブロックかその外側のブロックにある文にだけ (loop を抜けて前に戻るなど)
+//                         · 内側のブロック · 別の関数 · 別の run には行けない · その行から始まる文であること
+//                         · 例: メニューを描く行に戻る — goTo(42);        · C 変換は行番号が数値リテラルのときだけ
+//                         · 上下に行を足したり消したりすると行番号が変わるので注意
+//   break()               ループを抜ける — 一番内側の loop を抜ける
+//                         (loop の外の if の中なら、その条件文を抜ける)
+//   return()              ループの先頭へ — 一番内側の loop の条件判定に戻る
+//                         (loop の外の if の中なら、その条件文の先頭 (条件判定) へ)
+//   return(値)            値を返す関数でその値を返して抜ける (下のライブラリを参照)
+//
+// ── 文法 ───────────────────────────────
+//   var 型 call 名前;            型: int float string bit  (matrix · list は下)
+//   名前 = 値;
+//   "文 %名前% 文"               %変数名% → 変数の値 (%エイリアス.変数% も可、%% = % の文字)
+//   "Wild %dex[n]% appeared!"   %リスト[インデックス]% · %行列[行, 列]% · %c[1][2]% も (角括弧の中は式)
+//   "Wild " dex[n] " appeared!" 文字列のすぐ前後に値を並べて書くと連結する (= "Wild " + dex[n] + " appeared!")
+//                                · 空白はダブルクォートの中に · 例: print("Lv." lv "  HP " hp * 2);
+//   if [条件]{ } else if [条件]{ } else{ }
+//   loop [条件]{ }               条件が真の間繰り返す (while の代わり)
+//   [条件] and [条件]            角括弧の条件を複数つなげて書く (if · loop どちらも)
+//                                and · or · xor (どちらか一方だけ) · nand · nor · not [条件] · && · || も可
+//                                優先順位 not > and · nand > xor > or · nor  ·  ( ) でまとめる
+//                                例: if [hp > 0] and not [jaw.isKeyInput("esc")] or ([x < 0] xor [y < 0]){ }
+//   loop{ }                      無限ループ (terminate() で終わらせる)
+//   loop for 1000{ }             1000 ミリ秒の間繰り返す (開始時に終了時刻を決める · 繰り返しを始める前に時間を確認)
+//   loop [条件] for 3000{ }      条件が真で 3000ms 経っていなければ繰り返す
+//                                break() · return() もそのまま · 中で wait · waitF してもよい
+//
+// ── 行列 (matrix) ──────────────────────
+//   var matrix[行, 列] call m;          float だけが入る行列 (インデックスは 1 から)
+//   var public matrix[1, 4] call coord; public も可
+//   m = [1, 1, 4 | 5, 1, 4];            , = 次の列 · | = 次の行 (サイズが同じであること)
+//   m[1, 4] = 4;                        要素 1 つは float 変数のように読み書きする
+//   var float call x = m[2, 1];
+//   print(m);  "値 %m%"                 → [1, 1, 4 | 5, 1, 4]
+//
+// ── リスト (list) ──────────────────────
+//   var list call anthropic;            空のリスト (要素は数値か文字列 · 混ぜてもよい)
+//   var list call b = [1, 2, "三"];     最初の要素を入れて作る
+//   anthropic[a]                        a 番目の要素 (インデックスは 1 から) — 変更: anthropic[2] = "x";
+//                                       範囲外のインデックスに入れるとそこまで伸びる · 間の空き要素は 0
+//                                       (b = [1, 2]; b[5] = 9; → [1, 2, 0, 0, 9] · 読み取りは範囲内だけ)
+//   anthropic.add(値);                  末尾に追加
+//   anthropic.insert(インデックス, 値);  その位置に挿入 (後ろの要素は 1 つずつずれる)
+//   anthropic.remove(インデックス);     その要素を取り除く
+//   anthropic.clear();                  すべて空にする
+//   anthropic.length                    要素数 (int)
+//   anthropic.find(値)                  値が最初に出てくるインデックス (なければ 0)
+//   print(anthropic);  "%anthropic%"    → [1, 2, "三"]
+//   · 要素を数値の場所に書けば数値か、文字列の場所に書けば文字列かを実行時に確認
+//     (var int call x = b[1] + 1;   var string call s = b[3];)
+//   · 要素同士の + は、どちらかが文字列なら連結し、そうでなければ足す · - * / は浮動小数点の計算
+//   · b = a; はコピー (b を変えても a はそのまま) · 関数の引数には使えない (public なリストを使ってください)
+//
+// ── compound ───────────────────────────
+//   リストと同じだが、要素に何でも入れられる — 数値 · 文字列 · 行列 · リスト · compound
+//   var compound call c = [1, "名前", [1, 2 | 3, 4], b];   (b はリスト変数)
+//   c.add(m);  c.insert(1, b);  c.remove(2);  c.clear();  c.length  c.find(値)   リストと同じ
+//   c[3][1, 2]                          要素が行列ならその要素 (変更: c[3][1, 2] = 5;)
+//   c[4][2]                             要素がリスト · compound ならその要素 (変更: c[4][2] = "x";)
+//   var matrix[2, 2] call m2 = c[3];    要素を取り出すときは、使う場所の型を実行時に確認
+//   var list call l2 = c[4];            (行列はサイズまで · リスト · compound · 数値 · 文字列)
+//   print(c);                           → [1, "名前", [1, 2 | 3, 4], [1, 2, "三"]]
+//   · 入れるときにコピー (入れた後に元の変数を変えても c の中はそのまま) · == と find は中まで比較
+//   · リスト (list) には今までどおり数値 · 文字列だけ — 行列 · リストを入れるには compound
+//   · compound の中の [ … ] は、文字列 · リスト · 他の [ … ] などを含めば compound、数値だけなら行列 ([x, y] の位置のように)
+//       var compound call party = [["ピカチュウ", 35, [0, 0]], ["ゼニガメ", 44, [1, 2]]];  → party[2][1] = "ゼニガメ" · party[1][3] = [0, 0] (行列)
+//       party.add(["フシギダネ", 45, [3, 3]]);  party[1] = ["ライチュウ", 60, [0, 0]];   party[1][2] = party[1][2] - 10;
+//       var compound call bag = [];         [] = 空のリスト · compound
+//
+// ── data (バイトそのまま) ─────────────
+//   var data call d = 値;          何でも入れられ、何にでも入れられる「データ」(バイトのまとまり)
+//                                · 数値 → 8 バイトの実数 · 文字列 → UTF-8 · 行列 · リスト · compound → JSON の文字
+//   var int call n = d;            取り出すときは受け取る型で無理やり読む — 合わなければスキップ
+//                                · 数値は 8 バイトのときだけ · 文字列は正しい UTF-8 のときだけ · リスト · 行列 · compound は JSON [ ] のときだけ
+//                                · スキップすると: 代入は元の値のまま · 宣言 · 引数は既定値
+//   print(d);   "" + d             16 進数で表示 (64 バイトを超えると先頭 32 バイト … (サイズ B))
+//                                · 計算 (+ - == …) はできない · リスト · compound に入れられない (別の型に移してから)
+//   data.d.getPart(開始, 終わり)   その区間のバイト (data · 式の中で) — 番号は 0 から · 終わりは含まない (getPart(0, 4) = 先頭 4 バイト)
+//                                · 範囲外は切り捨て · 終わり < 開始 なら空の data
+//   data.d.setPart(開始, 終わり, 値); その区間を値のバイトに置き換える (長さが違ってもよい · 開始 = 終わり なら挿入)
+//                                · カメラ · マイクにつないだ data は先につながりを解く (その瞬間のバイトを書き換える)
+//   jaw.copyFileData("パス") as ("変数"); プロジェクトのファイルのバイトを data 変数に入れる (今回の実行で書いたファイルも)
+//   jaw.overWriteFile(値, "パス"); 値のバイトでファイルを上書き · 書く場所は genJson と同じ
+//                                · コード (.jb · .jbl) · project.jbs · ext/ には書けない
+//
+// ── 数学関数 (式の中で · jaw.sin(30) も可) ───────
+//   sin(度) cos(度) tan(度)            角度は基本的に「度」   sin(30) → 0.5
+//   sinRad(x) cosRad(x) tanRad(x)      名前の末尾 Rad = ラジアン   sinRad(pi() / 2) → 1
+//   asin acos atan atan2(y, x)         結果が度  (asinRad … atan2Rad はラジアン)
+//   sqrt(x) pow(a, b) ln(x) log10(x)   pi()
+//   abs(x) min(a, b) max(a, b)         int 同士なら int
+//   floor(x) ceil(x) round(x)          → int
+//   random(a, b)                       a 以上 b 未満のランダムな浮動小数点数
+//   計算できない値 (sqrt(-1), asin(2) …) は実行時エラー
+//   行列同士の + - のような計算はまだない (要素同士は可能)
+//
+// ── 文字列関数 (式の中で · jaw.strLen(s) も可) ───────
+//   文字のインデックスは 1 から · 日本語 · 絵文字も 1 文字
+//   strLen(s)                       文字数 → int                strLen("あいう") → 3
+//   subStr(s, 開始, 個数)            開始番目の文字から個数分   subStr("Jawbreaker", 4, 5) → "break"
+//   charAt(s, n)                    n 番目の文字 (なければ "")
+//   findStr(s, t)                   t が最初に出てくる文字のインデックス → int (なければ 0)
+//   replaceStr(s, 探すもの, 置き換えるもの)  すべて置き換える
+//   upperStr(s) · lowerStr(s)       英字を大文字 · 小文字に
+//   trimStr(s)                      前後の空白 · 改行を取り除く
+//   startsWith(s, t) · endsWith(s, t)   t で始まれば · 終われば 1 (bit)
+//   toInt(s) · toFloat(s)           文字列 → 数値 (数値でなければ 0)   toInt(" 42 ") → 42
+//   splitStr(s, 区切り文字)          list に分ける — リスト変数に直接入れるときだけ
+//                                   var list call a = splitStr("a,b,c", ",");   (区切り文字 "" = 1 文字ずつ)
+//   数値 → 文字列は "" + 値   (例: "スコア: " + score)
+//
+// ── JSON の保存 ────────────────────────
+//   jaw.setJson("id", 値);           値を id で保持 (その時点のコピー) — 数値 · 文字列 · 行列 · リスト · compound
+//                                    [ … ] を直接書くと compound:  jaw.setJson("save", [3, "Lee", [10, 20]]);
+//                                    · 同じ id でもう一度書くと置き換わる
+//   jaw.genJson("パス.json", "id");   保持した値を JSON ファイルに保存   → [3,"Lee",[10,20]]
+//                                    · 数値 → 数値 · 文字列 → "…" · リスト · compound → [ … ]
+//                                    · 行列: 1 行なら [x, y]、複数行なら [[…], […]]
+//                                    · パス: プロジェクト基準 (./ で始めるとこのファイル基準) · フォルダ/名前.json も可 · あれば上書き
+//                                    · エディタ: プロジェクトに .json ファイルができる (エクスプローラ · 保存しないと残らない)
+//                                    · C の実行ファイル: 実行したフォルダ基準で書き込む · エクスポートした HTML: ファイルをダウンロード
+//   jaw.loadJson("パス.json", "変数");  JSON ファイルを読んで compound 変数に入れる (元の値は置き換わる)
+//                                    var compound call sav;   jaw.loadJson("save/s.json", "sav");   print(sav[2]);
+//                                    · 変数名は "ダブルクォート" で · その変数は compound であること
+//                                    · [ ] → compound · 数値 · 文字列はそのまま · true/false → 1/0 · null → 0
+//                                    · 行列として保存した [x, y] も compound として読まれる (sav[3][1] のように取り出す)
+//                                    · 一番外側が [ ] でなければ [値] に · { } (オブジェクト) は読まない (エラー)
+//                                    · 今回の実行で genJson で書いたファイルもすぐ読める · C の実行ファイルは実行したフォルダ基準
+//
+// ── ライブラリ (.jbl、lib/ フォルダ) ───
+//   Lib id greet parent base;    id で区別、parent は任意
+//   var / func だけ定義 — 親の関数・変数をそのまま受け継ぐ
+//   func hello(string who){ ... }
+//   他のファイルで:  Use greet call g;   g.hello("x");
+//   func int add(int a, int b){ return(a + b); }
+//                                値を返す関数 — func の後に戻り値の型 (int float string bit matrix[行, 列] list compound)
+//   他のファイルで:  var int call s = g.add(1, 2);   print(g.add(3, 4) * 2);
+//   · return(値) なしで終わると 0 / "" / 空のリスト / 0 の行列 · 文として g.add(1, 2); のように呼んでもよい (値は捨てる)
+//   · 引数 · 返す値に list · compound · matrix[行, 列] も使える — 渡すとき · 受け取るときにコピー (関数の中で変えても渡した変数はそのまま)
+//       func compound hit(compound mon, int dmg){ mon[2] = mon[2] - dmg; return(mon); }
+//       func matrix[1, 2] mid(matrix[1, 2] a, matrix[1, 2] b){ return([(a[1, 1] + b[1, 1]) / 2, (a[1, 2] + b[1, 2]) / 2]); }
+//       var compound call p = ["ピカチュウ", 35]; p = g.hit(p, 10);  g.hit(["ゼニガメ", 44], 3); のように [ … ] を直接渡してもよい
+//     · 返ってきたリスト · compound は変数に入れるか、print · 他の関数に渡して使う (g.f()[1] のように直接取り出すことはまだできない)
+//   · 式の中で呼んだ関数は、待たずに最後まで一気に実行
+//     → その中では wait · dis.waitF · moveObj … for · sendto を使えない
+//
+// ── 組み込みライブラリ ─────────────────
+//   jawbreaker   このリファレンス
+//   DisPlayer    画面ライブラリ → DisPlayer.jbl を参照   (Use DisPlayer call dis;)
+//   colliders    DisPlayer の下位 · 速度 → colliders.jbl を参照   (Use colliders call col;)
+//   Canvas       DisPlayer の下位 · 入力 (クリック · マウス) · シーン → Canvas.jbl を参照   (Use Canvas call can;)
+//   Magellan     DisPlayer の下位 · 画像 · テクスチャ · サウンドファイル → Magellan.jbl を参照   (Use Magellan call mag;)
+//   soundMaster  Magellan の下位 · スピーカー · 効果音 · 空間オーディオ → soundMaster.jbl を参照   (Use soundMaster call sou;)
+//   SeongBin     Canvas の下位 · カメラ → SeongBin.jbl を参照   (Use SeongBin call seo;)

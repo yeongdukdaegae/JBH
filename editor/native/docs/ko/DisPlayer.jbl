@@ -1,0 +1,209 @@
+// DisPlayer — 내장 디스플레이 라이브러리 (읽기 전용 설명서)
+// .jb 코드로 만든 라이브러리가 아니라 에디터에 들어 있는 라이브러리입니다.
+//
+// ── 사용 ───────────────────────────────
+//   Use DisPlayer call dis;      별칭(dis)은 자유롭게
+//
+// ── 명령어 ─────────────────────────────
+//   dis.setDisplay();            화면을 꽉 채우는 디스플레이를 켬
+//                                · 검은 바탕, 가운데 회색 DisPlayer 로고 (색을 바꾸면 사라짐)
+//                                · 위쪽 여백 + 오른쪽 위 ✕ (누르면 닫히고 실행도 멈춤)
+//                                · 좌표 (0, 0) 은 화면 가운데 (오른쪽 · 위쪽이 +)
+//                                · 왼쪽 아래 구석에 작게 [screenX, screenY] (화면 크기) 표시
+//   dis.disableScreenScale();    구석의 [screenX, screenY] 표시 끄기
+//   dis.enableScreenScale();     다시 켜기 (기본은 켜짐)
+//   dis.setDisplayColor("#hex"); 디스플레이 색을 헥스코드로 설정 ("#000", "#1e90ff")
+//   dis.setFont("경로.ttf");      글자 오브젝트(dis.setText)의 글꼴을 바꿈 — 모든 글자가 새 글꼴로 (.ttf 만)
+//                                · 글꼴은 불러오기 · 끌어다 놓기로 프로젝트에 넣음 (파일 목록에서 누르면 미리보기)
+//                                · Magellan 을 쓰면 mag.importFile("fonts/a.ttf") save as ("a"); 로 붙인 이름도 됨: dis.setFont("a");
+//                                · 다 읽어야 다음 줄 · 글자 폭도 새 글꼴로 다시 잼
+//                                · 이때 가운데 로고가 사라짐
+//   dis.setupObject();           이 프로젝트에서 오브젝트 기능을 켬 (오브젝트 명령보다 먼저!)
+//   dis.waitF(n);                화면 프레임 n 개만큼 기다림 (보통 60fps → 1 프레임 ≈ 16.7ms)
+//                                매 프레임 도는 반복에:  loop{ obj.ball.Xpos = obj.ball.Xpos + 2; dis.waitF(1); }
+//                                (보이지 않는 탭에서는 쉬었다가 다시 이어짐 · C 변환에서는 창의 프레임, 약 60fps)
+//
+// ── 오브젝트 ───────────────────────────
+//   []는 행렬 — 위치·크기는 (1, 2) 행렬, 위치는 오브젝트의 가운데
+//   dis.setObject([x, y], "id", [가로, 세로], 색);
+//                                색: "#ff8800" 또는 114514 처럼 숫자 3·6자리(헥스로 읽음)
+//                                같은 id 면 덮어씀 · 처음 그려지면 가운데 로고가 사라짐
+//   dis.setObjCyl([x, y], "id", 반지름, 색);
+//                                원 오브젝트 — 위치는 원의 가운데 · Scale = [지름, 지름]
+//                                (Scale 의 가로·세로를 다르게 바꾸면 타원) · 충돌 판정은 아직 사각형 기준
+//   dis.setObjPlg([x1, y1], [x2, y2], [x3, y3], [x4, y4], "id", 색);
+//                                다각형 오브젝트 — 꼭짓점 3개(삼각형) 또는 4개 (꼭짓점은 화면 좌표 · 둘레를 따라 차례로)
+//                                · dis.setObjPlg([0, 0], [100, 0], [50, 80], "tri", "#ffffff");   ← 꼭짓점 3개
+//                                · 위치 = 꼭짓점을 감싸는 사각형의 가운데 · Scale = 그 사각형 크기 (바꾸면 모양이 그 비율로 늘어남)
+//                                · 움직이기 · 돌리기 · 투명도 · 레이어 · 부모 · 자식 · UI 는 다른 오브젝트와 같음
+//                                · 마우스 판정 (isMouseTouched · 버튼) 은 다각형 모양대로 · 콜라이더는 따로 (사각형) · 텍스쳐는 안 됨
+//   dis.setObjAlpha("id", 0 ~ 255);
+//                                투명도 — 0 = 안 보임 · 255 = 불투명 (기본) · 범위 밖은 0 · 255 로 맞춤
+//   dis.setObjColor("id", 색);    색 바꾸기 (obj.id.Color = 색; 과 같음)
+//   dis.setObjOverlay("id", 색, 0 ~ 255);
+//                                오브젝트 모양 그대로 그 색을 덧씌움 — 0 = 없음 · 255 = 그 색으로 완전히 덮음 (텍스쳐는 불투명한 곳만 · 글자는 글자 모양만)
+//                                · 원래 색 · 텍스쳐는 그대로 (오버레이를 0 으로 하면 원래대로) · 오브젝트 투명도가 낮으면 오버레이도 그만큼 옅어짐
+//   dis.rotateObj("id", 각도, ms);
+//                                지금 각도에서 각도(도)만큼 더 돌림 — 시계 반대 방향 +, 음수 = 시계 방향 · ms 동안 서서히 (0 = 바로)
+//                                · 돌고 있는 중에 또 부르면 그 목표에서 더 돎 (90 두 번 = 180) · 시작하면 한 프레임 뒤 다음 줄 · 끝은 기다리지 않음
+//                                · 그림 · 원 · 글자 · 텍스쳐 · 마우스 판정(isMouseTouched · 버튼) · 콜라이더 · 트리거가 같이 돎
+//                                  (콜라이더 · 트리거는 오브젝트 가운데를 축으로 간격째 돎 · 돌아간 콜라이더끼리도 정확히 부딪힘)
+//                                · 같이 움직이는 것도 한 덩어리로 같이 돎 (위치가 피벗을 축으로 돌고, 각도도 같은 만큼 더해짐)
+//                                  - 자식(과 그 자식): 부모의 피벗(위치)을 축으로
+//                                  - setLink 로 묶인 오브젝트: 묶인 오브젝트들 피벗의 가운데를 축으로 (둘이면 두 피벗의 중점) — 돌린 오브젝트도 그 축을 돎
+//                                  - 자식을 돌리면 그 자식(과 그 아래)만 돎 · 부모는 그대로
+//                                · "<태그>" 가능
+//   dis.setTilemap([x, y], "타일맵");  타일맵 에디터의 .tl 을 깔기 — 맵의 [0, 0] 지점을 [x, y] 에 · 타일 1칸 = tileSize 단위
+//                                · [0, 0] 지점 = 타일맵 에디터의 ⌖ 로 정한 칸의 가운데 (정하지 않았으면 맵 가운데)
+//                                · "타일맵" = mag.importFile("map.tl") save as ("타일맵") 로 붙인 이름, 또는 .tl 경로
+//                                · 텍스쳐는 .tl 안에 들어 있음 · 레이어마다 오브젝트 하나 ("이름.layer0" …, 다른 것보다 아래에)
+//                                · 콜라이더 타일은 보이지 않는 벽으로 자동 설치 ("이름.col…") — 같은 파일에 Use colliders 필요
+//                                · 오르기 블럭 칸은 막지 않음 · 같은 이름으로 다시 깔면 예전 것은 지움 · 이미지를 다 그리면 다음 줄
+//                                · C 변환은 아직 지원하지 않음
+//   dis.setRenderLimit(반지름);   메인 카메라 가운데에서 반지름(화면 픽셀) 안의 오브젝트만 그림 — 0 = 제한 없음 (기본)
+//                                · 조금이라도 원 안에 걸치면 그림 · 그리기만 줄임 (물리 · 충돌 · 코드는 그대로)
+//                                · 카메라 배율이 2 면 세계 좌표로는 반지름 / 2
+//   ── for ms: 시간을 들여 바꾸기 ──
+//   dis.setObjAlpha("id", 0) for 500;           500ms 동안 서서히 (페이드 아웃)
+//   dis.setObjColor("id", "#ff5d8f") for 800;   색이 서서히 바뀜
+//   dis.setObjOverlay("id", "#ffffff", 255) for 250;   서서히 하얗게 덮임 (다시 0 으로 for 250 → 원래 색으로)
+//   dis.setObjScale("id", [200, 200]) for 300;  크기가 서서히 (글자는 글자 크기)
+//   dis.setObjPos("id", [0, 0]) for 400;        moveObj 처럼 움직임 (끝을 기다리지 않음)
+//                                · 바뀌기 시작하면 (첫 프레임) 바로 다음 줄 — 그래서 여러 개를 함께 바꿀 수 있음
+//                                  (끝날 때까지 기다리려면 jaw.wait(ms) · moveObj 는 이동이 끝나야 다음 줄) · for 0 / 생략 = 바로
+//                                · 같은 오브젝트 · 같은 속성을 다시 바꾸면 앞의 것은 그 자리에서 끝 · "<태그>" 면 모두 함께
+//   dis.setObjPos("id", [x, y]);            위치 바꾸기
+//   dis.setObjScale("id", [가로, 세로]);     크기 바꾸기
+//   dis.setText([x, y], "글자 내용", "id", 크기, 테두리, 색);
+//                                글자 오브젝트 — 글자 내용을 화면에 씀 (위치는 글자의 가운데)
+//                                크기 = 실제 글자 높이 (화면 단위 픽셀 수 · 가장 높은 글자 H·가 윗끝 ~ 가장 낮은 글자 g·y 아랫끝)
+//                                       어떤 글꼴이든 크기 32 면 글자가 32 칸 높이 · 테두리 = true/false (글자색과 대비되는 색)
+//                                obj.id.Text = "새 글자"; 로 내용만 바꿀 수 있음
+//                                · "첫 줄\n둘째 줄" 처럼 \n 으로 여러 줄 (가운데 맞춤 · 줄 간격 = 크기 × 1.2 · 폭 = 가장 긴 줄)
+//                                Scale 은 [글자 폭, 글자 크기] (자동) · Scale 의 Y 를 바꾸면 폰트 크기
+//   dis.setTextNudge("id", "left");
+//                                글자 오브젝트의 위치 기준점 — 기본 "center" (위치 = 글자 가운데)
+//                                "left" 위치 = 왼쪽 끝 · "right" 오른쪽 끝 · "top" 위 끝 · "bottom" 아래 끝
+//                                "top left" 처럼 둘을 합치면 그 모서리 ("topleft" · "left-top" 도 됨)
+//                                · 글자가 길어지거나 바뀌어도 기준점은 그대로 (왼쪽 맞춤 · 오른쪽 맞춤 점수판 등)
+//                                · 눌림 · 트리거 등 판정도 실제 글자 자리로 · nudgeObj 도 기준점에 맞춰 붙임
+//   dis.setObjNudge("id", "left");
+//                                오브젝트(사각형 · 원 · 다각형 · 이미지 · 글자)의 위치 기준점(피벗) — 방식은 setTextNudge 와 같음
+//                                · "left" 면 위치 = 왼쪽 끝 → setObjScale 로 가로를 줄여도 왼쪽 끝은 그대로 (체력바 등)
+//                                · 회전은 지금처럼 가운데 기준 · 콜라이더 · 트리거 위치는 그대로 (위치 + 오프셋)
+//   dis.nudgeObj("id", [왼쪽, 위], x간격, y간격);
+//                                화면 가장자리에 붙임 — [왼쪽, 위] 는 bit 행렬
+//                                [true, true] 왼쪽 위 · [false, true] 오른쪽 위
+//                                [true, false] 왼쪽 아래 · [false, false] 오른쪽 아래
+//                                간격 = 가장자리에서 띄울 px (dis.setDisplay() 뒤에)
+//   dis.moveObj("id") to [x, y] for ms;     ms 동안 [x, y] 로 곧게 이동
+//   dis.moveObj("id") to [x, y] for ms ease ("sinleft");
+//                                이동의 빠르기 곡선 — dis.setObjPos(…) for ms ease (…) 도 됨
+//                                "linear" 한결같이 (기본) · "sin" 사인 0° ~ 90° (끝에서 느려짐)
+//                                "sinright" 0° ~ 45° (거의 한결같이) · "sinleft" 45° ~ 90° (빠르게 나와 끝에서 확 느려짐)
+//                                to 에는 [x, y] 나 matrix[1, 2] 변수 (예: to coord)
+//                                for 를 빼면 0 (바로 이동) · 이동이 끝나야 다음 줄로
+//                                (동시에 움직이려면 run{ } 을 여러 개)
+//                                행렬 안의 obj.Xpos · obj.Ypos · obj.Xscale · obj.Yscale
+//                                = 그 오브젝트의 지금 값 (예: [obj.Xpos + 10, obj.Ypos])
+//   dis.setParent() ("자식") as ("부모");
+//                                부모가 움직이면 자식도 같이 움직임 (자식은 따로도 움직일 수 있음)
+//                                · ( ) 안은 id 문자열 — 변수 · "a" + n 도 됨 · "" = 자기 자신 (귀속된 파일)
+//                                자기 자신이나 자신의 자식을 부모로 하면 오류
+//   dis.setLink("id1", "id2");   두 오브젝트를 묶음 — 어느 쪽이 움직여도 다른 쪽이 같은 만큼 같이 움직임
+//                                · 부모 · 자식 관계와 상관없음 (부모 · 자식끼리 묶어도 한 번만 움직임)
+//                                · 묶인 것끼리 이어짐: setLink("a", "b"); setLink("b", "c"); → a · b · c 가 같이
+//                                · dis.setLink("id", ""); = 그 오브젝트를 묶음에서 뺌 · 지우면 자동으로 빠짐
+//                                · 위치 · 속도 · 충돌 · moveObj · obj.id.Xpos = … 등 어떤 이동이든 · 크기 · 색은 따로
+//                                · "<태그>" 가능 (태그가 붙은 오브젝트마다 묶음) · col.setLink 도 같음
+//   dis.escParent("id");         부모 상속 해제 — 이 오브젝트가 부모에게서 떨어짐 (위치 그대로 · 부모가 없으면 아무 일 없음)
+//   dis.splitParent("id");       부모의 가정해체 — 이 오브젝트의 자식을 모두 떼어냄 (자식들은 남고 위치 그대로)
+//   dis.removeObj("id");         오브젝트 지우기 (자식은 남고 부모 관계만 풀림)
+//   dis.disableObj("id");        오브젝트 비활성화 — 안 그리고 · 안 움직이고 · 충돌 · 트리거 · 마우스 판정 없음
+//                                (지워지지는 않음 · 값은 읽고 바꿀 수 있음 · 자식도 같이 꺼짐 · 귀속된 코드는 쉼)
+//   dis.enableObj("id");         다시 활성화 (멈췄던 속도 · 코드가 이어서 움직임)
+//   dis.setTxtContent("id", "내용");  글자 오브젝트(dis.setText 로 만든 것)의 내용을 바꿈 — obj.id.Text = "내용"; 과 같음
+//                                · 숫자는 "" + 값 으로 · "<태그>" · "" (자기 자신) 가능 · 글자가 아닌 오브젝트면 오류
+//   dis.setObjLayer("id", n);    그리는 순서 (레이어) — 클수록 위에 그림 · 기본 0 · 같으면 먼저 만든 것이 아래
+//   dis.ascendObjLayer("id", n); 오브젝트와 그 자식(과 그 아래 자식) 모두의 레이어를 n 만큼 올림 · 음수면 내림
+//                                · 각자의 레이어에 더하므로 부모 · 자식 사이의 순서는 그대로 · "<태그>" 가능
+//   dis.tagObj("id", "태그");     오브젝트에 태그 붙이기 (여러 개 가능 · 다시 만들어도 유지)
+//                                id 란에 "<태그>" 를 쓰면 그 태그가 붙은 오브젝트 모두에 같은 명령
+//                                (dis.setObjPos("<enemy>", [obj.Xpos, obj.Ypos - 5]);  dis.removeObj("<bullet>");
+//                                 col.setVelocity("<enemy>", [0, -50]);  dis.moveObj("<coin>") to [0, 0] for 300;)
+//                                · 행렬 안의 obj.Xpos 등은 오브젝트마다 그 오브젝트의 값
+//                                · moveObj 는 모두 함께 움직이고 다 끝나면 다음 줄 · 태그가 붙은 것이 없으면 아무 일 없음
+//                                · getVar 처럼 값 하나를 읽는 명령에는 못 씀
+//   dis.getVar("id", "이름") as 변수;
+//                                이름: coord(= position) · scale · color · text
+//                                      · 성분은 "scale[1, 2]" 처럼
+//                                받는 변수 형식이 같아야 함:
+//                                coord/scale → matrix[1, 2] · 성분 → float · color → string
+//   obj.id.Position / obj.id.Scale / obj.id.Color / obj.id.Text
+//   obj.id.Xpos / obj.id.Ypos / obj.id.Xscale / obj.id.Yscale   (float 성분)
+//                                변수처럼 읽고 바꿈 (var float call x = obj.yaju.Xpos;  obj.yaju.Ypos = 300;)
+//                                (obj.yaju.Position = [100, 200];  obj.yaju.Scale[1, 1] = 50;)
+//
+// ── 파일 귀속 (귀속시킬 파일의 run{ } 바로 안에 씀) ──
+//   dis.BelongObj("id");         이 파일 전체를 오브젝트에 귀속 — 그 id 오브젝트가 만들어지는 순간
+//                                이 파일의 run{ } 이 그 오브젝트 기준으로 처음부터 실행됨
+//                                · 경로를 쓰지 않음: 귀속 선언이 있는 .jb 파일은 누가 부르지 않아도 자동으로 읽힘
+//                                · 어느 run{ } 에 써도 파일 전체가 귀속 · 여러 번 쓰면 여러 오브젝트에 귀속
+//                                · 아직 귀속되지 않은 채 실행 중이면 (main · sendto 로 실행한 파일) 그 줄에서 바로 귀속
+//                                  → 그 뒤로 이 파일의 모든 run{ } 에서 obj.Xpos · "" id · 자식 만들기 등이 그 오브젝트 기준
+//                                  (그 오브젝트가 먼저 있어야 함 · 이미 귀속된 실행에서는 아무 일도 하지 않음)
+//                                · if · loop 안에는 못 씀 · id 는 비울 수 없음 · 태그 "<…>" 는 안 됨
+//                                · main 은 오브젝트가 생길 때 따로 실행되지 않고 그 줄에서만 귀속 (BelongScene 은 main 에 못 씀)
+//                                · dis.removeObj 로 지우면 귀속된 코드도 멈춤 (다시 만들면 처음부터)
+//                                · 여러 오브젝트에 귀속하면 오브젝트마다 따로 실행 (변수도 따로)
+//   귀속된 파일 안에서는:
+//     obj.Xpos · obj.Position · obj.Color · obj.Text …   id 없이 = 자기 자신 (obj.Ypos = 10; 도 됨)
+//     명령의 id 란을 "" 로 비우면 자기 자신   (dis.setObjPos("", [0, 0]);  col.setVelocity("", [50, 0]);)
+//     파일 최상위 var 와 run{ } 바로 안의 var = 그 오브젝트의 변수 (오브젝트마다 따로)
+//       → 다른 파일에서 obj.id.변수 로 하나하나 읽고 바꿈 (obj.hero.hp = 50;  obj.enemy2.speed = 3;)
+//       (run{ } 안의 var 는 그 줄이 실행된 뒤부터 · loop · if 안의 var 는 안 됨)
+//     여기서 새로 만든 오브젝트는 자동으로 그 오브젝트의 자식 (부모를 따라 움직임)
+//     부모 오브젝트에 귀속된 파일의 변수(public 아닌 로컬 변수도)는 자식의 귀속 코드에서 이름만으로 읽고 바꿈
+//       (부모 → 그 부모 … 가까운 조상부터 찾음 · 내 변수가 같은 이름이면 내 것이 먼저)
+//     (setObjPos 같은 명령의 행렬 안에서 obj.Xpos 는 지금 바꾸는 오브젝트의 값)
+//   예)  main.jb:    run{ dis.setupObject(); dis.setObject([0, 0], "hero", [40, 40], "#fff"); obj.hero.hp = 80; }
+//        player.jb:  var int call hp = 100;
+//                    run{ dis.BelongObj("hero"); dis.setObject([obj.Xpos, obj.Ypos + 30], "hpbar", [40, 6], "#f44"); obj.Ypos = 50; }
+//
+// ── 변수 (읽기 전용, 별칭에 따라 이름이 바뀜) ──
+//   dis.displayX                 디스플레이 가로 크기 (화면 단위)
+//   dis.displayY                 디스플레이 세로 크기 (화면 단위, 위쪽 여백 제외)
+//                                setDisplay() 전에는 0 · 창 크기가 바뀌면 같이 바뀜
+//   dis.idWidthmode              bit — 가로 모드(가로 ≥ 세로)면 1, 세로 모드면 0 (화면을 돌리면 바뀜)
+//
+// ── 화면 단위 (기기와 상관없이 같은 크기) ──
+//   화면의 짧은 쪽이 항상 720 — 세로 모드면 가로가 720, 가로 모드면 세로가 720 (긴 쪽은 화면 비율대로)
+//   · 위치 · 크기 · 글자 크기 · 속도 · 마우스 (can.MouseX/Y) · displayX/Y · setRenderLimit 모두 이 단위
+//   · 예: 세로 폰 390 × 844 px → 720 × 1558 · 가로 1280 × 720 창 → 1280 × 720 · 구석의 [screenX, screenY] 도 이 단위
+//   · 짧은 쪽 끝은 항상 ±360 — [0, 300] 은 어느 기기에서나 위쪽 가까이 (세로 모드면 위아래로 더 넓음)
+//
+// ── 예 ─────────────────────────────────
+//   Use DisPlayer call dis;
+//   run{
+//       dis.setDisplay();
+//       dis.setDisplayColor("#101820");
+//       print("화면 크기: %dis.displayX% x %dis.displayY%");
+//
+//       dis.setupObject();
+//       dis.setObject([500, 500], "yaju", [200, 200], 114514);
+//       var float call w = 0;
+//       dis.getVar("yaju", "scale[1, 1]") as w;
+//       dis.setObjScale("yaju", [obj.Xscale * 2, obj.Yscale]);
+//       obj.yaju.Position[1, 2] = 300;
+//       dis.moveObj("yaju") to [obj.Xpos + 200, obj.Ypos] for 1000;
+//       dis.setText([0, 0], "SCORE 0", "score", 28, true, "#ffd166");
+//       dis.nudgeObj("score", [true, true], 16, 12);   // 왼쪽 위에 붙임
+//       obj.score.Text = "SCORE 10";
+//   }
+//
+// · C 변환: DisPlayer · colliders · Canvas · Magellan 을 쓰면 SDL2 로 창(팝업)을 띄워 똑같이 그리고 움직입니다.
+//   빌드:  gcc main.c -o main -pthread -lm $(sdl2-config --cflags --libs)   (글자를 쓰면 + -lSDL2_ttf · 이미지를 쓰면 + -lSDL2_image)
+//   · 프로그램은 다른 스레드에서 돌고 창은 약 60fps · 창을 닫으면 프로그램도 끝
+//   · 창을 열지 않았으면 프로그램이 끝날 때 끝 · 열었으면 창을 닫을 때까지 (속도 · 물리는 계속)
+//   · 글자는 한글 글꼴을 자동으로 찾음 (못 찾으면 JB_FONT=글꼴.ttf 로 지정)
+//   · 귀속된 파일 (BelongObj · BelongScene) 의 run 은 각자 다른 스레드로 동시에 실행

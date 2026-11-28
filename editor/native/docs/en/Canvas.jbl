@@ -1,0 +1,84 @@
+// Canvas — built-in sub-library of DisPlayer · input · scenes (read-only reference)
+// It depends on DisPlayer: the same file needs Use DisPlayer.
+//
+// ── Use ────────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Canvas call can;
+//
+// ── Values (read-only; names follow your alias) ──
+//   can.ScreenClicked            1 while the screen (display) is pressed, otherwise 0  (bit)
+//                                · mouse · touch · pen · not the ✕ bar at the top
+//                                · even a quick tap stays 1 for at least 1 frame (checking every frame won't miss it)
+//                                · 0 while the display is closed
+//   can.MouseX · can.MouseY      mouse (touch) position (float) — same coordinates as objects
+//   can.setUi("id");             fix the object to the camera (UI) — from then on its position is a screen coordinate ([0, 0] = screen center · up +)
+//                                · it stays put at the same size whatever the camera does · drawn above world objects (UI among itself by layer)
+//                                · buttons · isMouseTouched use screen coordinates · it never hits colliders · triggers · setRenderLimit doesn't apply
+//                                · its children (and theirs) become UI too · an object later made a child of a UI object becomes UI as well
+//                                · "<tag>" works · e.g. HP bars · dialog boxes · menus
+//   can.setasButton("id");       makes the object a button ("<tag>" · "" (itself) work)
+//   can.obj.id.IsButtonClicked   1 when the button was pressed and released on it  (bit)
+//                                · one click is 1 only once (reading it resets it) — check it every frame in a loop
+//                                · clicks from before it became a button · clicks older than 0.5 s don't count
+//                                · 0 while the button is disabled or not in the current scene · an error on non-buttons
+//                                · in a bound file, can.obj.IsButtonClicked = itself
+//                                · e.g. can.setasButton("start");  loop{ if [can.obj.start.IsButtonClicked]{ print("start"); } dis.waitF(1); }
+//   can.obj.id.IsButtonPushed    1 while the button is held (bit) — a finger · mouse pressed down over it (several fingers work)
+//                                · even a very short press is 1 for at least 1 frame · e.g. run while held  loop{ if [can.obj.run.IsButtonPushed]{ … } dis.waitF(1); }
+//   can.obj.id.IsButtonRelease   1 the moment a press on the button is let go (bit) — released anywhere · once (reading resets it) · older than 0.5 s doesn't count
+//                                · IsButtonReleased works too · in a bound file, can.obj.IsButtonPushed without an id = itself
+//   can.bindInput("button id") to ("key");
+//                                while that button is held, the key counts as pressed — jaw.isKeyInput("key") is 1
+//                                · makes it a button if it isn't one · one key per button (calling again replaces it · to ("") unbinds)
+//                                · several fingers can hold several buttons at once (an on-screen joypad)
+//                                · a quick tap stays 1 for at least 1 frame · disabled buttons or ones not in the current scene don't press
+//                                · e.g. can.bindInput("btnLeft") to ("left");  can.bindInput("btnJump") to ("space");
+//   (key input, jaw.isKeyInput, moved to the jawbreaker library)
+//                                · (0, 0) = center of the screen · right and up are +
+//                                · the mouse updates while hovering too · touch = where you press / drag
+//                                · keeps the last position when the pointer leaves · starts at (0, 0)
+//   can.obj.id.isMouseTouched    1 while the mouse (touch) is over that object (bit)
+//                                · rectangles · text use their box, circles the circle (ellipse) · overlapping objects are all 1
+//                                · touch counts only while pressing · 0 off screen · ignores opacity and layers
+//                                · pressing the object: [can.obj.id.isMouseTouched && can.ScreenClicked]
+//                                · in a bound file, can.obj.isMouseTouched = the object itself
+//
+// ── Scenes ─────────────────────────────
+//   can.setUpScene();            enable scenes (before any scene command!) — the current screen is the first scene (no name)
+//                                · objects that already exist belong to the first scene
+//   can.nameScene("name");       name the current scene
+//   can.setScene("name");        create a new scene (doesn't move there)
+//   can.sendtoScene("name");     move to that scene
+//                                · only objects that can exist there are drawn · move · collide · trigger · get mouse hits
+//                                · the others aren't deleted; they rest and reappear unchanged when you come back
+//   can.popupScene("name");      freeze the whole current scene and open that scene (menu · dialog · pause screen …)
+//                                · frozen: the current scene's scene code · objects · bound code · motion · animations · remaining wait time
+//                                · the code that called it waits until the popup is closed, then goes on
+//                                · the popup's scene code (BelongScene) starts fresh each time · popups can stack
+//                                · sendtoScene while a popup is open discards the popups and frozen scenes · not in the C conversion yet
+//   can.closeScene();            close the popup scene → the frozen scene resumes exactly where it stopped (camera too)
+//   can.obj.setExistableScene("scene", "id");
+//                                add a scene the object can exist in (call again for more · "*" = every scene)
+//                                · a new object exists only in the scene it was created in · the id can be "<tag>" or "" (itself)
+//   can.SceneName                the current scene's name (string · "" if it has no name)
+//   can.BelongScene("scene");    directly inside run{ } — like dis.BelongObj, binds this whole file to that scene
+//                                entering the scene runs this file's run{ } · leaving stops it (coming back starts over)
+//   · code bound to an object pauses while that object isn't in the current scene or is disabled, then continues
+//   · e.g. can.setUpScene(); can.nameScene("title"); can.setScene("game");
+//          dis.setObject([0, 0], "hud", [100, 20], "#fff"); can.obj.setExistableScene("*", "hud");
+//          if [can.ScreenClicked]{ can.sendtoScene("game"); }
+//
+// ── Example ────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Canvas call can;
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       dis.setObject([0, 0], "box", [80, 80], "#5c68ff");
+//       loop{
+//           obj.box.Position = [can.MouseX, can.MouseY];   // follows the mouse
+//           if [can.ScreenClicked]{ obj.box.Color = "#ffd166"; }
+//           else{ obj.box.Color = "#5c68ff"; }
+//           dis.waitF(1);
+//       }
+//   }

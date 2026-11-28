@@ -1,0 +1,76 @@
+// Magellan — DisPlayer 的內建子函式庫 · 圖片 · 紋理 (貼圖) (唯讀參考文件)
+// 從屬於 DisPlayer: 同一個檔案中必須有 Use DisPlayer。
+//
+// ── 使用 ───────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Magellan call mag;
+//
+// ── 放入圖片 ───────────────────────────
+//   透過 ☰ 開啟 · 拖放把 .png · .jpg · .gif · .webp · .bmp 放入專案
+//   (聲音 .wav · .mp3 · .ogg · .m4a 也用同樣的方法放入，用 importFile 起名後在 soundMaster 中使用)
+//   (字型 .ttf 也用 importFile 起名後在 dis.setFont("名稱") 中使用)
+//   (匯出為 zip 時圖片也會一起放進去 · 在檔案清單中點選可預覽)
+//
+// ── 命令 ───────────────────────────────
+//   mag.importFolder("路徑");
+//                                給該資料夾 (含子資料夾) 中的圖片 · 聲音 · 字型 · 瓦片地圖全部起名
+//                                · 名稱 = 去掉副檔名的檔名 (assets/sounds/choose.mp3 → "choose")
+//                                · 名稱重複則報錯 (那個檔案請用 importFile 單獨起名) · "" = 整個專案 · 路徑是帶引號的字面值
+//   mag.importFile("路徑") save as ("id");
+//                                給路徑起一個短名稱 (id) — 不復制檔案也不另外儲存，之後 id 就代表該路徑
+//                                · 名稱由整個程式 (所有檔案) 共用 · 用相同的 id 再次執行則指向另一個路徑
+//                                · 路徑是帶引號的字面值 (以專案根目錄為準，./ ../ 以目前檔案為準)
+//                                · 不等待，直接到下一行 (圖片讀取完成後才顯示)
+//   mag.setObjTexture("id", "圖片名稱", [x1, y1], [x2, y2]);
+//                                把圖片的 [x1, y1] ~ [x2, y2] 部分貼到物件上 (圖片像素 · 左上角為 [0, 0])
+//                                · 物件顏色會變為 #ffffff — 改變顏色則產生顏色效果 (相乘)
+//                                  (dis.setObjColor("id", "#ff8080"); 變紅 · 也可以用 for ms 逐漸變化)
+//                                · 圓形會以方形圖片切掉四個角的形狀貼上
+//                                · x2 < x1 則左右翻轉 · y2 < y1 則上下翻轉
+//                                · 不透明度 · 圖層 · 大小 · 標籤 ("<標籤>") 都保持不變 · 圖片名稱寫 "" 則取下紋理
+//                                · 精靈圖 (Sprite Sheet · 圖集): 在同一張圖片中只換格子來做動畫 (用下面的紋理 · 動畫更方便)
+//
+// ── 紋理 ───────────────────────────────
+//   mag.setasTexture("圖片名稱", [x1, y1], [x2, y2]) save as ("紋理 id");
+//                                把圖片的 [x1, y1] ~ [x2, y2] 矩形做成紋理並起一個 id (翻轉 · 範圍規則與 setObjTexture 相同)
+//                                · id 由整個程式共用 · 用相同的 id 再次執行則被替換
+//   mag.wearTexture("物件 id", "紋理 id");
+//                                給物件貼紋理 · "" = 取下 · 可以用 "<標籤>"
+//                                · 第一次貼時顏色變為 #ffffff (改變顏色則產生顏色效果) · 正在播放的動畫會停止
+//
+// ── 動畫 ───────────────────────────────
+//   mag.setasAnime(["紋理 id", …], ms, "動畫 id");
+//                                按順序以 ms 間隔顯示各個紋理的動畫 (也可以用串列變數)
+//   mag.obj.id.applyAnime("動畫 id");          播放動畫 (1 倍速 · 一次)
+//   mag.obj.id.runAnime("動畫 id", 倍速);       以該倍速播放 (2.0 = 快兩倍 · 0.5 = 一半)
+//                                · 播放一次後停在最後一幀 · 不等待，直接到下一行
+//                                · 播放中再次呼叫 (不論是別的動畫還是同一個動畫) 會在目前的播完之後切換 — 只保留最後呼叫的那一個
+//                                  (行走期間每一幀都呼叫 runAnime("walk", 1.0)，就能不間斷地重複)
+//   mag.obj.id.breakAnime();                  停止動畫 — 保持停止時那一幀的紋理 · 等待中的下一個動畫也取消
+//   mag.obj.id.animeFrame                     int — 目前顯示的動畫幀 (從 1 開始) · 未播放時為 -1
+//                                · 在已綁定的檔案中寫 mag.obj.runAnime("walk", 1.0); · mag.obj.animeFrame = 自身
+//                                · 不能用於文字 · 不可見的物件
+//
+// ── 例 ─────────────────────────────────
+//   Use jawbreaker call jaw;
+//   Use DisPlayer call dis;
+//   Use Magellan call mag;
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       mag.importFile("img/hero.png") save as ("hero");
+//       dis.setObject([0, 0], "player", [96, 96], "#fff");
+//       mag.setasTexture("hero", [0, 0], [32, 32]) save as ("w1");     // 32 × 32 的格子 4 個
+//       mag.setasTexture("hero", [32, 0], [64, 32]) save as ("w2");
+//       mag.setasTexture("hero", [64, 0], [96, 32]) save as ("w3");
+//       mag.setasTexture("hero", [96, 0], [128, 32]) save as ("w4");
+//       mag.wearTexture("player", "w1");
+//       mag.setasAnime(["w1", "w2", "w3", "w4"], 120, "walk");
+//       loop{   // 按住時重複行走 · 鬆開則停止
+//           if [jaw.isKeyInput("right")]{ mag.obj.player.runAnime("walk", 1.5); }
+//           else{ mag.obj.player.breakAnime(); }
+//           dis.waitF(1);
+//       }
+//   }
+//
+// · 轉為 C: 名稱所指路徑的圖片檔案會在第一次使用時用 SDL2_image 讀取 (在專案資料夾中執行)。

@@ -1,0 +1,159 @@
+jawbreaker	sin	func	(x)	sin($0)	サイン (角度: 度)
+jawbreaker	cos	func	(x)	cos($0)	コサイン (角度: 度)
+jawbreaker	tan	func	(x)	tan($0)	タンジェント (角度: 度)
+jawbreaker	asin	func	(x)	asin($0)	アークサイン → 度 (値は -1 ~ 1)
+jawbreaker	acos	func	(x)	acos($0)	アークコサイン → 度 (値は -1 ~ 1)
+jawbreaker	atan	func	(x)	atan($0)	アークタンジェント → 度
+jawbreaker	atan2	func	(a, b)	atan2($0)	atan2(y, x) → 度 (方向の角度)
+jawbreaker	sinRad	func	(x)	sinRad($0)	サイン (角度: ラジアン)
+jawbreaker	cosRad	func	(x)	cosRad($0)	コサイン (角度: ラジアン)
+jawbreaker	tanRad	func	(x)	tanRad($0)	タンジェント (角度: ラジアン)
+jawbreaker	asinRad	func	(x)	asinRad($0)	アークサイン → ラジアン
+jawbreaker	acosRad	func	(x)	acosRad($0)	アークコサイン → ラジアン
+jawbreaker	atanRad	func	(x)	atanRad($0)	アークタンジェント → ラジアン
+jawbreaker	atan2Rad	func	(a, b)	atan2Rad($0)	atan2(y, x) → ラジアン
+jawbreaker	sqrt	func	(x)	sqrt($0)	平方根 (0 以上)
+jawbreaker	pow	func	(a, b)	pow($0)	pow(a, b) = a の b 乗
+jawbreaker	ln	func	(x)	ln($0)	自然対数 (0 より大きい値)
+jawbreaker	log10	func	(x)	log10($0)	常用対数 (0 より大きい値)
+jawbreaker	abs	func	(x)	abs($0)	絶対値
+jawbreaker	floor	func	(x)	floor($0)	切り捨て → int
+jawbreaker	ceil	func	(x)	ceil($0)	切り上げ → int
+jawbreaker	round	func	(x)	round($0)	四捨五入 → int
+jawbreaker	min	func	(a, b)	min($0)	2 つのうち小さい値
+jawbreaker	max	func	(a, b)	max($0)	2 つのうち大きい値
+jawbreaker	random	func	(a, b)	random($0)	random(a, b) = a 以上 b 未満のランダムな浮動小数点数
+jawbreaker	pi	func	()	pi($0)	円周率 3.14159…
+jawbreaker	strLen	func	(s) → int	strLen($0)	文字数
+jawbreaker	subStr	func	(s, from, n) → string	subStr($0)	from 番目の文字から n 文字
+jawbreaker	charAt	func	(s, n) → string	charAt($0)	n 番目の文字 (なければ "")
+jawbreaker	findStr	func	(s, t) → int	findStr($0)	t が最初に出てくる文字のインデックス (なければ 0)
+jawbreaker	replaceStr	func	(s, old, new) → string	replaceStr($0)	old をすべて new に置き換える
+jawbreaker	upperStr	func	(s) → string	upperStr($0)	英字を大文字に
+jawbreaker	lowerStr	func	(s) → string	lowerStr($0)	英字を小文字に
+jawbreaker	trimStr	func	(s) → string	trimStr($0)	前後の空白 · 改行を取り除く
+jawbreaker	startsWith	func	(s, t) → bit	startsWith($0)	s が t で始まれば 1
+jawbreaker	endsWith	func	(s, t) → bit	endsWith($0)	s が t で終われば 1
+jawbreaker	toInt	func	(s) → int	toInt($0)	文字列 → int (数値でなければ 0)
+jawbreaker	toFloat	func	(s) → float	toFloat($0)	文字列 → float (数値でなければ 0)
+jawbreaker	splitStr	func	(s, sep) → list	splitStr($0)	区切り文字で分けた list — リスト変数に直接入れるときだけ
+jawbreaker	isKeyInput	func	("キー") → bit	isKeyInput("$0")	jawbreaker · そのキーを押している間 1 ("a", "space", "up" …)
+jawbreaker	fileExists	func	("경로") → bit	fileExists("$0")	jawbreaker · プロジェクトにそのファイル (フォルダ) があれば 1
+jawbreaker	log	builtin	(値)	log($0);	jawbreaker · デバッグログに出力
+jawbreaker	print	builtin	(値)	print($0);	jawbreaker · デバッグログに出力
+jawbreaker	wait	builtin	(int ms)	wait($0);	jawbreaker · ms ミリ秒待つ
+jawbreaker	terminate	builtin	()	terminate();$0	jawbreaker · 実行中の処理をすべて終了
+jawbreaker	break	builtin	()	break();$0	jawbreaker · 一番内側の loop を抜ける (loop の外なら if を抜ける)
+jawbreaker	return	builtin	()	return();$0	jawbreaker · 一番内側の loop の先頭 (条件判定) へ
+jawbreaker	goTo	builtin	(int 줄)	goTo($0);	jawbreaker · その行の文へジャンプ (現在のブロックか外側のブロック · メニューに戻るときなど)
+jawbreaker	label	builtin	("名前")	label("$0");	jawbreaker · この行に名前を付ける (goTo("名前") でこの行へ)
+jawbreaker	keyClick	builtin	(string キー)	keyClick("$0");	jawbreaker · そのキーを軽く押したように (1 フレーム)
+jawbreaker	keyPush	builtin	(string キー)	keyPush("$0");	jawbreaker · そのキーを押したままにしたように (keyRlse まで)
+jawbreaker	keyRlse	builtin	(string キー)	keyRlse("$0");	jawbreaker · keyPush · keyClick で押したキーを離す
+jawbreaker	setJson	builtin	("id", 値)	setJson($0);	jawbreaker · 値を JSON として保持 (compound など何でも · その時点のコピー)
+jawbreaker	genJson	builtin	("パス.json", "id")	genJson($0);	jawbreaker · 保持した JSON をファイルに保存
+jawbreaker	loadJson	builtin	("パス.json", "変数")	loadJson($0);	jawbreaker · JSON ファイルを compound 変数に読み込む
+jawbreaker	copyFileData	builtin	("パス") as ("data 変数")	copyFileData("$0");	jawbreaker · プロジェクトのファイルのバイトを data 変数に入れる
+jawbreaker	overWriteFile	builtin	(値, "パス")	overWriteFile($0);	jawbreaker · 値のバイトでファイルを上書き (genJson と同じ場所)
+jawbreaker	exportFile	builtin	("パス.json", "ファイル名")	exportFile($0);	jawbreaker · そのファイルを難読化して端末にダウンロード
+jawbreaker	openFile	builtin	("パス.json")	openFile("$0");	jawbreaker · 端末のファイルを選んでそのパスに取り込む (選ぶまで待つ)
+DisPlayer	BelongObj	func	("id")	BelongObj("$0");	DisPlayer · run{ } の中 · このファイル全体をオブジェクトにバインド (そのオブジェクトができると実行)
+DisPlayer	waitF	func	(int フレーム)	waitF($0);	DisPlayer · 画面のフレーム n 個分待つ (60fps ≈ 16.7ms)
+DisPlayer	setDisplay	func	()	setDisplay();$0	DisPlayer · 画面いっぱいのディスプレイを開く · (0, 0) = 左下
+DisPlayer	setDisplayColor	func	(string 16 進)	setDisplayColor("#$0");	DisPlayer · ディスプレイの色を設定 (例: "#1e90ff")
+DisPlayer	setFont	func	("パス.ttf")	setFont("$0");	DisPlayer · 文字オブジェクトのフォント (.ttf · Magellan があればファイルの名前も可)
+DisPlayer	setupObject	func	()	setupObject();$0	DisPlayer · このプロジェクトでオブジェクト機能を有効にする
+DisPlayer	setObject	func	([x, y], "id", [幅, 高さ], 色)	setObject([$0, 0], "id", [100, 100], "#ffffff");	DisPlayer · オブジェクトを作成または上書き · 位置は中心
+DisPlayer	setObjScale	func	("id", [幅, 高さ])	setObjScale("$0", [obj.Xscale, obj.Yscale]);	DisPlayer · サイズ変更 · obj.Xscale / obj.Yscale = 現在の値
+DisPlayer	setObjPos	func	("id", [x, y])	setObjPos("$0", [obj.Xpos, obj.Ypos]);	DisPlayer · 位置変更 · obj.Xpos / obj.Ypos = 現在の値
+DisPlayer	getVar	func	("id", "名前") as 変数	getVar("$0", "coord") as ;	DisPlayer · coord · scale · color · "scale[1, 2]" を変数に取り出す
+DisPlayer	moveObj	func	("id") to [x, y] for ms	moveObj("$0") to [obj.Xpos, obj.Ypos] for 500;	DisPlayer · ms かけて [x, y] へ移動 (終わるまで待つ · for を省くと即座に)
+DisPlayer	setText	func	([x, y], "文字の内容", "id", サイズ, 縁取り, 色)	setText([$0, 0], "글자", "id", 32, true, "#ffffff");	DisPlayer · 文字オブジェクト · 内容は obj.id.Text で変更 · 縁取りは true/false
+DisPlayer	nudgeObj	func	("id", [左, 上], x 間隔, y 間隔)	nudgeObj("$0", [true, true], 16, 16);	DisPlayer · 画面の端に寄せる · [true, true] = 左上、[false, false] = 右下
+DisPlayer	setTextNudge	func	("id", "基準点")	setTextNudge("$0", "left");	DisPlayer · 文字位置の基準点 · "center" · "left" · "right" · "top" · "bottom" · "top left" …
+DisPlayer	setObjNudge	func	("id", "基準点")	setObjNudge("$0", "left");	DisPlayer · オブジェクト位置の基準点 (ピボット) · "left" ならサイズを変えても左端が固定 (HP バーなど)
+DisPlayer	enableScreenScale	func	()	enableScreenScale();$0	DisPlayer · 隅の [screenX, screenY] 表示をオン (デフォルト)
+DisPlayer	disableScreenScale	func	()	disableScreenScale();$0	DisPlayer · 隅の [screenX, screenY] 表示をオフ
+DisPlayer	setParent	func	() ("子") as ("親")	setParent() ("$0") as ("");	DisPlayer · 親が動くと子も一緒に動く (子は単独でも動ける)
+DisPlayer	setLink	func	("id1", "id2")	setLink("$0", "");	DisPlayer · 2 つのオブジェクトを結ぶ — どちらが動いても一緒に動く ("" = 解除)
+DisPlayer	removeObj	func	("id")	removeObj("$0");	DisPlayer · オブジェクトを削除 (子は残る)
+DisPlayer	escParent	func	("id")	escParent("$0");	DisPlayer · 親からの継承を解除 — 親から離れる
+DisPlayer	splitParent	func	("id")	splitParent("$0");	DisPlayer · 親の家族を解散 — 子をすべて切り離す
+DisPlayer	setObjLayer	func	("id", int レイヤー)	setObjLayer($0);	DisPlayer · 描画順 — 大きいほど上 (デフォルト 0)
+DisPlayer	ascendObjLayer	func	("id", int n)	ascendObjLayer("$0", 1);	DisPlayer · オブジェクトと子のレイヤーを n だけ上げる (負 = 下げる)
+DisPlayer	setTxtContent	func	("id", "内容")	setTxtContent("$0", "");	DisPlayer · 文字オブジェクトの内容を変える (obj.id.Text = "内容"; と同じ)
+DisPlayer	tagObj	func	("id", "タグ")	tagObj($0);	DisPlayer · タグを付ける → id 欄に "<タグ>" と書くとすべて呼び出す
+DisPlayer	setObjCyl	func	([x, y], "id", 半径, 色)	setObjCyl([$0, 0], "id", 50, "#ffffff");	DisPlayer · 円オブジェクトを作成または上書き · 位置は中心
+DisPlayer	setObjPlg	func	([x, y], [x, y], [x, y], [x, y], "id", 색)	setObjPlg([$0, 0], [100, 0], [50, 80], "id", "#ffffff");	DisPlayer · 頂点 3 · 4 個で多角形オブジェクト (3 個なら 4 番目を省く)
+DisPlayer	setObjAlpha	func	("id", 0 ~ 255)	setObjAlpha("$0", 128);	DisPlayer · 不透明度 — 0 見えない · 255 不透明
+DisPlayer	disableObj	func	("id")	disableObj("$0");	DisPlayer · 無効化 — 描画せず · 動かない (子も)
+DisPlayer	enableObj	func	("id")	enableObj("$0");	DisPlayer · 再び有効化
+DisPlayer	setObjColor	func	("id", 色)	setObjColor("$0", "#ffffff");	DisPlayer · 色を変える · for ms なら徐々に
+DisPlayer	setObjOverlay	func	("id", 색, 0 ~ 255)	setObjOverlay("$0", "#ffffff", 128);	DisPlayer · 모양 그대로 색을 덧씌움 · for ms 면 서서히
+DisPlayer	setGlow	func	("id", 色, 強さ)	setGlow($0);	DisPlayer · 光のにじみ — 形のまわりにその色がにじむ (強さ = にじむ距離 · 0 = なし)
+DisPlayer	rotateObj	func	("id", 角度, ms)	rotateObj("$0", 90, 500);	DisPlayer · 現在の角度からさらに角度 (度) だけ回す — 反時計回りが + · ms かけて徐々に (0 = すぐに)
+DisPlayer	setRenderLimit	func	(int 半径)	setRenderLimit($0);	DisPlayer · メインカメラの中心から半径 (画面ピクセル) の内側だけ描画 · 0 = 制限なし
+DisPlayer	setTilemap	func	([x, y], "타일맵")	setTilemap($0);	DisPlayer · タイルマップ (.tl) を配置 — マップの [0, 0] 地点 (⌖) を [x, y] に · コライダーは自動 (colliders が必要)
+DisPlayer	displayX	var	int	displayX	DisPlayer · ディスプレイの幅 (画面単位 · 短い辺 = 720)
+DisPlayer	displayY	var	int	displayY	DisPlayer · ディスプレイの高さ (画面単位 · 短い辺 = 720)
+DisPlayer	idWidthmode	var	bit	idWidthmode	DisPlayer · 横向き (幅 ≥ 高さ) なら 1 · 縦向きなら 0
+colliders	setVelocity	func	("id", [x, y])	setVelocity("$0", [0, 0]);	colliders · 速度ベクトル (px/秒、上が +) · [0, 0] なら停止
+colliders	setVelocityX	func	("id", 속도)	setVelocityX("$0", 0);	colliders · 横の速度だけ (縦はそのまま)
+colliders	setVelocityY	func	("id", 속도)	setVelocityY("$0", 0);	colliders · 縦の速度だけ (横はそのまま · 上が +)
+colliders	setAnchor	func	("id", bit)	setAnchor("$0", true);	colliders · 固定する (true) / 解除する (false)
+colliders	setCollider	func	([x, y], [가로, 세로], "id", 탄성, 중력)	setCollider([0, 0], [$0, ], "id", 0.5, true);	colliders · コライダーを作成 (id のオブジェクトがあれば付く)
+colliders	setTrigger	func	([x, y], [가로, 세로], "id", hold)	setTrigger([0, 0], [$0, ], "id", false);	colliders · 衝突のない判定エリア → obj.id.IsTrigged · TriggedId
+colliders	setGravity	func	(f)	setGravity($0);	colliders · 重力の倍率 (1 = 980 px/秒²、0 = 無重力、負 = 上向き)
+colliders	setColliderVisible	func	(bit)	setColliderVisible(true$0);	colliders · コライダーの枠を表示 (デフォルト: 非表示)
+colliders	setLink	func	("id1", "id2")	setLink("$0", "");	colliders · 2 つのオブジェクトを結ぶ (dis.setLink と同じ) — 一緒に動く
+colliders	obj	keyword	オブジェクト	obj.	col.obj.id.isCollided · collidedObj — 衝突の通知
+Canvas	ScreenClicked	var	bit	ScreenClicked	Canvas · 画面を押している間 1
+Canvas	setUi	func	("id")	setUi("$0");	Canvas · オブジェクトをカメラに固定 (UI · 位置 = 画面座標)
+Canvas	bindInput	func	("ボタン id") to ("キー")	bindInput("$0") to ("");	Canvas · ボタンを押している間、そのキーを押したことにする (jaw.isKeyInput)
+Canvas	setasButton	func	("id")	setasButton("$0");	Canvas · オブジェクトをボタンにする (can.obj.id.IsButtonClicked)
+Canvas	setUpScene	func	()	setUpScene();$0	Canvas · シーン機能をオン
+Canvas	nameScene	func	("名前")	nameScene("$0");	Canvas · 現在のシーンに名前を付ける
+Canvas	setScene	func	("名前")	setScene("$0");	Canvas · 新しいシーンを作成
+Canvas	popupScene	func	("名前")	popupScene("$0");	Canvas · 現在のシーンを止めたまま、そのシーンを開く (closeScene で閉じる)
+Canvas	closeScene	func	()	closeScene();$0	Canvas · ポップアップシーンを閉じる → 止めていたシーンが再開
+Canvas	sendtoScene	func	("名前")	sendtoScene("$0");	Canvas · そのシーンへ移動
+Canvas	SceneName	var	string	SceneName	Canvas · 現在のシーン名
+Canvas	BelongScene	func	("シーン")	BelongScene("$0");	Canvas · run{ } の中 · このファイル全体をシーンにバインド (そのシーンに入ると実行)
+Canvas	obj	keyword	オブジェクト	obj.	can.obj.id.isMouseTouched — マウスがオブジェクトの上にあれば 1
+Canvas	MouseX	var	float	MouseX	Canvas · マウス (タッチ) の x 位置 — 中央 0、右が +
+Canvas	MouseY	var	float	MouseY	Canvas · マウス (タッチ) の y 位置 — 中央 0、上が +
+Magellan	importFolder	func	("경로")	importFolder("$0");	Magellan · フォルダ内のファイルすべてに名前を付ける (名前 = 拡張子を除いたファイル名)
+Magellan	importFile	func	("パス") save as ("id")	importFile("$0") save as ("");	Magellan · パスに短い名前を付ける (プログラム全体で共有 · コピーはしません)
+Magellan	setasTexture	func	("画像の名前", [x1, y1], [x2, y2]) save as ("id")	setasTexture("$0", [0, 0], [32, 32]) save as ("");	Magellan · 画像のその部分をテクスチャにする (テクスチャ id)
+Magellan	wearTexture	func	("オブジェクト id", "テクスチャ id")	wearTexture("$0", "");	Magellan · オブジェクトにテクスチャを貼る ("" = はがす)
+Magellan	setasAnime	func	(["テクスチャ", …], ms, "id")	setasAnime(["$0"], 100, "");	Magellan · テクスチャを ms 間隔でつなげてアニメーションにする
+Magellan	obj	keyword	オブジェクト	obj.	mag.obj.id.runAnime("アニメ", 倍速) · applyAnime · breakAnime · animeFrame
+Magellan	setObjTexture	func	("id", "画像の名前", [x1, y1], [x2, y2])	setObjTexture("$0", "", [0, 0], [32, 32]);	Magellan · オブジェクトに画像のその部分を直接貼る (以前の方式)
+soundMaster	setSpeaker	func	("id")	setSpeaker("$0");	soundMaster · スピーカーを作成
+soundMaster	playSfx	func	("スピーカー", "サウンド", ms)	playSfx("$0", "", 0);	soundMaster · 1 回再生 (ms まで · 0 = 最後まで)
+soundMaster	repeatPart	func	("スピーカー", "サウンド", 開始 ms, 終了 ms)	repeatPart("$0", "", 0, -1);	soundMaster · 開始 ~ 終了の区間を無限に繰り返す (終了が負 = サウンドの最後まで)
+soundMaster	introPart	func	("スピーカー", "サウンド", 開始 ms, 終了 ms)	introPart("$0", "", 0, -1);	soundMaster · 처음부터 재생한 뒤 시작 ~ 끝 구간 무한 반복
+soundMaster	repeatingPlay	func	("スピーカー", "サウンド", 回数)	repeatingPlay("$0", "", 0);	soundMaster · 繰り返し再生 (0 = 無限)
+soundMaster	setVol	func	("スピーカー", 0~255)	setVol("$0", 255);	soundMaster · 音量
+soundMaster	break	func	("スピーカー")	break("$0");	soundMaster · スピーカーの音を止める (フェードアウト)
+soundMaster	break	func	("스피커", true)	break($0);	soundMaster · スピーカーの音をすぐに止める (フェードを無視)
+soundMaster	setFadein	func	("スピーカー", ms)	setFadein("$0", 300);	soundMaster · 鳴り始めのフェード
+soundMaster	setFadeout	func	("スピーカー", ms)	setFadeout("$0", 300);	soundMaster · 止まるときのフェード
+soundMaster	spk	keyword	スピーカー	spk.	sou.spk.スピーカー.belongto("オブジェクト") — 空間オーディオ
+SeongBin	setUpCam	func	()	setUpCam();$0	SeongBin · カメラ機能をオン
+SeongBin	setCam	func	("名前")	setCam("$0");	SeongBin · カメラを作成 (id "cam.名前")
+SeongBin	setMainCamas	func	("名前")	setMainCamas("$0");	SeongBin · 現在のシーンのメインカメラ
+SeongBin	cam	keyword	カメラ	cam.	seo.cam.名前.setZoom / moveCamto / follow / followOut
+@stmt	if	snippet		if [$0]{\n    \n}	条件文
+@stmt	else	snippet		else{\n    $0\n}	それ以外の場合
+@stmt	else if	snippet		else if [$0]{\n    \n}	別の条件
+@stmt	loop	snippet		loop [$0]{\n    \n}	条件が真の間繰り返す
+@stmt	loop{}	snippet		loop{\n    $0\n}	無限ループ (break で抜ける)
+@stmt	var	snippet		var $0	変数宣言
+@lib	jawbreaker	lib			
+@lib	DisPlayer	lib			
+@lib	colliders	lib			
+@lib	Canvas	lib			
+@lib	Magellan	lib			
+@lib	soundMaster	lib			
+@lib	SeongBin	lib			

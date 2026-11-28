@@ -1,0 +1,159 @@
+jawbreaker	sin	func	(x)	sin($0)	正弦 (角度: 度)
+jawbreaker	cos	func	(x)	cos($0)	余弦 (角度: 度)
+jawbreaker	tan	func	(x)	tan($0)	正切 (角度: 度)
+jawbreaker	asin	func	(x)	asin($0)	反正弦 → 度 (值为 -1 ~ 1)
+jawbreaker	acos	func	(x)	acos($0)	反余弦 → 度 (值为 -1 ~ 1)
+jawbreaker	atan	func	(x)	atan($0)	反正切 → 度
+jawbreaker	atan2	func	(a, b)	atan2($0)	atan2(y, x) → 度 (方向角)
+jawbreaker	sinRad	func	(x)	sinRad($0)	正弦 (角度: 弧度)
+jawbreaker	cosRad	func	(x)	cosRad($0)	余弦 (角度: 弧度)
+jawbreaker	tanRad	func	(x)	tanRad($0)	正切 (角度: 弧度)
+jawbreaker	asinRad	func	(x)	asinRad($0)	反正弦 → 弧度
+jawbreaker	acosRad	func	(x)	acosRad($0)	反余弦 → 弧度
+jawbreaker	atanRad	func	(x)	atanRad($0)	反正切 → 弧度
+jawbreaker	atan2Rad	func	(a, b)	atan2Rad($0)	atan2(y, x) → 弧度
+jawbreaker	sqrt	func	(x)	sqrt($0)	平方根 (0 以上)
+jawbreaker	pow	func	(a, b)	pow($0)	pow(a, b) = a 的 b 次方
+jawbreaker	ln	func	(x)	ln($0)	自然对数 (大于 0 的值)
+jawbreaker	log10	func	(x)	log10($0)	常用对数 (大于 0 的值)
+jawbreaker	abs	func	(x)	abs($0)	绝对值
+jawbreaker	floor	func	(x)	floor($0)	向下取整 → int
+jawbreaker	ceil	func	(x)	ceil($0)	向上取整 → int
+jawbreaker	round	func	(x)	round($0)	四舍五入 → int
+jawbreaker	min	func	(a, b)	min($0)	两者中较小的值
+jawbreaker	max	func	(a, b)	max($0)	两者中较大的值
+jawbreaker	random	func	(a, b)	random($0)	random(a, b) = a 以上、b 以下 (不含 b) 的随机浮点数
+jawbreaker	pi	func	()	pi($0)	圆周率 3.14159…
+jawbreaker	strLen	func	(s) → int	strLen($0)	字符数
+jawbreaker	subStr	func	(s, from, n) → string	subStr($0)	从第 from 个字符开始的 n 个字符
+jawbreaker	charAt	func	(s, n) → string	charAt($0)	第 n 个字符 (没有则为 "")
+jawbreaker	findStr	func	(s, t) → int	findStr($0)	t 第一次出现的字符索引 (没有则为 0)
+jawbreaker	replaceStr	func	(s, old, new) → string	replaceStr($0)	把所有 old 替换为 new
+jawbreaker	upperStr	func	(s) → string	upperStr($0)	英文转大写
+jawbreaker	lowerStr	func	(s) → string	lowerStr($0)	英文转小写
+jawbreaker	trimStr	func	(s) → string	trimStr($0)	去掉首尾的空格 · 换行
+jawbreaker	startsWith	func	(s, t) → bit	startsWith($0)	s 以 t 开头时为 1
+jawbreaker	endsWith	func	(s, t) → bit	endsWith($0)	s 以 t 结尾时为 1
+jawbreaker	toInt	func	(s) → int	toInt($0)	字符串 → int (不是数字则为 0)
+jawbreaker	toFloat	func	(s) → float	toFloat($0)	字符串 → float (不是数字则为 0)
+jawbreaker	splitStr	func	(s, sep) → list	splitStr($0)	按分隔符拆分成的 list — 只能直接放入列表变量
+jawbreaker	isKeyInput	func	("按键") → bit	isKeyInput("$0")	jawbreaker · 按住该键时为 1 ("a", "space", "up" …)
+jawbreaker	fileExists	func	("경로") → bit	fileExists("$0")	jawbreaker · 项目中有该文件 (文件夹) 时为 1
+jawbreaker	log	builtin	(值)	log($0);	jawbreaker · 输出到调试日志
+jawbreaker	print	builtin	(值)	print($0);	jawbreaker · 输出到调试日志
+jawbreaker	wait	builtin	(int ms)	wait($0);	jawbreaker · 等待 ms 毫秒
+jawbreaker	terminate	builtin	()	terminate();$0	jawbreaker · 结束所有正在进行的任务
+jawbreaker	break	builtin	()	break();$0	jawbreaker · 跳出最内层 loop (在 loop 外则跳出 if)
+jawbreaker	return	builtin	()	return();$0	jawbreaker · 回到最内层 loop 的开头 (条件检查)
+jawbreaker	goTo	builtin	(int 줄)	goTo($0);	jawbreaker · 跳到该行的语句 (当前块或外层块 · 例如返回菜单)
+jawbreaker	label	builtin	("名称")	label("$0");	jawbreaker · 给这一行起名 (goTo("名称") 跳到这里)
+jawbreaker	keyClick	builtin	(string 按键)	keyClick("$0");	jawbreaker · 如同轻按了一下该键 (1 帧)
+jawbreaker	keyPush	builtin	(string 按键)	keyPush("$0");	jawbreaker · 如同一直按住该键 (直到 keyRlse)
+jawbreaker	keyRlse	builtin	(string 按键)	keyRlse("$0");	jawbreaker · 松开用 keyPush · keyClick 按下的键
+jawbreaker	setJson	builtin	("id", 值)	setJson($0);	jawbreaker · 把值以 JSON 形式存起来 (compound 等任何值 · 当时的副本)
+jawbreaker	genJson	builtin	("路径.json", "id")	genJson($0);	jawbreaker · 把存起来的 JSON 保存为文件
+jawbreaker	loadJson	builtin	("路径.json", "变量")	loadJson($0);	jawbreaker · 把 JSON 文件读入 compound 变量
+jawbreaker	copyFileData	builtin	("路径") as ("data 变量")	copyFileData("$0");	jawbreaker · 把项目文件的字节放进 data 变量
+jawbreaker	overWriteFile	builtin	(值, "路径")	overWriteFile($0);	jawbreaker · 用值的字节覆盖文件 (与 genJson 相同的位置)
+jawbreaker	exportFile	builtin	("路径.json", "文件名")	exportFile($0);	jawbreaker · 把该文件混淆后下载到设备
+jawbreaker	openFile	builtin	("路径.json")	openFile("$0");	jawbreaker · 选择设备上的文件并导入到该路径 (等待选择)
+DisPlayer	BelongObj	func	("id")	BelongObj("$0");	DisPlayer · run{ } 内 · 把整个文件绑定到对象 (该对象创建时运行)
+DisPlayer	waitF	func	(int 帧)	waitF($0);	DisPlayer · 等待 n 个画面帧 (60fps ≈ 16.7ms)
+DisPlayer	setDisplay	func	()	setDisplay();$0	DisPlayer · 打开铺满屏幕的显示画面 · (0, 0) = 左下
+DisPlayer	setDisplayColor	func	(string 十六进制)	setDisplayColor("#$0");	DisPlayer · 设置显示画面颜色 (例: "#1e90ff")
+DisPlayer	setFont	func	("路径.ttf")	setFont("$0");	DisPlayer · 文本对象的字体 (.ttf · 有 Magellan 时也可以写文件名称)
+DisPlayer	setupObject	func	()	setupObject();$0	DisPlayer · 在此项目中启用对象功能
+DisPlayer	setObject	func	([x, y], "id", [宽, 高], 颜色)	setObject([$0, 0], "id", [100, 100], "#ffffff");	DisPlayer · 创建或覆盖对象 · 位置为中心
+DisPlayer	setObjScale	func	("id", [宽, 高])	setObjScale("$0", [obj.Xscale, obj.Yscale]);	DisPlayer · 改变大小 · obj.Xscale / obj.Yscale = 当前值
+DisPlayer	setObjPos	func	("id", [x, y])	setObjPos("$0", [obj.Xpos, obj.Ypos]);	DisPlayer · 改变位置 · obj.Xpos / obj.Ypos = 当前值
+DisPlayer	getVar	func	("id", "名称") as 变量	getVar("$0", "coord") as ;	DisPlayer · 把 coord · scale · color · "scale[1, 2]" 读到变量中
+DisPlayer	moveObj	func	("id") to [x, y] for ms	moveObj("$0") to [obj.Xpos, obj.Ypos] for 500;	DisPlayer · 用 ms 毫秒移动到 [x, y] (等到结束 · 去掉 for 则立即到位)
+DisPlayer	setText	func	([x, y], "文本内容", "id", 大小, 描边, 颜色)	setText([$0, 0], "글자", "id", 32, true, "#ffffff");	DisPlayer · 文本对象 · 内容用 obj.id.Text 修改 · 描边为 true/false
+DisPlayer	nudgeObj	func	("id", [左, 上], x 间距, y 间距)	nudgeObj("$0", [true, true], 16, 16);	DisPlayer · 贴到屏幕边缘 · [true, true] = 左上，[false, false] = 右下
+DisPlayer	setTextNudge	func	("id", "锚点")	setTextNudge("$0", "left");	DisPlayer · 文字位置的锚点 · "center" · "left" · "right" · "top" · "bottom" · "top left" …
+DisPlayer	setObjNudge	func	("id", "锚点")	setObjNudge("$0", "left");	DisPlayer · 对象位置的锚点 (轴心) · 设为 "left" 时改变大小也固定左端 (血条等)
+DisPlayer	enableScreenScale	func	()	enableScreenScale();$0	DisPlayer · 显示角落的 [screenX, screenY] (默认)
+DisPlayer	disableScreenScale	func	()	disableScreenScale();$0	DisPlayer · 隐藏角落的 [screenX, screenY]
+DisPlayer	setParent	func	() ("子") as ("父")	setParent() ("$0") as ("");	DisPlayer · 父对象移动时子对象一起移动 (子对象也可以单独移动)
+DisPlayer	setLink	func	("id1", "id2")	setLink("$0", "");	DisPlayer · 把两个对象绑在一起 — 任意一个移动时都一起移动 ("" = 解除)
+DisPlayer	removeObj	func	("id")	removeObj("$0");	DisPlayer · 删除对象 (子对象保留)
+DisPlayer	escParent	func	("id")	escParent("$0");	DisPlayer · 解除父级继承 — 脱离父对象
+DisPlayer	splitParent	func	("id")	splitParent("$0");	DisPlayer · 解散父对象的家庭 — 分离所有子对象
+DisPlayer	setObjLayer	func	("id", int 图层)	setObjLayer($0);	DisPlayer · 绘制顺序 — 越大越靠上 (默认 0)
+DisPlayer	ascendObjLayer	func	("id", int n)	ascendObjLayer("$0", 1);	DisPlayer · 把对象及其子对象的图层上移 n (负数 = 下移)
+DisPlayer	setTxtContent	func	("id", "内容")	setTxtContent("$0", "");	DisPlayer · 更改文本对象的内容 (与 obj.id.Text = "内容"; 相同)
+DisPlayer	tagObj	func	("id", "标签")	tagObj($0);	DisPlayer · 添加标签 → 在 id 栏写 "<标签>" 即可全部调用
+DisPlayer	setObjCyl	func	([x, y], "id", 半径, 颜色)	setObjCyl([$0, 0], "id", 50, "#ffffff");	DisPlayer · 创建或覆盖圆形对象 · 位置为中心
+DisPlayer	setObjPlg	func	([x, y], [x, y], [x, y], [x, y], "id", 색)	setObjPlg([$0, 0], [100, 0], [50, 80], "id", "#ffffff");	DisPlayer · 用 3 · 4 个顶点创建多边形对象 (3 个时省略第 4 个)
+DisPlayer	setObjAlpha	func	("id", 0 ~ 255)	setObjAlpha("$0", 128);	DisPlayer · 不透明度 — 0 不可见 · 255 不透明
+DisPlayer	disableObj	func	("id")	disableObj("$0");	DisPlayer · 停用 — 不绘制 · 不移动 (子对象也是)
+DisPlayer	enableObj	func	("id")	enableObj("$0");	DisPlayer · 重新启用
+DisPlayer	setObjColor	func	("id", 颜色)	setObjColor("$0", "#ffffff");	DisPlayer · 改变颜色 · 加 for ms 则逐渐变化
+DisPlayer	setObjOverlay	func	("id", 색, 0 ~ 255)	setObjOverlay("$0", "#ffffff", 128);	DisPlayer · 모양 그대로 색을 덧씌움 · for ms 면 서서히
+DisPlayer	setGlow	func	("id", 颜色, 强度)	setGlow($0);	DisPlayer · 光晕 — 该颜色在形状周围扩散 (强度 = 扩散距离 · 0 = 关闭)
+DisPlayer	rotateObj	func	("id", 角度, ms)	rotateObj("$0", 90, 500);	DisPlayer · 在当前角度基础上再旋转指定角度 (度) — 逆时针为 + · 用 ms 毫秒逐渐旋转 (0 = 立即)
+DisPlayer	setRenderLimit	func	(int 半径)	setRenderLimit($0);	DisPlayer · 只绘制主摄像机中心半径 (屏幕像素) 以内的内容 · 0 = 无限制
+DisPlayer	setTilemap	func	([x, y], "타일맵")	setTilemap($0);	DisPlayer · 铺设瓦片地图 (.tl) — 地图的 [0, 0] 点 (⌖) 放在 [x, y] · 碰撞体自动生成 (需要 colliders)
+DisPlayer	displayX	var	int	displayX	DisPlayer · 显示画面宽度 (屏幕单位 · 短边 = 720)
+DisPlayer	displayY	var	int	displayY	DisPlayer · 显示画面高度 (屏幕单位 · 短边 = 720)
+DisPlayer	idWidthmode	var	bit	idWidthmode	DisPlayer · 横屏 (宽 ≥ 高) 时为 1 · 竖屏时为 0
+colliders	setVelocity	func	("id", [x, y])	setVelocity("$0", [0, 0]);	colliders · 速度向量 (px/秒，向上为 +) · [0, 0] 则停止
+colliders	setVelocityX	func	("id", 속도)	setVelocityX("$0", 0);	colliders · 仅水平速度 (垂直不变)
+colliders	setVelocityY	func	("id", 속도)	setVelocityY("$0", 0);	colliders · 仅垂直速度 (水平不变 · 向上为 +)
+colliders	setAnchor	func	("id", bit)	setAnchor("$0", true);	colliders · 固定 (true) / 解除 (false)
+colliders	setCollider	func	([x, y], [가로, 세로], "id", 탄성, 중력)	setCollider([0, 0], [$0, ], "id", 0.5, true);	colliders · 创建碰撞体 (若存在该 id 的对象则附着其上)
+colliders	setTrigger	func	([x, y], [가로, 세로], "id", hold)	setTrigger([0, 0], [$0, ], "id", false);	colliders · 无碰撞的判定区域 → obj.id.IsTrigged · TriggedId
+colliders	setGravity	func	(f)	setGravity($0);	colliders · 重力倍率 (1 = 980 px/秒²，0 = 无重力，负数 = 向上)
+colliders	setColliderVisible	func	(bit)	setColliderVisible(true$0);	colliders · 显示碰撞体边框 (默认: 不显示)
+colliders	setLink	func	("id1", "id2")	setLink("$0", "");	colliders · 把两个对象绑在一起 (与 dis.setLink 相同) — 一起移动
+colliders	obj	keyword	对象	obj.	col.obj.id.isCollided · collidedObj — 碰撞通知
+Canvas	ScreenClicked	var	bit	ScreenClicked	Canvas · 按住屏幕时为 1
+Canvas	setUi	func	("id")	setUi("$0");	Canvas · 把对象固定在摄像机上 (UI · 位置 = 屏幕坐标)
+Canvas	bindInput	func	("按钮 id") to ("按键")	bindInput("$0") to ("");	Canvas · 按住按钮期间视为按住该键 (jaw.isKeyInput)
+Canvas	setasButton	func	("id")	setasButton("$0");	Canvas · 把对象设为按钮 (can.obj.id.IsButtonClicked)
+Canvas	setUpScene	func	()	setUpScene();$0	Canvas · 开启场景功能
+Canvas	nameScene	func	("名称")	nameScene("$0");	Canvas · 给当前场景命名
+Canvas	setScene	func	("名称")	setScene("$0");	Canvas · 创建新场景
+Canvas	popupScene	func	("名称")	popupScene("$0");	Canvas · 暂停当前场景并打开该场景 (用 closeScene 关闭)
+Canvas	closeScene	func	()	closeScene();$0	Canvas · 关闭弹出场景 → 被暂停的场景继续
+Canvas	sendtoScene	func	("名称")	sendtoScene("$0");	Canvas · 切换到该场景
+Canvas	SceneName	var	string	SceneName	Canvas · 当前场景名
+Canvas	BelongScene	func	("场景")	BelongScene("$0");	Canvas · run{ } 内 · 把整个文件绑定到场景 (进入该场景时运行)
+Canvas	obj	keyword	对象	obj.	can.obj.id.isMouseTouched — 鼠标在对象上时为 1
+Canvas	MouseX	var	float	MouseX	Canvas · 鼠标 (触摸) 的 x 位置 — 中央 0，向右为 +
+Canvas	MouseY	var	float	MouseY	Canvas · 鼠标 (触摸) 的 y 位置 — 中央 0，向上为 +
+Magellan	importFolder	func	("경로")	importFolder("$0");	Magellan · 给文件夹内所有文件命名 (名称 = 去掉扩展名的文件名)
+Magellan	importFile	func	("路径") save as ("id")	importFile("$0") save as ("");	Magellan · 给路径起一个短名称 (整个程序共享 · 不复制文件)
+Magellan	setasTexture	func	("图片名称", [x1, y1], [x2, y2]) save as ("id")	setasTexture("$0", [0, 0], [32, 32]) save as ("");	Magellan · 把图片的那一部分做成纹理 (纹理 id)
+Magellan	wearTexture	func	("对象 id", "纹理 id")	wearTexture("$0", "");	Magellan · 给对象贴纹理 ("" = 取下)
+Magellan	setasAnime	func	(["纹理", …], ms, "id")	setasAnime(["$0"], 100, "");	Magellan · 把多个纹理按 ms 间隔连成动画
+Magellan	obj	keyword	对象	obj.	mag.obj.id.runAnime("动画", 倍速) · applyAnime · breakAnime · animeFrame
+Magellan	setObjTexture	func	("id", "图片名称", [x1, y1], [x2, y2])	setObjTexture("$0", "", [0, 0], [32, 32]);	Magellan · 把图片的那一部分直接贴到对象上 (旧方式)
+soundMaster	setSpeaker	func	("id")	setSpeaker("$0");	soundMaster · 创建扬声器
+soundMaster	playSfx	func	("扬声器", "声音", ms)	playSfx("$0", "", 0);	soundMaster · 播放一次 (最多 ms · 0 = 播到结束)
+soundMaster	repeatPart	func	("扬声器", "声音", 起点 ms, 终点 ms)	repeatPart("$0", "", 0, -1);	soundMaster · 无限重复起点 ~ 终点这一段 (终点为负 = 到声音结束)
+soundMaster	introPart	func	("扬声器", "声音", 起点 ms, 终点 ms)	introPart("$0", "", 0, -1);	soundMaster · 처음부터 재생한 뒤 시작 ~ 끝 구간 무한 반복
+soundMaster	repeatingPlay	func	("扬声器", "声音", 次数)	repeatingPlay("$0", "", 0);	soundMaster · 重复播放 (0 = 无限)
+soundMaster	setVol	func	("扬声器", 0~255)	setVol("$0", 255);	soundMaster · 音量
+soundMaster	break	func	("扬声器")	break("$0");	soundMaster · 停止扬声器的声音 (淡出)
+soundMaster	break	func	("스피커", true)	break($0);	soundMaster · 立即停止扬声器的声音 (忽略淡出)
+soundMaster	setFadein	func	("扬声器", ms)	setFadein("$0", 300);	soundMaster · 开始时淡入
+soundMaster	setFadeout	func	("扬声器", ms)	setFadeout("$0", 300);	soundMaster · 停止时淡出
+soundMaster	spk	keyword	扬声器	spk.	sou.spk.扬声器.belongto("对象") — 空间音效
+SeongBin	setUpCam	func	()	setUpCam();$0	SeongBin · 开启摄像机功能
+SeongBin	setCam	func	("名称")	setCam("$0");	SeongBin · 创建摄像机 (id "cam.名称")
+SeongBin	setMainCamas	func	("名称")	setMainCamas("$0");	SeongBin · 当前场景的主摄像机
+SeongBin	cam	keyword	摄像机	cam.	seo.cam.名称.setZoom / moveCamto / follow / followOut
+@stmt	if	snippet		if [$0]{\n    \n}	条件语句
+@stmt	else	snippet		else{\n    $0\n}	其他情况
+@stmt	else if	snippet		else if [$0]{\n    \n}	另一个条件
+@stmt	loop	snippet		loop [$0]{\n    \n}	条件为真时重复
+@stmt	loop{}	snippet		loop{\n    $0\n}	无限重复 (用 break 跳出)
+@stmt	var	snippet		var $0	声明变量
+@lib	jawbreaker	lib			
+@lib	DisPlayer	lib			
+@lib	colliders	lib			
+@lib	Canvas	lib			
+@lib	Magellan	lib			
+@lib	soundMaster	lib			
+@lib	SeongBin	lib			

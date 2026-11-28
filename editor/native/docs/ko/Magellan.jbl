@@ -1,0 +1,76 @@
+// Magellan — DisPlayer 의 하위 내장 라이브러리 · 이미지 · 텍스쳐 (읽기 전용 설명서)
+// DisPlayer 에 종속됩니다: 같은 파일에 Use DisPlayer 가 있어야 합니다.
+//
+// ── 사용 ───────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Magellan call mag;
+//
+// ── 이미지 넣기 ────────────────────────
+//   ☰ 불러오기 · 끌어다 놓기로 .png · .jpg · .gif · .webp · .bmp 를 프로젝트에 넣음
+//   (소리 .wav · .mp3 · .ogg · .m4a 도 같은 방법으로 넣고 importFile 로 이름을 붙여 soundMaster 에서 씀)
+//   (글꼴 .ttf 도 importFile 로 이름을 붙여 dis.setFont("이름") 에서 씀)
+//   (zip 으로 내보내면 이미지도 같이 들어감 · 파일 목록에서 누르면 미리보기)
+//
+// ── 명령어 ─────────────────────────────
+//   mag.importFolder("경로");
+//                                그 폴더(하위 폴더 포함) 안의 이미지 · 소리 · 글꼴 · 타일맵에 모두 이름을 붙임
+//                                · 이름 = 확장자를 뺀 파일 이름 (assets/sounds/choose.mp3 → "choose")
+//                                · 이름이 겹치면 오류 (그 파일만 importFile 로 따로) · "" = 프로젝트 전체 · 경로는 따옴표 안의 상수
+//   mag.importFile("경로") save as ("id");
+//                                경로에 짧은 이름(id)을 붙임 — 파일을 복사하거나 따로 저장하지 않고, 이후 id 가 곧 그 경로
+//                                · 이름은 프로그램 전체(모든 파일)가 같이 씀 · 같은 id 로 다시 하면 다른 경로를 가리킴
+//                                · 경로는 따옴표 안의 상수 (프로젝트 최상위 기준, ./ ../ 는 현재 파일 기준)
+//                                · 기다리지 않고 바로 다음 줄 (그림은 파일이 다 읽히면 나타남)
+//   mag.setObjTexture("id", "이미지 이름", [x1, y1], [x2, y2]);
+//                                오브젝트에 이미지의 [x1, y1] ~ [x2, y2] 부분을 입힘 (이미지 픽셀 · 왼쪽 위가 [0, 0])
+//                                · 오브젝트 색은 #ffffff 로 바뀜 — 색을 바꾸면 색 효과 (곱하기)
+//                                  (dis.setObjColor("id", "#ff8080"); 붉게 · for ms 로 서서히도 됨)
+//                                · 원은 사각형 이미지에서 네 모서리가 잘려나간 모양으로 입혀짐
+//                                · x2 < x1 이면 좌우 반전 · y2 < y1 이면 위아래 반전
+//                                · 투명도 · 레이어 · 크기 · 태그("<태그>") 모두 그대로 · 이미지 이름을 "" 로 하면 텍스쳐를 벗김
+//                                · 스프라이트 시트: 같은 이미지에서 칸만 바꿔 애니메이션 (아래 텍스쳐 · 애니메이션이 더 편함)
+//
+// ── 텍스쳐 ─────────────────────────────
+//   mag.setasTexture("이미지 이름", [x1, y1], [x2, y2]) save as ("텍스쳐 id");
+//                                이미지의 [x1, y1] ~ [x2, y2] 사각형을 텍스쳐로 만들고 id 를 붙임 (반전 · 범위 규칙은 setObjTexture 와 같음)
+//                                · id 는 프로그램 전체가 같이 씀 · 같은 id 로 다시 하면 바뀜
+//   mag.wearTexture("오브젝트 id", "텍스쳐 id");
+//                                오브젝트에 텍스쳐 입히기 · "" = 벗기기 · "<태그>" 가능
+//                                · 처음 입힐 때 색이 #ffffff 로 (색을 바꾸면 색 효과) · 재생 중인 애니메이션은 멈춤
+//
+// ── 애니메이션 ─────────────────────────
+//   mag.setasAnime(["텍스쳐 id", …], ms, "애니 id");
+//                                텍스쳐들을 순서대로 ms 간격으로 보여 주는 애니메이션 (리스트 변수도 됨)
+//   mag.obj.id.applyAnime("애니 id");          애니메이션 재생 (1 배속 · 한 번)
+//   mag.obj.id.runAnime("애니 id", 배속);       그 배속으로 재생 (2.0 = 두 배 빠르게 · 0.5 = 절반)
+//                                · 한 번 재생하고 마지막 프레임에서 멈춤 · 기다리지 않고 바로 다음 줄
+//                                · 재생 중에 다시 부르면 (다른 애니든 같은 애니든) 지금 것이 끝난 뒤 바뀜 — 마지막에 부른 것 하나
+//                                  (걷는 동안 매 프레임 runAnime("walk", 1.0) 을 부르면 끊김 없이 이어서 반복)
+//   mag.obj.id.breakAnime();                  애니메이션 정지 — 정지한 프레임의 텍스쳐 그대로 · 기다리던 다음 애니도 취소
+//   mag.obj.id.animeFrame                     int — 지금 보이는 애니메이션 프레임 (1 부터) · 재생 중이 아니면 -1
+//                                · 귀속된 파일에서는 mag.obj.runAnime("walk", 1.0); · mag.obj.animeFrame = 자기 자신
+//                                · 글자 · 보이지 않는 오브젝트에는 쓸 수 없음
+//
+// ── 예 ─────────────────────────────────
+//   Use jawbreaker call jaw;
+//   Use DisPlayer call dis;
+//   Use Magellan call mag;
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       mag.importFile("img/hero.png") save as ("hero");
+//       dis.setObject([0, 0], "player", [96, 96], "#fff");
+//       mag.setasTexture("hero", [0, 0], [32, 32]) save as ("w1");     // 32 × 32 칸 4개
+//       mag.setasTexture("hero", [32, 0], [64, 32]) save as ("w2");
+//       mag.setasTexture("hero", [64, 0], [96, 32]) save as ("w3");
+//       mag.setasTexture("hero", [96, 0], [128, 32]) save as ("w4");
+//       mag.wearTexture("player", "w1");
+//       mag.setasAnime(["w1", "w2", "w3", "w4"], 120, "walk");
+//       loop{   // 누르는 동안 걷기 반복 · 떼면 멈춤
+//           if [jaw.isKeyInput("right")]{ mag.obj.player.runAnime("walk", 1.5); }
+//           else{ mag.obj.player.breakAnime(); }
+//           dis.waitF(1);
+//       }
+//   }
+//
+// · C 변환: 이름이 가리키는 경로의 이미지 파일을 SDL2_image 로 처음 쓸 때 읽습니다 (프로젝트 폴더에서 실행).

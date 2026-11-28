@@ -1,0 +1,206 @@
+// jawbreaker — 基础内置库 (只读参考文档)
+//
+// ── 项目 (工程) 结构 ───────────────────
+//   项目文件夹/
+//     project.jbs      根目录必须有 1 个。表明这个文件夹是项目
+//     main.jb          代码文件 (.jb)
+//     lib/             存放库文件 (.jbl)
+//       base.jbl       Lib id base;
+//       greet.jbl      Lib id greet parent base;
+//
+// ── project.jbs 的格式 ─────────────────
+//   jbs 1              (第一行，必需)
+//   name = 名称
+//   main = main.jb     ▶ 运行的默认文件
+//
+// ── 代码文件 (.jb) ─────────────────────
+//   Use jawbreaker call jaw;     用别名使用库 id
+//   var 类型 call 名称 = 值;     顶层只能写 Use, var, run
+//   var public 类型 call 名称;   整个项目 (所有 .jb · .jbl) 共用的变量
+//                                · 声明时不能赋值 → 在 run 中写 名称 = 值;
+//                                · 在其他文件中写相同的声明就是同一个变量 (类型必须相同)
+//   run{ ... }                   要运行的代码写在 run 里! 写多个则全部同时运行
+//                                (顶层的 var 是共享的 · 用 wait 调整顺序 ·
+//                                 一个 run 中出现 terminate/错误时全部停止)
+//
+// ── 命令 (jaw.命令 / 直接写命令 都可以) ───────────
+//   print(值) / log(值)   输出到调试日志
+//   wait(ms)              等待 ms 毫秒
+//   isKeyInput("按键")    按住该键时为 1，否则为 0  (bit · 用在表达式中)
+//   fileExists("路径")    项目中有该文件时为 1，没有则为 0  (bit · 用在表达式中)
+//                         · 路径: 以项目为准 (./ ../ 以此文件为准) · 写文件夹时，其中有文件则为 1
+//                         · 本次运行中用 genJson 创建的文件也算 · C 可执行文件: 以运行所在的文件夹为准
+//                         · 例: if [jaw.fileExists("save/s.json")]{ jaw.loadJson("save/s.json", "sav"); }
+//                         · 字母 "a"~"z" · 数字 "0"~"9" · "space" "enter" "esc" "tab" "backspace"
+//                           "up" "down" "left" "right" "shift" "ctrl" "alt" (不区分大小写)
+//                         · 即使处于输入法状态也按键位识别 ("a" = A 键的位置) · 即使按得很短也至少有 1 帧为 1
+//                         · 画面 (DisPlayer) 打开时识别所有按键 · 没有画面运行时
+//                           只识别在编辑器 (输入框) 之外按下的键 (按下运行按钮后马上按键即可)
+//                         · 用 keyClick / keyPush 按下的键 · 用 can.bindInput 绑定到按键的按钮也为 1
+//                         · 例: if [jaw.isKeyInput("right")]{ obj.p.Xpos = obj.p.Xpos + 4; }
+//   keyClick("按键")      如同轻按了一下该键 (isKeyInput 在 1 帧内为 1)
+//   keyPush("按键")       如同一直按住该键 (直到 keyRlse 为止为 1)
+//   keyRlse("按键")       松开用 keyPush · keyClick 按下的键 (实际按键要松手才为 0)
+//   terminate()           结束所有正在进行的任务 (同时运行的 run 也全部结束)
+//   sendto("路径")        转到项目内的 .jb 文件 — 当前 run 到此结束 (不再返回)
+//                         · 下一行不会运行 · 同一文件的其他 run{ } 不受影响 · 画面 · 对象 · 声音保持不变
+//                         · 可以互相反复跳转 (菜单 → 游戏 → 菜单 …，次数不限)
+//                         (以项目根目录为准，./ ../ 以当前文件为准，路径必须是带引号的字面量)
+//   setup("路径")         同时运行项目内的 .jb 文件 (不等待，直接到下一行)
+//                         · 程序要等 setup 的文件也全部结束后才结束
+//   goTo(行)              跳到该行的语句并从那里继续 (行号是编辑器左侧的数字)
+//                         · 只能跳到当前块或其外层块中的语句 (例如跳出 loop 回到前面)
+//                         · 不能进入内层块 · 其他函数 · 其他 run · 必须是以该行开头的语句
+//                         · 例: 回到绘制菜单的那一行 — goTo(42);          · 转为 C 时行号必须是数字字面量
+//                         · 上下增删行后行号会变，请注意
+//   break()               跳出循环 — 跳出最内层的 loop
+//                         (在 loop 之外的 if 中则跳出该条件语句)
+//   return()              回到循环开头 — 回到最内层 loop 的条件检查
+//                         (在 loop 之外的 if 中则回到该条件语句的开头 (条件检查))
+//   return(值)            在返回值的函数中返回该值并退出 (参见下面的库)
+//
+// ── 语法 ───────────────────────────────
+//   var 类型 call 名称;          类型: int float string bit  (matrix · list 见下文)
+//   名称 = 值;
+//   "句子 %名称% 句子"           %变量名% → 变量的值 (也可以写 %别名.变量%，%% = % 字符)
+//   "Wild %dex[n]% appeared!"   也可以写 %列表[索引]% · %矩阵[行, 列]% · %c[1][2]% (方括号内是表达式)
+//   "Wild " dex[n] " appeared!" 在字符串前后直接写值就会连接起来 (= "Wild " + dex[n] + " appeared!")
+//                                · 空格要写在引号内 · 例: print("Lv." lv "        HP " hp * 2);
+//   if [条件]{ } else if [条件]{ } else{ }
+//   loop [条件]{ }               条件为真时重复 (代替 while)
+//   [条件] and [条件]            把多个方括号条件连起来写 (if · loop 都可以)
+//                                也可以用 and · or · xor (只有其一) · nand · nor · not [条件] · && · ||
+//                                优先级 not > and · nand > xor > or · nor    ·  用 ( ) 分组
+//                                例: if [hp > 0] and not [jaw.isKeyInput("esc")] or ([x < 0] xor [y < 0]){ }
+//   loop{ }                      无限重复 (用 terminate() 结束)
+//   loop for 1000{ }             重复 1000 毫秒 (开始时确定结束时刻 · 每次重复开始前检查时间)
+//   loop [条件] for 3000{ }      条件为真且未超过 3000ms 时重复
+//                                break() · return() 照常可用 · 里面也可以用 wait · waitF
+//
+// ── 矩阵 (matrix) ──────────────────────
+//   var matrix[行, 列] call m;          只能放 float 的矩阵 (索引从 1 开始)
+//   var public matrix[1, 4] call coord; 也可以是 public
+//   m = [1, 1, 4 | 5, 1, 4];            , = 下一列 · | = 下一行 (大小必须一致)
+//   m[1, 4] = 4;                        单个元素像 float 变量一样读取和修改
+//   var float call x = m[2, 1];
+//   print(m);  "值 %m%"                 → [1, 1, 4 | 5, 1, 4]
+//
+// ── 列表 (list) ────────────────────────
+//   var list call anthropic;            空列表 (列表元素为数字或字符串 · 可以混用)
+//   var list call b = [1, 2, "三"];     创建时放入初始元素
+//   anthropic[a]                        第 a 个元素 (索引从 1 开始) — 修改: anthropic[2] = "x";
+//                                       放到范围之外的索引时会延长到那里 · 中间的空元素为 0
+//                                       (b = [1, 2]; b[5] = 9; → [1, 2, 0, 0, 9] · 读取只能在范围内)
+//   anthropic.add(值);                  添加到末尾
+//   anthropic.insert(索引, 值);         插入到该位置 (后面的元素各后移一格)
+//   anthropic.remove(索引);             移除该元素
+//   anthropic.clear();                  全部清空
+//   anthropic.length                    元素个数 (int)
+//   anthropic.find(值)                  值第一次出现的索引 (没有则为 0)
+//   print(anthropic);  "%anthropic%"    → [1, 2, "三"]
+//   · 把列表元素写在数字的位置时检查它是不是数字，写在字符串的位置时检查它是不是字符串 (运行时检查)
+//     (var int call x = b[1] + 1;   var string call s = b[3];)
+//   · 列表元素之间的 + : 其中有字符串则连接，否则相加 · - * / 按浮点数计算
+//   · b = a; 是复制 (修改 b 不影响 a) · 不能作为函数参数 (请使用 public 列表)
+//
+// ── compound ───────────────────────────
+//   与列表相同，但列表元素可以放任何东西 — 数字 · 字符串 · 矩阵 · 列表 · compound
+//   var compound call c = [1, "名称", [1, 2 | 3, 4], b];   (b 是列表变量)
+//   c.add(m);  c.insert(1, b);  c.remove(2);  c.clear();  c.length  c.find(值)   与列表相同
+//   c[3][1, 2]                          该元素是矩阵时取它的元素 (修改: c[3][1, 2] = 5;)
+//   c[4][2]                             该元素是列表 · compound 时取它的元素 (修改: c[4][2] = "x";)
+//   var matrix[2, 2] call m2 = c[3];    取出某个元素时，会在运行时检查使用处的类型
+//   var list call l2 = c[4];            (矩阵连大小也检查 · 列表 · compound · 数字 · 字符串)
+//   print(c);                           → [1, "名称", [1, 2 | 3, 4], [1, 2, "三"]]
+//   · 放入时复制 (放入后修改原变量，c 中的内容不变) · == 和 find 会比较到内部
+//   · 列表 (list) 仍然只能放数字 · 字符串 — 要放矩阵 · 列表请用 compound
+//   · compound 中的 [ … ] 如果包含字符串 · 列表 · 其他 [ … ] 等就是 compound，只有数字则是矩阵 (如 [x, y] 位置)
+//       var compound call party = [["皮卡丘", 35, [0, 0]], ["杰尼龟", 44, [1, 2]]];   → party[2][1] = "杰尼龟" · party[1][3] = [0, 0] (矩阵)
+//       party.add(["妙蛙种子", 45, [3, 3]]);   party[1] = ["雷丘", 60, [0, 0]];   party[1][2] = party[1][2] - 10;
+//       var compound call bag = [];         [] = 空列表 · compound
+//
+// ── data (原样的字节) ─────────────────
+//   var data call d = 值;          什么都能放进来、也能放进任何变量的“数据” (一组字节)
+//                                · 数字 → 8 字节浮点数 · 字符串 → UTF-8 · 矩阵 · 列表 · compound → JSON 文字
+//   var int call n = d;            取出时按接收的类型强行读取 — 不合适就跳过
+//                                · 数字仅限 8 字节 · 字符串仅限正确的 UTF-8 · 列表 · 矩阵 · compound 仅限 JSON [ ]
+//                                · 跳过时: 赋值保持原值 · 声明 · 参数为默认值
+//   print(d);   "" + d             以十六进制显示 (超过 64 字节时显示前 32 字节 … (大小 B))
+//                                · 不能计算 (+ - == …) · 不能放进列表 · compound (先放进其他类型)
+//   data.d.getPart(开始, 结束)     该区间的字节 (data · 在表达式中) — 序号从 0 开始 · 不含结束 (getPart(0, 4) = 前 4 字节)
+//                                · 超出范围的部分被截掉 · 结束 < 开始 时为空 data
+//   data.d.setPart(开始, 结束, 值); 把该区间换成值的字节 (长度可以不同 · 开始 = 结束 时为插入)
+//                                · 连接到摄像头 · 麦克风的 data 先解除连接 (修改那一刻的字节)
+//   jaw.copyFileData("路径") as ("变量"); 把项目文件的字节放进 data 变量 (本次运行写入的文件也可以)
+//   jaw.overWriteFile(值, "路径"); 用值的字节覆盖文件 · 写入位置与 genJson 相同
+//                                · 不能写入代码 (.jb · .jbl) · project.jbs · ext/
+//
+// ── 数学函数 (用在表达式中 · 也可以写 jaw.sin(30)) ──
+//   sin(度) cos(度) tan(度)            角度默认为“度”   sin(30) → 0.5
+//   sinRad(x) cosRad(x) tanRad(x)      名称末尾的 Rad = 弧度   sinRad(pi() / 2) → 1
+//   asin acos atan atan2(y, x)         结果为度  (asinRad … atan2Rad 为弧度)
+//   sqrt(x) pow(a, b) ln(x) log10(x)   pi()
+//   abs(x) min(a, b) max(a, b)         都是 int 则结果为 int
+//   floor(x) ceil(x) round(x)          → int
+//   random(a, b)                       a 以上、b 以下 (不含 b) 的随机浮点数
+//   无法计算的值 (sqrt(-1), asin(2) …) 会产生运行时错误
+//   矩阵之间的 + - 等运算目前还没有 (元素之间可以)
+//
+// ── 字符串函数 (用在表达式中 · 也可以写 jaw.strLen(s)) ──
+//   字符索引从 1 开始 · 汉字 · 表情符号也算一个字符
+//   strLen(s)                       字符数 → int                strLen("你我他") → 3
+//   subStr(s, 起点, 个数)            从第“起点”个字符开始取“个数”个   subStr("Jawbreaker", 4, 5) → "break"
+//   charAt(s, n)                    第 n 个字符 (没有则为 "")
+//   findStr(s, t)                   t 第一次出现的字符索引 → int (没有则为 0)
+//   replaceStr(s, 查找内容, 替换内容)  全部替换
+//   upperStr(s) · lowerStr(s)       英文转大写 · 小写
+//   trimStr(s)                      去掉首尾的空格 · 换行
+//   startsWith(s, t) · endsWith(s, t)   以 t 开头 · 结尾时为 1 (bit)
+//   toInt(s) · toFloat(s)           字符串 → 数字 (不是数字则为 0)   toInt(" 42 ") → 42
+//   splitStr(s, 分隔符)              拆分成 list — 只能直接放入列表变量
+//                                   var list call a = splitStr("a,b,c", ",");   (分隔符 "" = 逐个字符)
+//   数字 → 字符串用 "" + 值   (例: "分数: " + score)
+//
+// ── 保存 JSON ──────────────────────────
+//   jaw.setJson("id", 值);           把值以 id 存起来 (当时的副本) — 数字 · 字符串 · 矩阵 · 列表 · compound
+//                                    直接写 [ … ] 则为 compound:   jaw.setJson("save", [3, "Lee", [10, 20]]);
+//                                    · 用相同的 id 再写一次则被替换
+//   jaw.genJson("路径.json", "id");   把存起来的值保存为 JSON 文件   → [3,"Lee",[10,20]]
+//                                    · 数字 → 数字 · 字符串 → "…" · 列表 · compound → [ … ]
+//                                    · 矩阵: 只有一行时为 [x, y]，多行时为 [[…], […]]
+//                                    · 路径: 以项目为准 (以 ./ 开头则以此文件为准) · 可以写 文件夹/名称.json · 已存在则覆盖
+//                                    · 编辑器: 项目中会生成 .json 文件 (在文件管理中可见 · 保存后才会留下)
+//                                    · C 可执行文件: 写到运行所在的文件夹 · 导出的 HTML: 下载该文件
+//   jaw.loadJson("路径.json", "变量");  读取 JSON 文件并放入 compound 变量 (原来的值会被替换)
+//                                    var compound call sav;   jaw.loadJson("save/s.json", "sav");   print(sav[2]);
+//                                    · 变量名要写在 "引号" 中 · 该变量必须是 compound
+//                                    · [ ] → compound · 数字 · 字符串保持不变 · true/false → 1/0 · null → 0
+//                                    · 以矩阵保存的 [x, y] 也会读成 compound (像 sav[3][1] 这样取出)
+//                                    · 最外层不是 [ ] 时变成 [值] · 不读取 { } (对象) (报错)
+//                                    · 本次运行中用 genJson 写的文件也能立即读取 · C 可执行文件以运行所在的文件夹为准
+//
+// ── 库 (.jbl，lib/ 文件夹) ─────────────
+//   Lib id greet parent base;    用 id 区分，parent 可选
+//   只能定义 var / func — 原样继承父库的函数·变量
+//   func hello(string who){ ... }
+//   在其他文件中:   Use greet call g;   g.hello("x");
+//   func int add(int a, int b){ return(a + b); }
+//                                返回值的函数 — func 后面写返回类型 (int float string bit matrix[行, 列] list compound)
+//   在其他文件中:   var int call s = g.add(1, 2);   print(g.add(3, 4) * 2);
+//   · 没有 return(值) 就结束时返回 0 / "" / 空列表 / 全 0 矩阵 · 也可以像 g.add(1, 2); 这样作为语句调用 (值被丢弃)
+//   · 参数 · 返回值也可以是 list · compound · matrix[行, 列] — 传入和返回时都会复制 (在函数内修改不影响传入的变量)
+//       func compound hit(compound mon, int dmg){ mon[2] = mon[2] - dmg; return(mon); }
+//       func matrix[1, 2] mid(matrix[1, 2] a, matrix[1, 2] b){ return([(a[1, 1] + b[1, 1]) / 2, (a[1, 2] + b[1, 2]) / 2]); }
+//       var compound call p = ["皮卡丘", 35]; p = g.hit(p, 10);   也可以像 g.hit(["杰尼龟", 44], 3); 这样直接传 [ … ]
+//     · 返回的列表 · compound 要放入变量，或交给 print · 其他函数使用 (暂时还不能像 g.f()[1] 这样直接取出)
+//   · 在表达式中调用的函数不会等待，会一次运行到底
+//     → 其中不能使用 wait · dis.waitF · moveObj … for · sendto
+//
+// ── 内置库 ─────────────────────────────
+//   jawbreaker   本文档
+//   DisPlayer    画面库 → 参见 DisPlayer.jbl   (Use DisPlayer call dis;)
+//   colliders    DisPlayer 的子库 · 速度 → 参见 colliders.jbl   (Use colliders call col;)
+//   Canvas       DisPlayer 的子库 · 输入 (点击 · 鼠标) · 场景 → 参见 Canvas.jbl   (Use Canvas call can;)
+//   Magellan     DisPlayer 的子库 · 图片 · 纹理 · 声音文件 → 参见 Magellan.jbl   (Use Magellan call mag;)
+//   soundMaster  Magellan 的子库 · 扬声器 · 音效 · 空间音效 → 参见 soundMaster.jbl   (Use soundMaster call sou;)
+//   SeongBin     Canvas 的子库 · 摄像机 → 参见 SeongBin.jbl   (Use SeongBin call seo;)

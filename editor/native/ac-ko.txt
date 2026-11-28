@@ -1,0 +1,159 @@
+jawbreaker	sin	func	(x)	sin($0)	사인 (각도: 도)
+jawbreaker	cos	func	(x)	cos($0)	코사인 (각도: 도)
+jawbreaker	tan	func	(x)	tan($0)	탄젠트 (각도: 도)
+jawbreaker	asin	func	(x)	asin($0)	아크사인 → 도 (값은 -1 ~ 1)
+jawbreaker	acos	func	(x)	acos($0)	아크코사인 → 도 (값은 -1 ~ 1)
+jawbreaker	atan	func	(x)	atan($0)	아크탄젠트 → 도
+jawbreaker	atan2	func	(a, b)	atan2($0)	atan2(y, x) → 도 (방향 각도)
+jawbreaker	sinRad	func	(x)	sinRad($0)	사인 (각도: 라디안)
+jawbreaker	cosRad	func	(x)	cosRad($0)	코사인 (각도: 라디안)
+jawbreaker	tanRad	func	(x)	tanRad($0)	탄젠트 (각도: 라디안)
+jawbreaker	asinRad	func	(x)	asinRad($0)	아크사인 → 라디안
+jawbreaker	acosRad	func	(x)	acosRad($0)	아크코사인 → 라디안
+jawbreaker	atanRad	func	(x)	atanRad($0)	아크탄젠트 → 라디안
+jawbreaker	atan2Rad	func	(a, b)	atan2Rad($0)	atan2(y, x) → 라디안
+jawbreaker	sqrt	func	(x)	sqrt($0)	제곱근 (0 이상)
+jawbreaker	pow	func	(a, b)	pow($0)	pow(a, b) = a 의 b 제곱
+jawbreaker	ln	func	(x)	ln($0)	자연로그 (0 보다 큰 값)
+jawbreaker	log10	func	(x)	log10($0)	상용로그 (0 보다 큰 값)
+jawbreaker	abs	func	(x)	abs($0)	절댓값
+jawbreaker	floor	func	(x)	floor($0)	내림 → int
+jawbreaker	ceil	func	(x)	ceil($0)	올림 → int
+jawbreaker	round	func	(x)	round($0)	반올림 → int
+jawbreaker	min	func	(a, b)	min($0)	둘 중 작은 값
+jawbreaker	max	func	(a, b)	max($0)	둘 중 큰 값
+jawbreaker	random	func	(a, b)	random($0)	random(a, b) = a 이상 b 미만의 무작위 실수
+jawbreaker	pi	func	()	pi($0)	원주율 3.14159…
+jawbreaker	strLen	func	(s) → int	strLen($0)	글자 수
+jawbreaker	subStr	func	(s, from, n) → string	subStr($0)	from 번째 글자부터 n 글자
+jawbreaker	charAt	func	(s, n) → string	charAt($0)	n 번째 글자 (없으면 "")
+jawbreaker	findStr	func	(s, t) → int	findStr($0)	t 가 처음 나오는 글자 번호 (없으면 0)
+jawbreaker	replaceStr	func	(s, old, new) → string	replaceStr($0)	old 를 모두 new 로 바꿈
+jawbreaker	upperStr	func	(s) → string	upperStr($0)	영문을 대문자로
+jawbreaker	lowerStr	func	(s) → string	lowerStr($0)	영문을 소문자로
+jawbreaker	trimStr	func	(s) → string	trimStr($0)	앞뒤 공백 · 줄바꿈 제거
+jawbreaker	startsWith	func	(s, t) → bit	startsWith($0)	s 가 t 로 시작하면 1
+jawbreaker	endsWith	func	(s, t) → bit	endsWith($0)	s 가 t 로 끝나면 1
+jawbreaker	toInt	func	(s) → int	toInt($0)	문자열 → int (숫자가 아니면 0)
+jawbreaker	toFloat	func	(s) → float	toFloat($0)	문자열 → float (숫자가 아니면 0)
+jawbreaker	splitStr	func	(s, sep) → list	splitStr($0)	구분자로 나눈 list — 리스트 변수에 바로 넣을 때만
+jawbreaker	isKeyInput	func	("키") → bit	isKeyInput("$0")	jawbreaker · 그 키를 누르고 있으면 1 ("a", "space", "up" …)
+jawbreaker	fileExists	func	("경로") → bit	fileExists("$0")	jawbreaker · 프로젝트에 그 파일(폴더)이 있으면 1
+jawbreaker	log	builtin	(값)	log($0);	jawbreaker · 디버그 로그에 출력
+jawbreaker	print	builtin	(값)	print($0);	jawbreaker · 디버그 로그에 출력
+jawbreaker	wait	builtin	(int ms)	wait($0);	jawbreaker · ms 밀리초 대기
+jawbreaker	terminate	builtin	()	terminate();$0	jawbreaker · 진행 중인 작업 전체 종료
+jawbreaker	break	builtin	()	break();$0	jawbreaker · 가장 안쪽 loop 탈출 (loop 밖이면 if 탈출)
+jawbreaker	return	builtin	()	return();$0	jawbreaker · 가장 안쪽 loop 의 처음(조건 검사)으로
+jawbreaker	goTo	builtin	(int 줄)	goTo($0);	jawbreaker · 그 줄의 문장으로 넘어감 (지금 블록이나 바깥 블록 · 메뉴로 돌아가기 등)
+jawbreaker	label	builtin	("이름")	label("$0");	jawbreaker · 이 줄에 이름을 붙임 (goTo("이름") 으로 이 줄로 옴)
+jawbreaker	keyClick	builtin	(string 키)	keyClick("$0");	jawbreaker · 그 키를 톡 누른 것처럼 (1 프레임)
+jawbreaker	keyPush	builtin	(string 키)	keyPush("$0");	jawbreaker · 그 키를 누른 채로 둔 것처럼 (keyRlse 까지)
+jawbreaker	keyRlse	builtin	(string 키)	keyRlse("$0");	jawbreaker · keyPush · keyClick 으로 누른 키를 뗌
+jawbreaker	setJson	builtin	("id", 값)	setJson($0);	jawbreaker · 값을 JSON 으로 담아 둠 (compound 등 무엇이든 · 그때의 복사본)
+jawbreaker	genJson	builtin	("경로.json", "id")	genJson($0);	jawbreaker · 담아 둔 JSON 을 파일로 저장
+jawbreaker	loadJson	builtin	("경로.json", "변수")	loadJson($0);	jawbreaker · JSON 파일을 compound 변수로 읽어 옴
+jawbreaker	copyFileData	builtin	("경로") as ("data 변수")	copyFileData("$0");	jawbreaker · 프로젝트 파일의 바이트를 data 변수에 넣음
+jawbreaker	overWriteFile	builtin	(값, "경로")	overWriteFile($0);	jawbreaker · 값의 바이트로 파일을 덮어씀 (genJson 과 같은 곳)
+jawbreaker	exportFile	builtin	("경로.json", "파일 이름")	exportFile($0);	jawbreaker · 그 파일을 난독화해서 기기로 내려받기
+jawbreaker	openFile	builtin	("경로.json")	openFile("$0");	jawbreaker · 기기의 파일을 골라 그 경로로 가져옴 (고를 때까지 기다림)
+DisPlayer	BelongObj	func	("id")	BelongObj("$0");	DisPlayer · run{ } 안 · 이 파일 전체를 오브젝트에 귀속 (그 오브젝트가 생기면 실행)
+DisPlayer	waitF	func	(int 프레임)	waitF($0);	DisPlayer · 화면 프레임 n 개만큼 기다림 (60fps ≈ 16.7ms)
+DisPlayer	setDisplay	func	()	setDisplay();$0	DisPlayer · 화면을 꽉 채우는 디스플레이를 켬 · (0, 0) = 왼쪽 아래
+DisPlayer	setDisplayColor	func	(string 헥스)	setDisplayColor("#$0");	DisPlayer · 디스플레이 색 설정 (예: "#1e90ff")
+DisPlayer	setFont	func	("경로.ttf")	setFont("$0");	DisPlayer · 글자 오브젝트의 글꼴 (.ttf · Magellan 이 있으면 파일 이름도)
+DisPlayer	setupObject	func	()	setupObject();$0	DisPlayer · 이 프로젝트에서 오브젝트 기능을 켬
+DisPlayer	setObject	func	([x, y], "id", [가로, 세로], 색)	setObject([$0, 0], "id", [100, 100], "#ffffff");	DisPlayer · 오브젝트를 만들거나 덮어씀 · 위치는 가운데
+DisPlayer	setObjScale	func	("id", [가로, 세로])	setObjScale("$0", [obj.Xscale, obj.Yscale]);	DisPlayer · 크기 바꾸기 · obj.Xscale / obj.Yscale = 지금 값
+DisPlayer	setObjPos	func	("id", [x, y])	setObjPos("$0", [obj.Xpos, obj.Ypos]);	DisPlayer · 위치 바꾸기 · obj.Xpos / obj.Ypos = 지금 값
+DisPlayer	getVar	func	("id", "이름") as 변수	getVar("$0", "coord") as ;	DisPlayer · coord · scale · color · "scale[1, 2]" 를 변수로 가져옴
+DisPlayer	moveObj	func	("id") to [x, y] for ms	moveObj("$0") to [obj.Xpos, obj.Ypos] for 500;	DisPlayer · ms 동안 [x, y] 로 이동 (끝날 때까지 기다림 · for 를 빼면 바로)
+DisPlayer	setText	func	([x, y], "글자 내용", "id", 크기, 테두리, 색)	setText([$0, 0], "글자", "id", 32, true, "#ffffff");	DisPlayer · 글자 오브젝트 · 내용은 obj.id.Text 로 바꿈 · 테두리는 true/false
+DisPlayer	nudgeObj	func	("id", [왼쪽, 위], x간격, y간격)	nudgeObj("$0", [true, true], 16, 16);	DisPlayer · 화면 가장자리에 붙임 · [true, true] = 왼쪽 위, [false, false] = 오른쪽 아래
+DisPlayer	setTextNudge	func	("id", "기준점")	setTextNudge("$0", "left");	DisPlayer · 글자 위치 기준점 · "center" · "left" · "right" · "top" · "bottom" · "top left" …
+DisPlayer	setObjNudge	func	("id", "기준점")	setObjNudge("$0", "left");	DisPlayer · 오브젝트 위치 기준점(피벗) · "left" 면 크기를 바꿔도 왼쪽 끝 고정 (체력바 등)
+DisPlayer	enableScreenScale	func	()	enableScreenScale();$0	DisPlayer · 구석의 [screenX, screenY] 표시 켜기 (기본)
+DisPlayer	disableScreenScale	func	()	disableScreenScale();$0	DisPlayer · 구석의 [screenX, screenY] 표시 끄기
+DisPlayer	setParent	func	() ("자식") as ("부모")	setParent() ("$0") as ("");	DisPlayer · 부모가 움직이면 자식도 같이 움직임 (자식은 따로도 움직임)
+DisPlayer	setLink	func	("id1", "id2")	setLink("$0", "");	DisPlayer · 두 오브젝트를 묶음 — 어느 쪽이 움직여도 같이 움직임 ("" = 풀기)
+DisPlayer	removeObj	func	("id")	removeObj("$0");	DisPlayer · 오브젝트 지우기 (자식은 남음)
+DisPlayer	escParent	func	("id")	escParent("$0");	DisPlayer · 부모 상속 해제 — 부모에게서 떨어짐
+DisPlayer	splitParent	func	("id")	splitParent("$0");	DisPlayer · 부모의 가정해체 — 자식을 모두 떼어냄
+DisPlayer	setObjLayer	func	("id", int 레이어)	setObjLayer($0);	DisPlayer · 그리는 순서 — 클수록 위 (기본 0)
+DisPlayer	ascendObjLayer	func	("id", int n)	ascendObjLayer("$0", 1);	DisPlayer · 오브젝트와 자식들의 레이어를 n 만큼 올림 (음수 = 내림)
+DisPlayer	setTxtContent	func	("id", "내용")	setTxtContent("$0", "");	DisPlayer · 글자 오브젝트의 내용을 바꿈 (obj.id.Text = "내용"; 과 같음)
+DisPlayer	tagObj	func	("id", "태그")	tagObj($0);	DisPlayer · 태그 붙이기 → id 란에 "<태그>" 로 모두 부름
+DisPlayer	setObjCyl	func	([x, y], "id", 반지름, 색)	setObjCyl([$0, 0], "id", 50, "#ffffff");	DisPlayer · 원 오브젝트를 만들거나 덮어씀 · 위치는 가운데
+DisPlayer	setObjPlg	func	([x, y], [x, y], [x, y], [x, y], "id", 색)	setObjPlg([$0, 0], [100, 0], [50, 80], "id", "#ffffff");	DisPlayer · 꼭짓점 3 · 4개로 다각형 오브젝트 (3개면 4번째를 빼고 씀)
+DisPlayer	setObjAlpha	func	("id", 0 ~ 255)	setObjAlpha("$0", 128);	DisPlayer · 투명도 — 0 안 보임 · 255 불투명
+DisPlayer	disableObj	func	("id")	disableObj("$0");	DisPlayer · 비활성화 — 안 그리고 · 안 움직임 (자식도)
+DisPlayer	enableObj	func	("id")	enableObj("$0");	DisPlayer · 다시 활성화
+DisPlayer	setObjColor	func	("id", 색)	setObjColor("$0", "#ffffff");	DisPlayer · 색 바꾸기 · for ms 면 서서히
+DisPlayer	setObjOverlay	func	("id", 색, 0 ~ 255)	setObjOverlay("$0", "#ffffff", 128);	DisPlayer · 모양 그대로 색을 덧씌움 · for ms 면 서서히
+DisPlayer	setGlow	func	("id", 색, 세기)	setGlow($0);	DisPlayer · 빛 번짐 — 모양 둘레로 그 색이 번짐 (세기 = 번지는 거리 · 0 = 없앰)
+DisPlayer	rotateObj	func	("id", 각도, ms)	rotateObj("$0", 90, 500);	DisPlayer · 지금 각도에서 각도(도)만큼 더 돌림 — 시계 반대 방향 + · ms 동안 서서히 (0 = 바로)
+DisPlayer	setRenderLimit	func	(int 반지름)	setRenderLimit($0);	DisPlayer · 메인 카메라 가운데에서 반지름(화면 픽셀) 안만 그림 · 0 = 제한 없음
+DisPlayer	setTilemap	func	([x, y], "타일맵")	setTilemap($0);	DisPlayer · 타일맵(.tl) 깔기 — 맵의 [0, 0] 지점(⌖)을 [x, y] 에 · 콜라이더 자동 (colliders 필요)
+DisPlayer	displayX	var	int	displayX	DisPlayer · 디스플레이 가로 크기 (화면 단위 · 짧은 쪽 = 720)
+DisPlayer	displayY	var	int	displayY	DisPlayer · 디스플레이 세로 크기 (화면 단위 · 짧은 쪽 = 720)
+DisPlayer	idWidthmode	var	bit	idWidthmode	DisPlayer · 가로 모드(가로 ≥ 세로)면 1 · 세로 모드면 0
+colliders	setVelocity	func	("id", [x, y])	setVelocity("$0", [0, 0]);	colliders · 속도 벡터 (px/초, 위쪽 +) · [0, 0] 이면 멈춤
+colliders	setVelocityX	func	("id", 속도)	setVelocityX("$0", 0);	colliders · 가로 속도만 (세로는 그대로)
+colliders	setVelocityY	func	("id", 속도)	setVelocityY("$0", 0);	colliders · 세로 속도만 (가로는 그대로 · 위쪽 +)
+colliders	setAnchor	func	("id", bit)	setAnchor("$0", true);	colliders · 묶어두기 (true) / 풀기 (false)
+colliders	setCollider	func	([x, y], [가로, 세로], "id", 탄성, 중력)	setCollider([0, 0], [$0, ], "id", 0.5, true);	colliders · 콜라이더 만들기 (id 오브젝트가 있으면 붙음)
+colliders	setTrigger	func	([x, y], [가로, 세로], "id", hold)	setTrigger([0, 0], [$0, ], "id", false);	colliders · 충돌 없는 판정 영역 → obj.id.IsTrigged · TriggedId
+colliders	setGravity	func	(f)	setGravity($0);	colliders · 중력 배율 (1 = 980 px/초², 0 = 무중력, 음수 = 위쪽)
+colliders	setColliderVisible	func	(bit)	setColliderVisible(true$0);	colliders · 콜라이더 테두리 보이기 (기본: 안 보임)
+colliders	setLink	func	("id1", "id2")	setLink("$0", "");	colliders · 두 오브젝트를 묶음 (dis.setLink 와 같음) — 같이 움직임
+colliders	obj	keyword	오브젝트	obj.	col.obj.id.isCollided · collidedObj — 부딪힘 알림
+Canvas	ScreenClicked	var	bit	ScreenClicked	Canvas · 화면을 누르고 있으면 1
+Canvas	setUi	func	("id")	setUi("$0");	Canvas · 오브젝트를 카메라에 고정 (UI · 위치 = 화면 좌표)
+Canvas	bindInput	func	("버튼 id") to ("키")	bindInput("$0") to ("");	Canvas · 버튼을 누르는 동안 그 키를 누른 것으로 (jaw.isKeyInput)
+Canvas	setasButton	func	("id")	setasButton("$0");	Canvas · 오브젝트를 버튼으로 (can.obj.id.IsButtonClicked)
+Canvas	setUpScene	func	()	setUpScene();$0	Canvas · 장면 기능 켜기
+Canvas	nameScene	func	("이름")	nameScene("$0");	Canvas · 지금 장면에 이름 붙이기
+Canvas	setScene	func	("이름")	setScene("$0");	Canvas · 새 장면 만들기
+Canvas	popupScene	func	("이름")	popupScene("$0");	Canvas · 지금 장면을 멈춰 두고 그 장면을 엶 (closeScene 으로 닫음)
+Canvas	closeScene	func	()	closeScene();$0	Canvas · 팝업 장면 닫기 → 멈춘 장면이 이어서
+Canvas	sendtoScene	func	("이름")	sendtoScene("$0");	Canvas · 그 장면으로 이동
+Canvas	SceneName	var	string	SceneName	Canvas · 지금 장면 이름
+Canvas	BelongScene	func	("장면")	BelongScene("$0");	Canvas · run{ } 안 · 이 파일 전체를 장면에 귀속 (그 장면에 들어오면 실행)
+Canvas	obj	keyword	오브젝트	obj.	can.obj.id.isMouseTouched — 마우스가 오브젝트 위에 있으면 1
+Canvas	MouseX	var	float	MouseX	Canvas · 마우스(터치) x 위치 — 가운데 0, 오른쪽 +
+Canvas	MouseY	var	float	MouseY	Canvas · 마우스(터치) y 위치 — 가운데 0, 위쪽 +
+Magellan	importFolder	func	("경로")	importFolder("$0");	Magellan · 폴더 안 파일에 모두 이름 붙이기 (이름 = 확장자를 뺀 파일 이름)
+Magellan	importFile	func	("경로") save as ("id")	importFile("$0") save as ("");	Magellan · 경로에 짧은 이름 붙이기 (프로그램 전체 공유 · 복사하지 않음)
+Magellan	setasTexture	func	("이미지 이름", [x1, y1], [x2, y2]) save as ("id")	setasTexture("$0", [0, 0], [32, 32]) save as ("");	Magellan · 이미지의 그 부분을 텍스쳐로 (텍스쳐 id)
+Magellan	wearTexture	func	("오브젝트 id", "텍스쳐 id")	wearTexture("$0", "");	Magellan · 오브젝트에 텍스쳐 입히기 ("" = 벗기기)
+Magellan	setasAnime	func	(["텍스쳐", …], ms, "id")	setasAnime(["$0"], 100, "");	Magellan · 텍스쳐들을 ms 간격으로 이어 애니메이션
+Magellan	obj	keyword	오브젝트	obj.	mag.obj.id.runAnime("애니", 배속) · applyAnime · breakAnime · animeFrame
+Magellan	setObjTexture	func	("id", "이미지 이름", [x1, y1], [x2, y2])	setObjTexture("$0", "", [0, 0], [32, 32]);	Magellan · 오브젝트에 이미지의 그 부분을 바로 입힘 (예전 방식)
+soundMaster	setSpeaker	func	("id")	setSpeaker("$0");	soundMaster · 스피커 만들기
+soundMaster	playSfx	func	("스피커", "소리", ms)	playSfx("$0", "", 0);	soundMaster · 한 번 재생 (ms 까지 · 0 = 끝까지)
+soundMaster	repeatPart	func	("스피커", "소리", 시작 ms, 끝 ms)	repeatPart("$0", "", 0, -1);	soundMaster · 시작 ~ 끝 구간 무한 반복 (끝 음수 = 소리 끝까지)
+soundMaster	introPart	func	("스피커", "소리", 시작 ms, 끝 ms)	introPart("$0", "", 0, -1);	soundMaster · 처음부터 재생한 뒤 시작 ~ 끝 구간 무한 반복
+soundMaster	repeatingPlay	func	("스피커", "소리", 횟수)	repeatingPlay("$0", "", 0);	soundMaster · 반복 재생 (0 = 무한)
+soundMaster	setVol	func	("스피커", 0~255)	setVol("$0", 255);	soundMaster · 볼륨
+soundMaster	break	func	("스피커")	break("$0");	soundMaster · 스피커 소리 끄기 (페이드 아웃)
+soundMaster	break	func	("스피커", true)	break($0);	soundMaster · 스피커 소리 바로 끄기 (페이드 무시)
+soundMaster	setFadein	func	("스피커", ms)	setFadein("$0", 300);	soundMaster · 켜질 때 페이드
+soundMaster	setFadeout	func	("스피커", ms)	setFadeout("$0", 300);	soundMaster · 꺼질 때 페이드
+soundMaster	spk	keyword	스피커	spk.	sou.spk.스피커.belongto("오브젝트") — 공간 음향
+SeongBin	setUpCam	func	()	setUpCam();$0	SeongBin · 카메라 기능 켜기
+SeongBin	setCam	func	("이름")	setCam("$0");	SeongBin · 카메라 만들기 (id "cam.이름")
+SeongBin	setMainCamas	func	("이름")	setMainCamas("$0");	SeongBin · 지금 장면의 메인 카메라
+SeongBin	cam	keyword	카메라	cam.	seo.cam.이름.setZoom / moveCamto / follow / followOut
+@stmt	if	snippet		if [$0]{\n    \n}	조건문
+@stmt	else	snippet		else{\n    $0\n}	그 밖의 경우
+@stmt	else if	snippet		else if [$0]{\n    \n}	다른 조건
+@stmt	loop	snippet		loop [$0]{\n    \n}	조건이 참인 동안 반복
+@stmt	loop{}	snippet		loop{\n    $0\n}	무한 반복 (break 로 탈출)
+@stmt	var	snippet		var $0	변수 선언
+@lib	jawbreaker	lib			
+@lib	DisPlayer	lib			
+@lib	colliders	lib			
+@lib	Canvas	lib			
+@lib	Magellan	lib			
+@lib	soundMaster	lib			
+@lib	SeongBin	lib			

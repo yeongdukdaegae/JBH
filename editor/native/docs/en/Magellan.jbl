@@ -1,0 +1,74 @@
+// Magellan — built-in sub-library of DisPlayer · images · textures (read-only reference)
+// It depends on DisPlayer: the same file needs Use DisPlayer.
+//
+// ── Use ────────────────────────────────
+//   Use DisPlayer call dis;
+//   Use Magellan call mag;
+//
+// ── Adding images ──────────────────────
+//   ☰ Open or drag and drop .png · .jpg · .gif · .webp · .bmp files into the project
+//   (zip export includes them · tap one in the file list to preview it)
+//
+// ── Commands ───────────────────────────
+//   mag.importFolder("path");
+//                                name every image · sound · font · tilemap in that folder (subfolders too)
+//                                · name = the file name without its extension (assets/sounds/choose.mp3 → "choose")
+//                                · clashing names are an error (name those with importFile) · "" = the whole project · the path is a quoted constant
+//   mag.importFile("path") save as ("id");
+//                                gives the path a short name (id) — nothing is copied or stored; from then on the id means that path
+//                                · the name is shared by the whole program (every file) · the same id again points it at another path
+//                                · the path is a quoted constant (from the project root; ./ ../ from the current file)
+//                                · doesn't wait (the picture appears once the file has loaded)
+//   mag.setObjTexture("id", "image name", [x1, y1], [x2, y2]);
+//                                puts the [x1, y1] ~ [x2, y2] part of the image on the object (image pixels · top-left is [0, 0])
+//                                · the object's color becomes #ffffff — changing the color tints it (multiply)
+//                                  (dis.setObjColor("id", "#ff8080"); for red · gradually with for ms too)
+//                                · circles map the rectangle with its four corners cut off
+//                                · x2 < x1 flips left-right · y2 < y1 flips upside down
+//                                · opacity · layers · size · tags ("<tag>") all still work · image name "" removes the texture
+//                                · sprite sheets: animate by changing the cell on the same image (textures · animations below are easier)
+//
+// ── Textures ───────────────────────────
+//   mag.setasTexture("image name", [x1, y1], [x2, y2]) save as ("texture id");
+//                                make the [x1, y1] ~ [x2, y2] rectangle of an image a texture with an id (flip · range rules as setObjTexture)
+//                                · ids are shared by the whole program · the same id again replaces it
+//   mag.wearTexture("object id", "texture id");
+//                                put a texture on an object · "" = remove · "<tag>" works
+//                                · the first texture turns the color #ffffff (change it to tint) · a playing animation stops
+//
+// ── Animations ─────────────────────────
+//   mag.setasAnime(["texture id", …], ms, "anime id");
+//                                an animation showing the textures in order, ms apart (a list variable works too)
+//   mag.obj.id.applyAnime("anime id");        play an animation (1× · once)
+//   mag.obj.id.runAnime("anime id", speed);   play it at that speed (2.0 = twice as fast · 0.5 = half)
+//                                · plays once and stops on the last frame · doesn't wait (the next line runs at once)
+//                                · calling again while one plays (another or the same) switches after the current one ends — the last call wins
+//                                  (calling runAnime("walk", 1.0) every frame while walking repeats it seamlessly)
+//   mag.obj.id.breakAnime();                  stop the animation — keeps the texture of the frame it stopped on · cancels the waiting next one
+//   mag.obj.id.animeFrame                     int — the animation frame now shown (from 1) · -1 when not playing
+//                                · in a bound file mag.obj.runAnime("walk", 1.0); · mag.obj.animeFrame = the object itself
+//                                · not for text · invisible objects
+//
+// ── Example ────────────────────────────
+//   Use jawbreaker call jaw;
+//   Use DisPlayer call dis;
+//   Use Magellan call mag;
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       mag.importFile("img/hero.png") save as ("hero");
+//       dis.setObject([0, 0], "player", [96, 96], "#fff");
+//       mag.setasTexture("hero", [0, 0], [32, 32]) save as ("w1");     // four 32 × 32 cells
+//       mag.setasTexture("hero", [32, 0], [64, 32]) save as ("w2");
+//       mag.setasTexture("hero", [64, 0], [96, 32]) save as ("w3");
+//       mag.setasTexture("hero", [96, 0], [128, 32]) save as ("w4");
+//       mag.wearTexture("player", "w1");
+//       mag.setasAnime(["w1", "w2", "w3", "w4"], 120, "walk");
+//       loop{   // walk while held · stop when released
+//           if [jaw.isKeyInput("right")]{ mag.obj.player.runAnime("walk", 1.5); }
+//           else{ mag.obj.player.breakAnime(); }
+//           dis.waitF(1);
+//       }
+//   }
+//
+// · C conversion: reads the image at the named path with SDL2_image the first time it is used (run it from the project folder).

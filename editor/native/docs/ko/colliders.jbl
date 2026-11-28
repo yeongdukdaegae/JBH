@@ -1,0 +1,71 @@
+// colliders — DisPlayer 의 하위 내장 라이브러리 (읽기 전용 설명서)
+// DisPlayer 에 종속됩니다: 같은 파일에 Use DisPlayer 가 있어야 하고,
+// dis.setupObject() 로 만든 오브젝트에만 씁니다.
+//
+// ── 사용 ───────────────────────────────
+//   Use DisPlayer call dis;
+//   Use colliders call col;
+//
+// ── 명령어 ─────────────────────────────
+//   col.setVelocity("id", [x, y]);   속도 벡터 (px/초, 오른쪽·위쪽이 +)
+//                                    · 행렬 안의 obj.Xvel · obj.Yvel = 그 오브젝트의 지금 속도
+//                                      (예: col.setVelocity("ball", [obj.Xvel, obj.Yvel - 10]);)
+//   col.setVelocityX("id", 속도);    가로 속도만 바꿈 (세로는 그대로) · col.setVelocityY("id", 속도) 는 세로만
+//                                      (예: col.setVelocityX("p", 120);  col.setVelocityY("p", obj.Yvel + 300);)
+//
+// ── 속도 속성 (변수처럼 읽고 바꿈) ──────
+//   obj.id.Velocity   matrix[1, 2]     obj.id.Xvel · obj.id.Yvel   float
+//                                    (obj.ball.Yvel = 0;  getVar("ball", "velocity") 도 가능)
+//                                    · 바꾸거나 묶어두기 전까지 속도가 계속 유지됨
+//                                      (프로그램이 끝나도 화면이 열려 있으면 계속 움직임 · ✕ 로 멈춤)
+//                                    · [0, 0] 이면 멈춤 · 화면 프레임에 맞춰 부드럽게 움직임
+//                                    · moveObj 로 옮기는 동안에는 moveObj 가 위치를 정함
+//   col.setAnchor("id", true);       묶어두기 — 속도를 0 으로 하고, 속도로는 움직이지 않음
+//   col.setAnchor("id", false);      풀기 — 이후 setVelocity 로 다시 움직임
+//   col.setLink("id1", "id2");      dis.setLink 와 같음 — 콜라이더와 그림을 묶어 같이 움직이게 할 때
+//
+// ── 콜라이더 (사각형 충돌) ──────────────
+//   col.setCollider([x, y], [가로, 세로], "id", 탄성계수, 중력);
+//                                    · [x, y] 는 콜라이더 가운데의 화면 좌표 (오브젝트와 같은 좌표)
+//                                    · id 오브젝트가 있으면 그 오브젝트에 붙음 — 붙인 뒤에는 지금의 간격대로 오브젝트를 따라감
+//                                      (오브젝트와 딱 겹치게: 오브젝트 위치를 그대로 · 귀속된 파일에서는 [obj.Xpos, obj.Ypos])
+//                                    · 없으면 보이지 않는 콜라이더(벽 · 바닥)를 [x, y] 에 만듦 — 멈춰 있는 동안은 부딪혀도 밀리지 않음
+//                                    · 탄성계수 0 ~ 1 (0 = 튀지 않음, 1 = 그대로 튐) · 두 물체 중 큰 값 사용
+//                                    · 중력 true = 아래로 빨라짐 (기본 980 px/초² · col.setGravity 로 바꿈)
+//                                    · 묶어둔(setAnchor true) 오브젝트는 움직이지 않는 벽 · 바닥이 됨
+//                                    · setColider 로 써도 같은 명령
+//   col.setColliderVisible(true);    콜라이더 테두리 보이기 (기본: 안 보임)
+//   col.setGravity(f);               중력 배율 — 1 = 980 px/초² (기본), 0.5 = 절반, 0 = 무중력, 음수 = 위쪽
+//
+// ── 부딪힘 알림 (읽기 전용) ─────────────
+//   col.obj.id.isCollided            bit — 지난 프레임에 다른 콜라이더와 부딪혔으면 (눌려 닿아 있는 동안도) 1, 아니면 0
+//   col.obj.id.collidedObj           string — 마지막으로 부딪힌 콜라이더(오브젝트) id · 부딪히는 순간 써짐 (아직 없으면 "")
+//                                    · 콜라이더가 없으면 0 · "" · 귀속된 파일에서는 col.obj.isCollided = 자기 자신
+//                                    · obj.id.isCollided 로 써도 같음 · setLink 로 묶인 것 · 부모 · 자식끼리는 부딪히지 않음
+//                                    · 둘 다 멈춰 있는 (묶어둔) 콜라이더끼리는 부딪힘으로 치지 않음
+//   예: if [col.obj.ball.isCollided && col.obj.ball.collidedObj == "floor"] { … }
+//
+// ── 트리거 (충돌 없는 판정 영역) ────────
+//   col.setTrigger([x, y], [가로, 세로], "id", hold);
+//                                    · [x, y] = 트리거 가운데의 화면 좌표 · id 오브젝트가 있으면 붙음 (그 간격대로 따라감), 없으면 보이지 않는 트리거를 만듦
+//                                    · 다른 오브젝트가 경계나 안쪽에 닿으면
+//                                      obj.id.IsTrigged = 1 (bit) · obj.id.TriggedId = 닿은 오브젝트 id (string)
+//                                    · hold false: 닿아 있는 동안만 1, 떨어지면 0
+//                                      hold true: 한 번 닿으면 obj.id.IsTrigged = 0; 으로 풀 때까지 1
+//                                    · 닿음 판정은 콜라이더가 있으면 콜라이더, 없으면 오브젝트 크기 기준
+//                                    · setColliderVisible(true) 면 노란 점선으로 보임
+//
+// ── 예 ─────────────────────────────────
+//   Use jawbreaker call jaw;
+//   Use DisPlayer call dis;
+//   Use colliders call col;
+//   run{
+//       dis.setDisplay();
+//       dis.setupObject();
+//       dis.setObject([60, 100], "ball", [40, 40], "#4de2b4");
+//       col.setVelocity("ball", [120, 60]);   // 1초에 오른쪽 120, 위로 60
+//       jaw.wait(2000);
+//       col.setVelocity("ball", [0, 0]);      // 멈춤
+//   }
+//
+// · C 변환에서도 같은 물리로 움직입니다 (DisPlayer.jbl 의 C 변환 설명 참고).
