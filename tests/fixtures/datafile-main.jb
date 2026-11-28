@@ -34,17 +34,4 @@ run{
     jaw.copyFileData("doc/out.txt") as ("r2");
     var string call rs = r2;
     print("file=%rs%");
-    jaw.getPermit("file");
-    var bit call f = jaw.hasPermit("file");
-    var data call pf;
-    jaw.copyFileData("permit") as ("pf");
-    data.pf.setPart(0, 5, "HELLO");
-    jaw.overWriteFile(pf, "permit");
-    var data call back;
-    jaw.copyFileData("permit") as ("back");
-    var string call pt = back;
-    jaw.getPermit("file");
-    jaw.copyFileData("permit") as ("back");
-    var string call p2 = back;
-    print("f=%f% permit=%pt% second=%p2%");
 }

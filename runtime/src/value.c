@@ -44,7 +44,7 @@ int v_eq(Value a, Value b) {
     switch (a.k) {
     case V_NUM: return a.u.n == b.u.n;
     case V_STR: return !strcmp(a.u.s, b.u.s);
-    case V_DATA: return !a.u.dt->dev && !b.u.dt->dev && a.u.dt->n == b.u.dt->n && !memcmp(a.u.dt->b, b.u.dt->b, a.u.dt->n);
+    case V_DATA: return a.u.dt->n == b.u.dt->n && !memcmp(a.u.dt->b, b.u.dt->b, a.u.dt->n);
     case V_MAT:
         if (a.u.m->r != b.u.m->r || a.u.m->c != b.u.m->c) return 0;
         for (int i = 0; i < a.u.m->r * a.u.m->c; i++) if (a.u.m->d[i] != b.u.m->d[i]) return 0;
@@ -60,8 +60,7 @@ int v_eq(Value a, Value b) {
 
 /* ---------- data 형식 (편집기의 toData · fromData · dataHex 와 같은 규칙) ----------
  *   넣을 때: 숫자 → 8바이트 실수 (big-endian) · 문자열 → UTF-8 · 행렬 · 리스트 · compound → JSON 글자
- *   꺼낼 때: 받는 형식으로 억지로 읽고 안 맞으면 0 (대입을 건너뜀) · 장치에 귀속된 data 는 지금 순간의 바이트 */
-unsigned char *rt_dev_snap(int dev, size_t *n);   /* run.c — 카메라 · 마이크의 지금 바이트 */
+ *   꺼낼 때: 받는 형식으로 억지로 읽고 안 맞으면 0 (대입을 건너뜀) */
 Value v_data(const unsigned char *b, size_t n) {
     Value v; v.k = V_DATA; v.u.dt = jb_calloc(sizeof(Data)); v.u.dt->rc = 1;
     v.u.dt->b = jb_alloc(n ? n : 1); if (n) memcpy(v.u.dt->b, b, n); v.u.dt->n = n; return v;
@@ -70,14 +69,10 @@ Value v_data_own(unsigned char *b, size_t n) {   /* b 를 그대로 가짐 (복�
     Value v; v.k = V_DATA; v.u.dt = jb_calloc(sizeof(Data)); v.u.dt->rc = 1; v.u.dt->b = b ? b : jb_alloc(1); v.u.dt->n = n; return v;
 }
 unsigned char *data_bytes(Value v, size_t *n, int *own) {
-    if (v.u.dt->dev) { *own = 1; return rt_dev_snap(v.u.dt->dev, n); }
     *own = 0; *n = v.u.dt->n; return v.u.dt->b;
 }
 Value to_data(Value v) {
-    if (v.k == V_DATA) {   /* 바이트는 나눠 씀 · 장치에 귀속된 것은 그 순간의 바이트 */
-        if (!v.u.dt->dev) { v.u.dt->rc++; return v; }
-        size_t n; int own; unsigned char *b = data_bytes(v, &n, &own); return v_data_own(b, n);
-    }
+    if (v.k == V_DATA) { v.u.dt->rc++; return v; }   /* 바이트는 나눠 씀 */
     if (v.k == V_NUM) { unsigned char b[8]; uint64_t u; double x = v.u.n; memcpy(&u, &x, 8); for (int i = 0; i < 8; i++) b[i] = (unsigned char)(u >> (56 - 8 * i)); return v_data(b, 8); }
     if (v.k == V_STR) return v_data((const unsigned char *)v.u.s, strlen(v.u.s));
     char *j = json_of(v); Value r = v_data((const unsigned char *)j, strlen(j)); free(j); return r;

@@ -32,7 +32,6 @@ static int ext_ty(int t) { return t == JDH_T_INT ? TY_INT : t == JDH_T_FLOAT ? T
 #define MAG_ID "Magellan"
 #define SND_ID "soundMaster"
 #define CAM_ID "SeongBin"
-#define DEM_ID "deviceManager"
 typedef struct { const char *name; int n; int p[6]; } Spec;
 enum { I_ = TY_INT, F_ = TY_FLOAT, S_ = TY_STRING, B_ = TY_BIT, M12 = TY_MAT12, C_ = TY_COLOR, L_ = TY_LIST, A_ = TY_ANY, J_ = TY_JSON };
 static const Spec DIS_FUNCS[] = {
@@ -61,7 +60,7 @@ static const Spec COL_FUNCS[] = {{"setVelocity",2,{S_,M12}},{"setVelocityX",2,{S
 static const Spec BUILTINS[] = {{"log",1,{A_}},{"print",1,{A_}},{"wait",1,{I_}},{"terminate",0},{"sendto",1,{S_}},
     {"break",0},{"return",0},{"goTo",1,{I_}},{"label",1,{S_}},{"setup",1,{S_}},
     {"keyClick",1,{S_}},{"keyPush",1,{S_}},{"keyRlse",1,{S_}},
-    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{"getPermit",1,{S_}},{"copyFileData",1,{S_}},{"overWriteFile",2,{A_,S_}},{NULL}};
+    {"setJson",2,{S_,J_}},{"genJson",2,{S_,S_}},{"loadJson",2,{S_,S_}},{"exportFile",2,{S_,S_}},{"openFile",1,{S_}},{"copyFileData",1,{S_}},{"overWriteFile",2,{A_,S_}},{NULL}};
 static const Spec *spec(const Spec *t, const char *n) { for (; t->name; t++) if (!strcmp(t->name, n)) return t; return NULL; }
 static char *specList(const Spec *t, const char *pre, int objStyle) {
     size_t cap = 1024, L = 0; char *s = jb_alloc(cap); s[0] = 0;
@@ -78,7 +77,7 @@ static char *specList(const Spec *t, const char *pre, int objStyle) {
     return s;
 }
 int is_builtin_lib(const char *l) {
-    return !strcmp(l, "jawbreaker") || !strcmp(l, DIS_ID) || !strcmp(l, COL_ID) || !strcmp(l, CAN_ID) || !strcmp(l, MAG_ID) || !strcmp(l, SND_ID) || !strcmp(l, CAM_ID) || !strcmp(l, DEM_ID);
+    return !strcmp(l, "jawbreaker") || !strcmp(l, DIS_ID) || !strcmp(l, COL_ID) || !strcmp(l, CAN_ID) || !strcmp(l, MAG_ID) || !strcmp(l, SND_ID) || !strcmp(l, CAM_ID);
 }
 const char *mod_use(Module *m, const char *alias) { for (int i = 0; i < m->nuses; i++) if (m->uses[i].alias == alias || !strcmp(m->uses[i].alias, alias)) return m->uses[i].lib; return NULL; }
 int mod_uses_lib(Module *m, const char *lib) { for (int i = 0; i < m->nuses; i++) if (!strcmp(m->uses[i].lib, lib)) return 1; return 0; }
@@ -263,8 +262,6 @@ static void ext_arg(Node *c, int i, Node *a, int t, const JdhPT *pt) {
         E(a, "'%s' 의 %d번째 값은 %s 행렬이어야 합니다 (받은 값: matrix[%d, %d])", c->name, i + 1, want, a->dims[0], a->dims[1]);
     }
 }
-/* jaw.getPermit · hasPermit 의 "cam" · "mic" · "file" (따옴표 안이면 검사 때 확인) */
-static void permitLit(Node *a) { if (a->k == N_STR && strcmp(a->str, "cam") && strcmp(a->str, "mic") && strcmp(a->str, "file")) E(a, "권한은 \"cam\" · \"mic\" · \"file\" 중 하나입니다 (받은 값: \"%s\")", a->str); }
 static void aliasErr(const char *name, Node *n) { E(n, "'%s' 은(는) 라이브러리 별칭이 아닙니다 (파일 위쪽에 'Use 라이브러리id call %s' 이 필요합니다)", name, name); }
 static void needDis(Node *e, const char *what) { if (!mod_uses_lib(M, DIS_ID)) E(e, "%s", what); }
 
@@ -364,7 +361,7 @@ static int ex(Node *e, InfoMap **sc, int ns) {
         if (!strcmp(al, "jawbreaker")) E(e, "jawbreaker 라이브러리에는 변수가 없습니다 (명령어는 %s.%s(...) 로 호출)", e->lib, e->name);
         if (!strcmp(al, COL_ID)) E(e, "colliders 라이브러리에는 변수가 없습니다 (명령어는 %s.%s(...) 로 호출)", e->lib, e->name);
         if (!strcmp(al, MAG_ID)) E(e, "Magellan 라이브러리에는 변수가 없습니다 (명령어는 %s.%s(...) 로 호출)", e->lib, e->name);
-        if (!strcmp(al, SND_ID) || !strcmp(al, CAM_ID) || !strcmp(al, DEM_ID)) E(e, "라이브러리 '%s' (부모 포함) 에 변수 '%s' 이(가) 없습니다", al, e->name);
+        if (!strcmp(al, SND_ID) || !strcmp(al, CAM_ID)) E(e, "라이브러리 '%s' (부모 포함) 에 변수 '%s' 이(가) 없습니다", al, e->name);
         if (!strcmp(al, CAN_ID)) {
             needDis(e, "Canvas 는 DisPlayer 의 하위 라이브러리라 이 파일에 'Use DisPlayer call 별칭;' 도 필요합니다");
             int t = !strcmp(e->name, "ScreenClicked") ? TY_BIT : !strcmp(e->name, "MouseX") || !strcmp(e->name, "MouseY") ? TY_FLOAT : !strcmp(e->name, "SceneName") ? TY_STRING : 0;
@@ -409,11 +406,6 @@ static int ex(Node *e, InfoMap **sc, int ns) {
             int pt = ex(e->args.v[0], sc, ns);
             if (!fit(e->args.v[0], pt, TY_STRING)) E(e->args.v[0], "fileExists 에는 경로(문자열)를 넣습니다 (예: \"save/s.json\") — 받은 형식: %s", tyTxt(pt, e->args.v[0]));
             e->fileEx = 1; return e->ty = TY_BIT;
-        }
-        if (!strcmp(e->name, "hasPermit") && jaw) {   /* jaw.hasPermit("cam") */
-            if (e->args.n != 1) E(e, "'%s' 은(는) 값 %d개가 필요합니다 (받은 값: %d개)", e->name, 1, e->args.n);
-            int t = ex(e->args.v[0], sc, ns); if (!fit(e->args.v[0], t, TY_STRING)) E(e->args.v[0], "hasPermit 에는 \"cam\" · \"mic\" · \"file\" 중 하나를 넣습니다 — 받은 형식: %s", tyTxt(t, e->args.v[0])); permitLit(e->args.v[0]);
-            e->permit = 1; return e->ty = TY_BIT;
         }
         const char *sig; int sr; int sn = strf_n(e->name, &sig, &sr);
         if (sn >= 0 && jaw) {
@@ -608,17 +600,6 @@ static void call(Node *c, InfoMap **sc, int ns, CS *cs, int ncs) {
                 E(c, "soundMaster 에 '%s%s%s' 명령어가 없습니다 (사용 가능: %s)", c->sub ? c->sub : "", c->sub ? ".id." : "", c->name, specList(SND_FUNCS, pre, 2));
             }
             SETSPEC(sp, M_SND);
-        } else if (!strcmp(al, DEM_ID)) {   /* deviceManager — 인자는 data 변수 이름 ("따옴표") */
-            static const Spec DEM_FUNCS[] = {{"recordCamAs",1,{S_}},{"recordMicAs",1,{S_}},{"stopRecord",1,{S_}},{NULL}};
-            sp = spec(DEM_FUNCS, c->name);
-            if (!sp) { char pre[64]; snprintf(pre, sizeof pre, "%s.", c->lib); E(c, "deviceManager 에 '%s' 명령어가 없습니다 (사용 가능: %s)", c->name, specList(DEM_FUNCS, pre, 0)); }
-            Node *a = c->args.n ? c->args.v[0] : NULL;
-            if (c->args.n != 1 || a->k != N_STR) E(c, "%s 은(는) data 변수 이름을 \"따옴표\" 로 씁니다 (예: %s.%s(\"video\");)", c->name, c->lib, c->name);
-            const char *nm = jb_in(a->str); Info *i = look(nm, sc, ns);
-            if (!i) E(a, "변수 '%s' 이(가) 선언되지 않았습니다 (var data call %s; 로 먼저 만드세요)", a->str, a->str);
-            if (i->ty != TY_DATA) E(a, "%s 은(는) data 변수에만 쓸 수 있습니다 ('%s' 은(는) %s)", c->name, a->str, ty_name(i->ty));
-            c->jinfo = i; c->jname = nm;
-            SETSPEC(sp, M_DEM);
         } else if (!strcmp(al, CAM_ID)) {
             if (!mod_uses_lib(M, CAN_ID) || !mod_uses_lib(M, DIS_ID)) E(c, "SeongBin 은 Canvas(DisPlayer 하위)의 하위 라이브러리라 이 파일에 'Use DisPlayer call 별칭;' 과 'Use Canvas call 별칭;' 도 필요합니다");
             char key[128]; snprintf(key, sizeof key, "%s%s", c->sub && !strcmp(c->sub, "cam") ? "cam." : "", c->name);
@@ -721,11 +702,9 @@ static void call(Node *c, InfoMap **sc, int ns, CS *cs, int ncs) {
         if (pt == TY_MAT12) { int d[2] = {1, 2}; needMat(a, t, d, w); continue; }
         if (pt == TY_MATRIX && c->tdef) { needMat(a, t, c->tdef->params[i].dims, w); continue; }
         if (c->tdef && (pt == TY_DATA || t == TY_DATA)) continue;   /* 함수의 data 매개변수 ↔ 무엇이든 */
-        if (IS(M_MAG, "wearTexture") && i == 1 && t == TY_DATA) continue;   /* mag.wearTexture("id", 데이터) */
         if (pt == TY_COLOR) { char w2[180]; snprintf(w2, sizeof w2, "%s(색)", w); colorCheck(a, t, w2); continue; }
         if (pt != TY_ANY && !fit(a, t, pt)) E(a, "'%s' 의 %d번째 값은 %s 형식이어야 합니다 (받은 형식: %s)", c->name, i + 1, ty_name(pt), tyTxt(t, a));
     }
-    if (IS(M_JAW, "getPermit")) permitLit(c->args.v[0]);
     if (IS(M_JAW, "loadJson")) {
         Node *a = c->args.v[1];
         if (a->k != N_STR) E(a, "loadJson 의 두 번째 값은 compound 변수 이름을 \"따옴표\" 로 씁니다 (예: jaw.loadJson(\"save.json\", \"sav\");)");
@@ -821,8 +800,8 @@ static void call(Node *c, InfoMap **sc, int ns, CS *cs, int ncs) {
     }
     int isCopy = IS(M_JAW, "copyFileData");
     if (c->asName && !IS(M_DIS, "getVar") && !isCopy) E(c, "'as' 는 dis.getVar(...) · jaw.copyFileData(...) 뒤에서만 쓸 수 있습니다");
-    if (isCopy) {   /* jaw.copyFileData("경로" | "permit") as ("data 변수"); */
-        if (!c->asName || !c->asQ) E(c, "copyFileData 는 받을 data 변수를 as (\"이름\") 으로 정합니다 (예: jaw.copyFileData(\"permit\") as (\"doc\");)");
+    if (isCopy) {   /* jaw.copyFileData("경로") as ("data 변수"); */
+        if (!c->asName || !c->asQ) E(c, "copyFileData 는 받을 data 변수를 as (\"이름\") 으로 정합니다 (예: jaw.copyFileData(\"doc/a.txt\") as (\"doc\");)");
         c->asName = jb_in(c->asName); Info *i = look(c->asName, sc, ns);
         if (!i) EL(c->asLine, "변수 '%s' 이(가) 선언되지 않았습니다 (var data call %s; 로 먼저 만드세요)", c->asName, c->asName);
         if (i->ty != TY_DATA) EL(c->asLine, "copyFileData 는 data 변수에만 넣을 수 있습니다 ('%s' 은(는) %s)", c->asName, ty_name(i->ty));

@@ -15,6 +15,9 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
 #ifdef _WIN32
 #include <windows.h>
 #include <direct.h>
@@ -649,6 +652,20 @@ static int cmdNewLib(const char *id) {
     printf("✔ 라이브러리 틀을 만들었습니다: %s/\n    jdl.json        선언 (명령어 · 값 · 권한)\n    native/%s.c  C 구현\n    doc/%s.jbl  설명서\n  다음: cd %s → jdh lib check → jdh lib build\n", id, id, id, id);
     return 0;
 }
+/* 프로젝트의 run.bat — main 을 실행 (jdh run) · 줄 끝은 CRLF (cmd.exe) */
+static const char *TPL_RUNBAT =
+    "@echo off\r\n"
+    "chcp 65001 >nul\r\n"
+    "rem Jawbreaker: run this project's main (jdh run). Stop a long-running program (server) with Ctrl+C.\r\n"
+    "cd /d \"%~dp0\"\r\n"
+    "where jdh >nul 2>nul\r\n"
+    "if errorlevel 1 (\r\n"
+    "  echo jdh 를 찾을 수 없습니다 - JDH 가 설치되어 있는지 확인하세요.\r\n"
+    "  pause\r\n"
+    "  exit /b 1\r\n"
+    ")\r\n"
+    "jdh run .\r\n"
+    "if errorlevel 1 pause\r\n";
 static int cmdNewProject(const char *name) {
     if (isDir(name) || isFile(name)) die("이미 '%s' 이(가) 있습니다", name);
     char *p = fmtdup("%s/lib", name); mkdirs(p); free(p);
@@ -657,7 +674,8 @@ static int cmdNewProject(const char *name) {
     p = fmtdup("%s/project.jbs", name); writeAll(p, t, strlen(t)); free(p); free(t);
     t = fmtdup("// 코드는 run{ } 안에 써야 실행됩니다.\nUse jawbreaker call jaw;\n\nrun{\n    print(\"Hello, %s\");\n}\n", baseName(name));
     p = fmtdup("%s/main.jb", name); writeAll(p, t, strlen(t)); free(p); free(t);
-    printf("✔ 프로젝트를 만들었습니다: %s/\n", name);
+    p = fmtdup("%s/run.bat", name); writeAll(p, TPL_RUNBAT, strlen(TPL_RUNBAT)); free(p);
+    printf("✔ 프로젝트를 만들었습니다: %s/\n    run.bat  두 번 누르면 main 을 실행 (서버도 이 창에서 · 끝내려면 Ctrl+C)\n", name);
     return 0;
 }
 static int cmdLibCheck(const char *dir, Lib **out) {
@@ -810,7 +828,10 @@ static void exeHostMsg(void *ud, const char *fn, const char *perm) {
     if (!perm) fprintf(stderr, "  ✖ %s: jdh_%s 은(는) 엔진이 주는 함수가 아닙니다\n", (const char *)ud, fn);
     else fprintf(stderr, "  ✖ %s: jdh_%s 은(는) \"%s\" 권한이 필요합니다\n", (const char *)ud, fn, perm);
 }
-static int cmdBuildExe(const char *projArg, const char *outArg) {
+/* console: 콘솔 창 프로그램으로 (print 가 그 창에 보임 · jdh run) · base: 실행기 (프로젝트를 붙이기 전) 를 여기에 두고
+ *   다음에 같은 라이브러리 · 같은 SDK 면 다시 컴파일하지 않고 프로젝트만 붙임 (key 파일로 비교) */
+static void copyFile(const char *from, const char *to) { size_t n; unsigned char *b = readAll(from, &n); writeAll(to, b, n); free(b); }
+static int cmdBuildExe(const char *projArg, const char *outArg, int console, const char *base) {
     const char *pd = projDir(projArg);
     char *home = homeDir(), *sdk = sdkDir();
     if (!sdk) die("jdh.h 를 찾을 수 없습니다 — JDH 를 다시 설치하거나 환경 변수 JDH_HOME 을 확인하세요");
@@ -825,6 +846,20 @@ static int cmdBuildExe(const char *projArg, const char *outArg) {
     char **jbx = NULL; int nj = 0;
     if (d) { struct dirent *e; while ((e = readdir(d))) if (endsWith(e->d_name, ".jbx")) { jbx = realloc(jbx, sizeof(char*) * (nj + 1)); jbx[nj++] = fmtdup("%s/%s", ext, e->d_name); } closedir(d); }
     if (nj) qsort(jbx, nj, sizeof(char*), cmpStr);
+    char *key = NULL;
+    if (base) {   /* 실행기를 다시 쓸 수 있는지: JDH 버전 · SDK 위치 · 라이브러리 (이름 · 크기 · 고친 때) 가 같으면 */
+        key = fmtdup("jdh %s\nsdk %s\n%s\n", JDH_VERSION, sdk, console ? "console" : "window");
+        for (int li = 0; li < nj; li++) { struct stat st; if (!stat(jbx[li], &st)) key = catf(key, "%s %lld %lld\n", jbx[li], (long long)st.st_size, (long long)st.st_mtime); }
+        char *kp = fmtdup("%s.key", base); size_t kl = 0;
+        unsigned char *kb = isFile(kp) && isFile(base) ? readAll(kp, &kl) : NULL;
+        if (kb && kl == strlen(key) && !memcmp(kb, key, kl)) {
+            char *out = outArg ? xdup(outArg) : fmtdup("%s/%s.exe", pd, projName(pd));
+            remove(out); copyFile(base, out); appendPayload(out, pd);
+            printf("✔ 실행기는 그대로 · 프로젝트 파일만 새로 붙였습니다: %s\n", out);
+            free(kb); free(kp); return 0;
+        }
+        free(kb); free(kp);
+    }
     char *gen = xdup("/* jdh build exe 가 만든 파일 — 사용자 라이브러리를 실행기에 잇는 표 */\n#include \"jdh_native.h\"\n");
     char *tbl = xdup("");
     char **objsrc = NULL; int *objlib = NULL; int nobj = 0;
@@ -931,15 +966,38 @@ static int cmdBuildExe(const char *projArg, const char *outArg) {
         } else printf("  ⚠ 아이콘 · 화면 설정 파일이 없어 넣지 않았습니다 (%s/win) — JDH 를 다시 설치해 주세요\n", rt);
     }
     remove(out);
+    const char *cout = base ? base : out;   /* 실행기를 둘 곳 (base 면 나중에 다시 씀) */
+    if (base) remove(base);
     printf("  실행기를 컴파일합니다 (처음에는 1분쯤 걸릴 수 있습니다)…\n");
-    char *cmd = fmtdup("%s cc %s -O2 -s -mwindows -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32 -lwinhttp -lmfplat -lmf -lmfreadwrite -lmfuuid",
-        zig, tg, rt, sdl, rtsrc, sdk, out, srcs, genp, objs, rcarg, sdla);
-    if (run(cmd) || !isFile(out)) die("실행 파일을 만들지 못했습니다 (위 메시지를 확인하세요)");
+    char *cmd = fmtdup("%s cc %s -O2 -s %s -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32 -lwinhttp",
+        zig, tg, console ? "-mconsole" : "-mwindows", rt, sdl, rtsrc, sdk, cout, srcs, genp, objs, rcarg, sdla);
+    if (run(cmd) || !isFile(cout)) die("실행 파일을 만들지 못했습니다 (위 메시지를 확인하세요)");
+    if (base) { char *kp = fmtdup("%s.key", base); writeAll(kp, key, strlen(key)); free(kp); copyFile(base, out); }
     /* 3. 프로젝트 붙이기 */
     appendPayload(out, pd);
     size_t total; unsigned char *b = readAll(out, &total); free(b);
     printf("✔ 만들었습니다: %s (%.1f MB)\n", out, total / 1048576.0);
     return 0;
+}
+/* jdh run [프로젝트] — main 을 실행 (프로젝트의 run.bat 이 부름)
+ *   콘솔 판 실행기를 build/jdh/run-base.exe 에 두고 (라이브러리가 바뀔 때만 다시 컴파일) 프로젝트를 붙여 build/jdh/run/<이름>.exe 로 실행
+ *   print 는 이 창에 나옴 · 서버처럼 계속 도는 프로그램은 Ctrl+C 로 끝냄 · 돌려주는 값 = 프로그램의 종료 코드 */
+static int cmdRun(const char *projArg) {
+    const char *pd = projDir(projArg);
+    char *bd = fmtdup("%s/build/jdh/run", pd); mkdirs(bd);
+    char *base = fmtdup("%s/build/jdh/run-base.exe", pd), *out = fmtdup("%s/%s.exe", bd, projName(pd));
+    cmdBuildExe(pd, out, 1, base);
+    printf("▶ %s\n", out);
+#ifdef _WIN32
+    char *cmd = fmtdup("\"%s\"", out);
+#else
+    char *cmd = fmtdup("wine \"%s\"", out);   /* Windows 가 아니면 wine 으로 (시험용) */
+#endif
+    int r = run(cmd);
+#ifndef _WIN32
+    if (r != -1 && WIFEXITED(r)) r = WEXITSTATUS(r);
+#endif
+    return r;
 }
 /* ---------- 업데이트 ----------
  *   새 버전은 GitHub 릴리스에: jdh-latest.txt (버전 · 목록의 SHA-256) · jdh-manifest.txt (파일 목록) · jdh-*.pack (파일을 이어 붙인 묶음)
@@ -1339,6 +1397,7 @@ static void usage(void) {
          "  jdh lib list [프로젝트]          적용된 라이브러리 보기\n"
          "  jdh lib remove <id> [프로젝트]   프로젝트에서 빼기\n"
          "  jdh build exe [프로젝트] [-o 파일]  Windows 실행 파일 만들기 (라이브러리 포함)\n"
+         "  jdh run [프로젝트]               main 실행 (이 창에 print · 서버는 Ctrl+C 로 끝냄 · 프로젝트의 run.bat 이 부름)\n"
          "  jdh open                         JawBreaker Dev. 열기\n"
          "  jdh update [--yes]               새 버전 확인 · 업데이트 (설치된 파일을 검사해 바뀐 것만 받음 · 깨진 설치도 고침)");
 }
@@ -1364,10 +1423,11 @@ int main(int argc, char **argv) {
         if (!strcmp(b, "lib")) return cmdNewLib(argv[3]);
         if (!strcmp(b, "project")) return cmdNewProject(argv[3]);
     }
+    if (!strcmp(a, "run")) return cmdRun(b);
     if (!strcmp(a, "build") && b && !strcmp(b, "exe")) {
         const char *pj = NULL, *out = NULL;
         for (int i = 3; i < argc; i++) { if (!strcmp(argv[i], "-o")) { if (++i >= argc) die("-o 뒤에 파일 이름이 필요합니다"); out = argv[i]; } else pj = argv[i]; }
-        return cmdBuildExe(pj, out);
+        return cmdBuildExe(pj, out, 0, NULL);
     }
     if (!strcmp(a, "lib") && b) {
         if (!strcmp(b, "check")) return cmdLibCheck(argc > 3 ? argv[3] : ".", NULL);

@@ -28,59 +28,15 @@ void rt_sys(const char *fmt, ...) {
     va_list ap; va_start(ap, fmt); fputs("· ", stderr); vfprintf(stderr, fmt, ap); fputc('\n', stderr); va_end(ap);
 }
 
-/* ---------- 권한 (jaw.getPermit) — 장치 쪽은 permit.c ---------- */
-int jb_permit_cam_start(void); int jb_permit_mic_start(void); int jb_permit_file_pick(char *out, size_t n);
-unsigned char *jb_permit_cam_copy(size_t *n); unsigned char *jb_permit_mic_copy(size_t *n);
-static int PERM[3];                  /* cam · mic · file (file = 허락받은 파일이 하나라도 있음) */
 static Value chkd(Value v, Node *n);
 typedef struct { char *path; char *text; size_t len; } Out;   /* text 는 끝에 0 이 붙은 바이트 (len = 길이) */
 static const Out *outOf(const char *path);
-/* 허락받은 파일 (jaw.getPermit("file") · 마지막에 고른 것 하나 · 편집기의 PFILE 과 같음): 경로 "permit" · 256MB 를 넘는 파일은 허락되지 않음
- *   다시 고르다 취소하면 앞의 파일이 그대로 남음 */
-#define PF_BYTES ((size_t)256 << 20)
-typedef struct { char *path; Value v; } PFile;   /* v: 그 파일의 바이트 (data · copyFileData 는 복사 없이 나눠 씀) */
-static PFile PF;
-static PFile *pfGet(Node *n) {
-    if (!PF.path) RT(n, "허락받은 파일이 없습니다 — 먼저 jaw.getPermit(\"file\"); 로 파일을 고르세요");
-    return &PF;
-}
-int rt_permit_ok(int k) { return k >= 0 && k < 3 && PERM[k]; }
-static int permitKind(const char *k, Node *n) {
-    if (!strcmp(k, "cam")) return 0;
-    if (!strcmp(k, "mic")) return 1;
-    if (!strcmp(k, "file")) return 2;
-    RT(n, "권한은 \"cam\" · \"mic\" · \"file\" 중 하나입니다 (받은 값: \"%s\")", k);
-    return 0;
-}
-/* 장치에 귀속된 data 의 지금 바이트 (value.c 의 data_bytes 가 부름) — 1 = 카메라 · 2 = 마이크 */
-unsigned char *rt_dev_snap(int dev, size_t *n) {
-    unsigned char *b = dev == 1 ? jb_permit_cam_copy(n) : jb_permit_mic_copy(n);
-    if (!b) { *n = 0; b = jb_alloc(1); }
-    return b;
-}
-/* deviceManager — data 변수를 카메라 · 마이크에 귀속 · stopRecord 로 풂 (그 순간의 바이트가 남음) */
-static int demBindSeq;
-/* 귀속을 풂: 그 순간의 바이트가 변수에 남고 · 그 영상을 입은 오브젝트는 마지막 그림으로 (dem.stopRecord · setPart) */
-static void demUnbind(Slot *sl) {
-    if (sl->v.k != V_DATA || !sl->v.u.dt->dev) return;
-    Data *d = sl->v.u.dt; size_t n; unsigned char *b = rt_dev_snap(d->dev, &n);
-    if (d->dev == 1) gfx_cam_unbind(d->bind, b, n);
-    Value nv = v_data_own(b, n); v_free(&sl->v); sl->v = nv;
-}
 /* getPart · setPart 의 구간: 0 부터 · 끝은 빠짐 · 범위 밖은 잘라 냄 (끝 < 시작 이면 빈 구간) */
 static double dIdx(Node *a, Env *env) { Value v = chkd(ev(a, env), a); double x = v.k == V_NUM ? trunc(v.u.n) : 0; v_free(&v); return isfinite(x) ? x : 0; }
 static void dRange(Node *c, Env *env, size_t n, size_t *s, size_t *e) {
     double a = dIdx(c->args.v[0], env), b = dIdx(c->args.v[1], env);
     if (a < 0) a = 0; if (a > (double)n) a = (double)n; if (b > (double)n) b = (double)n; if (b < a) b = a;
     *s = (size_t)a; *e = (size_t)b;
-}
-static int dem_call(Node *c, Env *env) {
-    Slot *sl = slot_of(c->jinfo, c->jname, env, c);
-    if (!strcmp(c->name, "stopRecord")) { demUnbind(sl); return S_OK; }
-    int k = !strcmp(c->name, "recordCamAs") ? 0 : 1;
-    if (!PERM[k]) RT(c, k == 0 ? "카메라 권한이 없습니다 — jaw.getPermit(\"cam\"); 로 먼저 허락을 받으세요" : "마이크 권한이 없습니다 — jaw.getPermit(\"mic\"); 로 먼저 허락을 받으세요");
-    Value nv = v_data(NULL, 0); nv.u.dt->dev = k + 1; nv.u.dt->bind = ++demBindSeq;
-    v_free(&sl->v); sl->v = nv; return S_OK;
 }
 /* ---------- 차례 (FIFO) ---------- */
 static pthread_mutex_t Gm = PTHREAD_MUTEX_INITIALIZER;
@@ -418,9 +374,6 @@ Value ev(Node *e, Env *env) {
             v_free(&x); return v_num(r);
         }
         if (e->canKey) { char *k = evs(e->args.v[0], env); int r = key_on(k); free(k); return v_num(r); }
-        if (e->permit) {
-            char *k = evs(e->args.v[0], env); int i = permitKind(k, e->args.v[0]); free(k); return v_num(PERM[i]);
-        }
         if (e->fileEx) {
             char *raw = evs(e->args.v[0], env); char *path = path_resolve(raw, e->file); free(raw);
             extern int rt_file_exists(const char *path);
@@ -562,7 +515,7 @@ int exec(Node *s, Env *env) {
         return S_OK;
     case N_DSET: {   /* data.이름.setPart(시작, 끝, 값); — 장치에 귀속돼 있으면 먼저 풂 (그 순간의 바이트를 고침) */
         Value t = ev(s->args.v[2], env), v = to_data(t); v_free(&t);
-        Slot *sl = slot_of(s->info, s->name, env, s); demUnbind(sl);
+        Slot *sl = slot_of(s->info, s->name, env, s);
         Data *d = sl->v.u.dt; size_t a, e; dRange(s, env, d->n, &a, &e);
         size_t k = v.u.dt->n, m = a + k + (d->n - e);
         if (d->rc == 1 && v.u.dt != d) {   /* 혼자 쓰는 바이트: 그 자리에서 고침 (같은 길이면 복사 없음) */
@@ -642,7 +595,6 @@ int exec(Node *s, Env *env) {
             env_free(fenv);
         }
         else if (s->target == M_BELONG) r = gfx_belong(s, env);
-        else if (s->target == M_DEM) r = dem_call(s, env);
         else r = gfx_call(s, env);
         if (r == S_OK && C.sig) { r = C.sig; C.sig = 0; }   /* 값 함수 안의 sendto · 귀속 해제 */
         return r;
@@ -919,38 +871,9 @@ int jaw_call(Node *c, Env *env) {
         rt_sys("📤 %s → %s (난독화)", path, b);
         free(o); free(raw); free(name); free(path); return S_OK;
     }
-    if (!strcmp(n, "getPermit")) {   /* jaw.getPermit("cam" | "mic" | "file") — 허락을 받음 (답할 때까지 기다림) */
-        char *k = evs(c->args.v[0], env); int i = permitKind(k, c->args.v[0]);
-        if (i == 2) {   /* 파일: 고를 때마다 그 파일 ("permit") */
-            needAsync(c);
-            char path[4096] = ""; gil_unlock(); int r = jb_permit_file_pick(path, sizeof path); gil_lock();
-            int ok = 0;
-            if (r) {
-                FILE *f = fopen(path, "rb");
-                if (f) {
-                    fseek(f, 0, SEEK_END); long fl = ftell(f); fseek(f, 0, SEEK_SET);
-                    if (fl >= 0 && (size_t)fl <= PF_BYTES) {
-                        unsigned char *b = jb_alloc(fl > 0 ? (size_t)fl : 1); size_t rr = fl > 0 ? fread(b, 1, (size_t)fl, f) : 0;
-                        if (rr == (size_t)fl) { free(PF.path); v_free(&PF.v); PF.path = jb_strdup(path); PF.v = v_data_own(b, rr); PERM[2] = ok = 1; } else free(b);
-                    }
-                    fclose(f);
-                }
-            }
-            rt_sys(ok ? "🔓 %s: 허락됨" : "🔒 %s: 허락되지 않음", k);
-            free(k); return S_OK;
-        }
-        if (!PERM[i]) {
-            needAsync(c);
-            gil_unlock(); int r = i == 0 ? jb_permit_cam_start() : jb_permit_mic_start(); gil_lock();
-            PERM[i] = r != 0;
-            rt_sys(r ? "🔓 %s: 허락됨" : "🔒 %s: 허락되지 않음", k);
-        }
-        free(k); return S_OK;
-    }
-    if (!strcmp(n, "copyFileData")) {   /* jaw.copyFileData("경로" | "permit") as ("data 변수") — "permit" = 허락받은 파일 (복사 없이 나눠 씀) · 그 밖은 프로젝트 파일 (이번 실행에서 쓴 것도) */
+    if (!strcmp(n, "copyFileData")) {   /* jaw.copyFileData("경로") as ("data 변수") — 프로젝트 파일의 바이트 (이번 실행에서 쓴 것도) */
         char *raw = evs(c->args.v[0], env); Value d;
-        if (!strcmp(raw, "permit")) d = v_copy(pfGet(c->args.v[0])->v);
-        else {
+        {
             char *path = path_resolve(raw, c->file); int ok = path && strncmp(path, "ext/", 4);
             const Out *o = ok ? outOf(path) : NULL; size_t n = 0; const unsigned char *b = NULL;
             if (o) d = v_data((const unsigned char *)o->text, o->len);
@@ -961,18 +884,8 @@ int jaw_call(Node *c, Env *env) {
         Slot *sl = slot_of(c->asInfo, c->asName, env, c); v_free(&sl->v); sl->v = d;
         free(raw); return S_OK;
     }
-    if (!strcmp(n, "overWriteFile")) {   /* jaw.overWriteFile(값, "경로") — 값의 바이트로 덮어씀 · "permit" = 허락받은 그 파일 · 그 밖은 genJson 과 같은 곳 */
+    if (!strcmp(n, "overWriteFile")) {   /* jaw.overWriteFile(값, "경로") — 값의 바이트로 덮어씀 (genJson 과 같은 곳) */
         Value t = ev(c->args.v[0], env), v = to_data(t); v_free(&t); char *raw = evs(c->args.v[1], env);
-        if (!strcmp(raw, "permit")) {
-            PFile *pf = pfGet(c->args.v[1]);
-            FILE *f = fopen(pf->path, "wb"); int ok = 0;
-            if (f) { ok = fwrite(v.u.dt->b, 1, v.u.dt->n, f) == v.u.dt->n; ok &= fclose(f) == 0; }
-            const char *nm = strrchr(pf->path, '/'), *nb = strrchr(pf->path, '\\'); if (nb > nm) nm = nb; nm = nm ? nm + 1 : pf->path;
-            if (!ok) RT(c->args.v[1], "'%s' 에 쓰지 못했습니다 (%s)", nm, strerror(errno));
-            size_t wn = v.u.dt->n; v_free(&pf->v); pf->v = v;   /* 캐시도 그 바이트 (나눠 씀) */
-            rt_sys("💾 %s (%s) ← %zu B", raw, nm, wn);
-            free(raw); return S_OK;
-        }
         char *path = path_resolve(raw, c->file);
         if (noWritePath(path))
             RT(c->args.v[1], "overWriteFile 로 쓸 수 없는 경로입니다 — 코드 (.jb · .jbl) · project.jbs · ext/ 는 안 됨 (받은 값: \"%s\")", raw);

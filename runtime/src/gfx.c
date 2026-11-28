@@ -420,26 +420,6 @@ static int satHit(OBB *A, OBB *B, int touch, double *out) {
 static int pushable(Obj *o) { return !o->anchored && !animOf(o->id) && !(o->kind == OK_NONE && o->vel[0] == 0 && o->vel[1] == 0 && !o->colGrav); }
 typedef struct { Obj *o; double x0, x1; int d; } CB;
 static int cbcmp(const void *a, const void *b) { double x = ((const CB*)a)->x0, y = ((const CB*)b)->x0; return x < y ? -1 : x > y; }
-/* 카메라에서 나온 바이트 (너비 · 높이 (4바이트 big-endian) · RGBA) 인지 */
-int data_frame(const unsigned char *b, size_t n, int *w, int *h) {
-    if (n < 8) return 0;
-    unsigned W = (unsigned)b[0] << 24 | b[1] << 16 | b[2] << 8 | b[3], H = (unsigned)b[4] << 24 | b[5] << 16 | b[6] << 8 | b[7];
-    if (!W || !H || W > 8192 || H > 8192 || n != 8 + (size_t)W * H * 4) return 0;
-    *w = (int)W; *h = (int)H; return 1;
-}
-/* dem.stopRecord: 그 귀속의 영상을 입은 오브젝트 → 마지막 그림 (그림이 없으면 텍스쳐를 벗음) */
-void gfx_cam_unbind(int bind, const unsigned char *b, size_t n) {
-    int w, h, fr = data_frame(b, n, &w, &h); Img *im = NULL;
-    for (int i = 0; i < NORD; i++) {
-        Obj *o = ORD[i];
-        if (!o || o->dead || !o->hasTex || o->tex.ref != rd_cam_img() || o->camBind != bind) continue;
-        if (fr && !im) { unsigned char *px = jb_alloc((size_t)w * h * 4); memcpy(px, b + 8, (size_t)w * h * 4); im = rd_image_rgba(px, w, h); }
-        if (im) { static int seq; o->tex.ref = im; o->tex.path = jb_in(jb_fmt("@data#f%d", ++seq)); o->tex.x1 = 0; o->tex.y1 = 0; o->tex.x2 = w; o->tex.y2 = h; }
-        else o->hasTex = 0;
-        o->camBind = 0;
-    }
-    redraw();
-}
 static void collide(Obj **cs, int n) {
     if (n < 2) return;
     CB *L = jb_alloc(sizeof(CB) * n);
@@ -1198,20 +1178,7 @@ static int gfxCallInner(Node *c, Env *env) {
             RT(c, "'%s' 은(는) %s 오브젝트라 텍스쳐를 입힐 수 없습니다 (사각형 · 원만)", o->id, o->kind == OK_TEXT ? "글자" : o->kind == OK_POLY ? "다각형" : "보이지 않는");
         if (IS("breakAnime")) { animeStop(o); return S_OK; }
         if (IS("wearTexture")) {
-            Value tv = ev(c->args.v[1], env);
-            if (tv.k == V_DATA) {   /* mag.wearTexture("id", 데이터): 카메라에 귀속된 data = 계속 바뀌는 영상 · 바이트 = 그 그림 */
-                Data *d = tv.u.dt; int w = 0, h = 0; Img *im = NULL;
-                if (d->dev == 1) { jb_permit_cam_size(&w, &h); if (!w) { w = 640; h = 480; } im = rd_cam_img(); }
-                else if (!d->dev && data_frame(d->b, d->n, &w, &h)) { unsigned char *px = jb_alloc((size_t)w * h * 4); memcpy(px, d->b + 8, (size_t)w * h * 4); im = rd_image_rgba(px, w, h); }
-                int bind = d->dev == 1 ? d->bind : 0; v_free(&tv);
-                if (!im) RT(c->args.v[1], "이 data 는 텍스쳐로 쓸 수 없습니다 (카메라에 귀속된 data 나 카메라에서 나온 그림만)");
-                animeStop(o); if (!o->hasTex) strcpy(o->color, "#ffffff");
-                o->hasTex = 1; o->tex.ref = im; o->tex.tid = "@data"; o->camBind = bind;
-                { static int seq; o->tex.path = bind ? "@cam" : jb_in(jb_fmt("@data#%d", ++seq)); }   /* 빛 번짐 캐시가 그림마다 다르게 */
-                o->tex.x1 = 0; o->tex.y1 = 0; o->tex.x2 = w; o->tex.y2 = h;
-                redraw(); return S_OK;
-            }
-            animeStop(o); char *tid = tv.k == V_STR ? tv.u.s : fmt_any(tv); if (tv.k != V_STR) v_free(&tv);
+            animeStop(o); char *tid = strArg(c->args.v[1], env);
             if (!*tid) { if (o->hasTex) { o->hasTex = 0; redraw(); } free(tid); return S_OK; }
             if (!hm_get(&texDefs, jb_in(tid))) RT(c->args.v[1], "텍스쳐 '%s' 이(가) 없습니다 (mag.setasTexture(\"이미지\", [x1, y1], [x2, y2]) save as (\"%s\"); 로 먼저 만드세요)", tid, tid);
             showTex(o, jb_in(tid), c); free(tid); return S_OK;

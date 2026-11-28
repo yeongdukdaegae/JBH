@@ -313,30 +313,6 @@ static SDL_Texture *imgTex(Img *im) {
     SDL_SetTextureScaleMode(im->tex, SDL_ScaleModeNearest);
     return im->tex;
 }
-/* data 의 그림 (카메라에서 나온 RGBA) — 새 그림을 만듦 (px 는 그림이 가짐) */
-Img *rd_image_rgba(unsigned char *px, int w, int h) {
-    static int seq; Img *im = jb_calloc(sizeof(Img)); im->path = jb_fmt("@data#%d", ++seq); im->px = px; im->w = w; im->h = h; im->loaded = 1; im->owned = 1;
-    return im;
-}
-/* 카메라 영상 (카메라에 귀속된 data 를 입힘): 그릴 때 새 프레임이 있으면 텍스쳐에 올림 */
-int jb_permit_cam_take(unsigned char **buf, int *w, int *h, unsigned *seq);
-static Img CAMIMG = {"@cam", NULL, 0, 0, 1, 0, NULL, NULL, NULL, 0, 1};
-static unsigned camSeqSeen;
-Img *rd_cam_img(void) { return &CAMIMG; }
-static SDL_Texture *camTex(Obj *o) {
-    int ow = CAMIMG.w, oh = CAMIMG.h;
-    if (jb_permit_cam_take(&CAMIMG.px, &CAMIMG.w, &CAMIMG.h, &camSeqSeen)) {
-        if (CAMIMG.tex && (ow != CAMIMG.w || oh != CAMIMG.h)) { SDL_DestroyTexture(CAMIMG.tex); CAMIMG.tex = NULL; }
-        if (CAMIMG.sil) { SDL_DestroyTexture(CAMIMG.sil); CAMIMG.sil = NULL; }
-        if (!CAMIMG.tex) {
-            CAMIMG.tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, CAMIMG.w, CAMIMG.h);
-            if (CAMIMG.tex) { SDL_SetTextureBlendMode(CAMIMG.tex, SDL_BLENDMODE_BLEND); SDL_SetTextureScaleMode(CAMIMG.tex, SDL_ScaleModeLinear); }
-        }
-        if (CAMIMG.tex) SDL_UpdateTexture(CAMIMG.tex, NULL, CAMIMG.px, CAMIMG.w * 4);
-    }
-    if (CAMIMG.w) { o->tex.x2 = CAMIMG.w; o->tex.y2 = CAMIMG.h; }
-    return CAMIMG.tex;
-}
 static SDL_Texture *imgSil(Img *im) {   /* 모양 (불투명한 곳) 만 흰색 — 오버레이 · 빛 번짐 */
     if (im->sil) return im->sil;
     if (!imgLoad(im)) return NULL;
@@ -506,7 +482,7 @@ static void drawO(Obj *o, double vx, double vy, double vw, double vh, int ui) {
         return;
     }
     if (o->hasTex && o->tex.ref) {
-        Img *im = o->tex.ref; SDL_Texture *t = im == &CAMIMG ? camTex(o) : imgTex(im);
+        Img *im = o->tex.ref; SDL_Texture *t = imgTex(im);
         if (t) {
             SDL_Color m = col(o->color, al); texDraw(o, px, py, sw, sh, rot, t, im, m);
             if (ov) { SDL_Texture *s = imgSil(im); if (s) { SDL_Color m2 = col(o->ovColor, oa); texDraw(o, px, py, sw, sh, rot, s, im, m2); } }

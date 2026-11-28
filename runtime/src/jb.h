@@ -30,7 +30,7 @@ typedef struct List List;
 typedef struct Mat Mat;
 typedef struct Data Data;
 typedef struct { int k; union { double n; char *s; Mat *m; List *l; Data *dt; } u; } Value;
-struct Data { unsigned char *b; size_t n; int dev, bind, rc; };   /* dev: 0 = 바이트 · 1 = 카메라 · 2 = 마이크 (귀속 · 읽을 때마다 지금 바이트) · rc: 같이 쓰는 값의 수 (복사 없이 나눠 씀 · 고칠 때 rc > 1 이면 새로 만듦) */
+struct Data { unsigned char *b; size_t n; int rc; };   /* rc: 같이 쓰는 값의 수 (복사 없이 나눠 씀 · 고칠 때 rc > 1 이면 새로 만듦) */
 struct Mat { int r, c; double *d; };
 struct List { int n, cap; Value *items; int comp; };
 
@@ -80,7 +80,7 @@ typedef struct Info {
     const char *file, *clash; int line; int used;
 } Info;
 /* 명령의 대상 */
-enum { M_NONE, M_JAW, M_LIST, M_BELONG, M_DIS, M_COL, M_MAG, M_CAN, M_SND, M_CAM, M_USER, M_EXT, M_DEM };
+enum { M_NONE, M_JAW, M_LIST, M_BELONG, M_DIS, M_COL, M_MAG, M_CAN, M_SND, M_CAM, M_USER, M_EXT };
 
 typedef struct Module Module;
 typedef struct Node Node;
@@ -115,7 +115,6 @@ struct Node {
     int target; Module *tmod; Node *tdef;   /* 대상 */
     const void *ext; const char *extLib;   /* M_EXT: 사용자 라이브러리 (JDH) 의 명령어 · 값 */
     int lfind, canKey, fileEx, isMath, isStrf, splitOK;
-    int permit;   /* jaw.hasPermit */
     int asQ;      /* as ("이름") — jaw.copyFileData */
     Node *lnode;                      /* 리스트 명령 · .length · .find 의 리스트 변수 */
     int ret, retTy, retDims[2];       /* return(값) */

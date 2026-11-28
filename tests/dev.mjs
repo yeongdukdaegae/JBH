@@ -3,7 +3,7 @@ const {chromium}=await import(process.env.PW||'playwright');
 import path from 'path';import {fileURLToPath} from 'url';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 import fs from 'fs';
-const b=await chromium.launch({...(process.env.CHROME?{executablePath:process.env.CHROME}:{}),args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});   // 가짜 카메라 · 마이크 (jaw.getPermit 시험)
+const b=await chromium.launch({...(process.env.CHROME?{executablePath:process.env.CHROME}:{}),args:['--no-sandbox']});
 const ok=(c,m)=>console.log((c?'PASS ':'FAIL ')+m);
 const ctx=await b.newContext({viewport:{width:1100,height:800},locale:'ko-KR'});
 const pg=await ctx.newPage();const errs=[];
@@ -199,25 +199,15 @@ L=await run(fs.readFileSync(ROOT+'/tests/fixtures/data-main.jb','utf8'),800);con
 for(const e of DATA_EXPECT)ok(L.includes(e),'data: '+e);
 for(const [body,want] of [['var data call d = 1;\n    var int call x = d + 1;',"data 에는 '+' 를 쓸 수 없습니다"],
   ['var data call d = 1;\n    var list call l = [d];','data 는 리스트 · compound 에 넣을 수 없습니다'],
-  ['var int call v = 1;\n    dem.recordCamAs("v");','recordCamAs 은(는) data 변수에만 쓸 수 있습니다'],
-  ['var data call v;\n    dem.recordMicAs(v);','recordMicAs 은(는) data 변수 이름을 "따옴표" 로 씁니다']]){
-  L=await run('Use jawbreaker call jaw;\nUse deviceManager call dem;\nrun{\n    '+body+'\n}\n',300);
+]){
+  L=await run('Use jawbreaker call jaw;\nrun{\n    '+body+'\n}\n',300);
   ok(L.some(x=>x.includes(want)),'data error: '+want);
 }
-// ---- data.이름.getPart · setPart · jaw.readFile · overWriteFile · 허락받은 파일 (permit.번호) — EXE (CI) 와 같은 줄 ----
-await pg.evaluate(()=>{
-  window.__pf=[];const mk=(name,t)=>{const f={name,data:new TextEncoder().encode(t)};window.__pf.push(f);
-    return {name,requestPermission:async()=>'granted',getFile:async()=>({arrayBuffer:async()=>f.data.slice().buffer}),
-      createWritable:async()=>{let parts=[];return {write:async b=>{parts.push(new Uint8Array(b));},close:async()=>{f.data=parts.length?parts[parts.length-1]:new Uint8Array(0);}};}};};
-  const q=[['a.txt','hello file'],['b.txt','second']];
-  window.showOpenFilePicker=async()=>{const x=q.shift();return [mk(x[0],x[1])];};
-});
+// ---- data.이름.getPart · setPart · jaw.copyFileData · overWriteFile — EXE (CI) 와 같은 줄 ----
 L=await run(fs.readFileSync(ROOT+'/tests/fixtures/datafile-main.jb','utf8'),1500);console.log(L.map(x=>'    | '+x).join('\n'));
-for(const e of ['part=Hello','set=Hello, JB','ins=>Hello, JB!','empty=[]','num=3e406fe000000000006c6c6f2c204a4221','k=255',"cow=Xbc abZ",'file=line2','f=1 permit=HELLO file second=second'])ok(L.includes(e),'datafile: '+e);
-ok(await pg.evaluate(()=>new TextDecoder().decode(window.__pf[0].data))==='HELLO file','datafile: overWriteFile changed the permitted file');
+for(const e of ['part=Hello','set=Hello, JB','ins=>Hello, JB!','empty=[]','num=3e406fe000000000006c6c6f2c204a4221','k=255',"cow=Xbc abZ",'file=line2'])ok(L.includes(e),'datafile: '+e);
 ok(await pg.evaluate(()=>files['doc/out.txt'])==='line2','datafile: overWriteFile wrote the project file');
 for(const [body,want] of [['jaw.overWriteFile("x", "main.jb");','overWriteFile 로 쓸 수 없는 경로입니다'],
-  ['var data call v;\n    jaw.copyFileData("permit") as ("v");','허락받은 파일이 없습니다 — 먼저 jaw.getPermit("file"); 로 파일을 고르세요'],
   ['var int call v;\n    jaw.copyFileData("doc/a.txt") as ("v");','copyFileData 는 data 변수에만 넣을 수 있습니다'],
   ['var data call v;\n    jaw.copyFileData("doc/a.txt");','copyFileData 는 받을 data 변수를 as ("이름") 으로 정합니다'],
   ['var int call v = 1;\n    data.v.setPart(0, 1, "a");','getPart · setPart 는 data 변수에만 쓸 수 있습니다'],
@@ -226,23 +216,6 @@ for(const [body,want] of [['jaw.overWriteFile("x", "main.jb");','overWriteFile �
   ok(L.some(x=>x.includes(want)),'datafile error: '+want);
 }
 await pg.evaluate(()=>{delete files['doc/out.txt'];});
-// ---- 권한 (jaw.getPermit · hasPermit) · deviceManager (recordCamAs · recordMicAs · stopRecord) · mag.wearTexture(id, data) — 가짜 카메라 · 마이크 · 파일 고르기 ----
-await pg.evaluate(()=>{
-  window.showOpenFilePicker=async()=>[{name:'save.txt',requestPermission:async()=>'granted',getFile:async()=>({arrayBuffer:async()=>new TextEncoder().encode('hello file').buffer})}];
-});
-L=await run(fs.readFileSync(ROOT+'/tests/fixtures/permit-main.jb','utf8'),2500);console.log(L.map(x=>'    | '+x.slice(0,120)).join('\n'));
-for(const e of ['file=1','cam=1 mic=1','stopped'])ok(L.includes(e),'permit: '+e);
-ok(L.some(x=>/^video=0000028000000\w+… \(1228808 B\)$/.test(x)),'permit: camera data = width · height · RGBA (640×480)');
-ok(L.some(x=>/^sound=\w+… \(4096 B\)$/.test(x)),'permit: mic data = 1024 float32 samples');
-const litNow=()=>pg.evaluate(()=>{const cv=document.querySelector('#display canvas'),c=cv.getContext('2d'),d=c.getImageData(cv.width/2-100,cv.height/2-60,200,120).data;let n=0;for(let i=0;i<d.length;i+=4)if(d[i]+d[i+1]+d[i+2]>60)n++;return n;});
-{const lit=await litNow();ok(lit>10000,'permit: wearTexture(id, camera data) shows the picture ('+lit+' lit pixels) and stays after stopRecord');}
-for(const [body,want] of [['jaw.getPermit("gps");','권한은 "cam" · "mic" · "file" 중 하나입니다 (받은 값: "gps")'],
-  ['var data call v;\n    dem.recordCamAs("v");','카메라 권한이 없습니다 — jaw.getPermit("cam"); 로 먼저 허락을 받으세요'],
-  ['var data call v;\n    dem.recordMicAs("v");','마이크 권한이 없습니다 — jaw.getPermit("mic"); 로 먼저 허락을 받으세요'],
-  ['dis.setDisplay();\n    dis.setupObject();\n    dis.setObject([0, 0], "tv", [40, 30], "#000000");\n    var data call v = "abc";\n    mag.wearTexture("tv", v);','이 data 는 텍스쳐로 쓸 수 없습니다']]){
-  L=await run('Use jawbreaker call jaw;\nUse DisPlayer call dis;\nUse Magellan call mag;\nUse deviceManager call dem;\nrun{\n    '+body+'\n}\n',400);
-  ok(L.some(x=>x.includes(want)),'permit error: '+want);
-}
 await pg.evaluate(()=>{delete files['ext/Probe.jbx'];});
 console.log(errs.length?errs.join('\n'):'no page errors');
 await b.close();

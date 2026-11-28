@@ -30,22 +30,15 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - 웹은 워커 안에서 `fetch` · `WebSocket` 을 쓴다 (`JBX_BOOT` 의 `HOST`). 그래서 브라우저 규칙을 따른다: HTTP 는 서버가 CORS 를 허용해야 응답을 읽고, https 페이지에서는 http · ws 에 접속하지 못한다. EXE (`runtime/src/net.c` · WinHTTP · 스레드) 에는 이 제한이 없다 — 차이로 남아 있음.
   - 한도: 동시에 64개 · 응답 본문과 WebSocket 에 쌓인 메시지는 16MB.
   - 시험: `tests/libs/Net` · `tests/fixtures/net-main.jb` · `tests/net_server.py` (HTTP + WebSocket) 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌린다. Windows 가 아닌 빌드의 `net.c` 는 소켓으로 http · ws 만 한다 (시험용).
-- 권한 (언어의 내장 기능 · Lite 와 Dev. 모두): `jaw.getPermit("cam" | "mic" | "file");` 은 허락을 받을 때까지 기다리고, 결과는 `jaw.hasPermit("…")` (bit) 로 읽는다. 허락받은 장치는 `deviceManager` 로 data 변수에 연결해서 쓴다 (아래). `getPermit("file")` 로 고른 파일 하나를 기억한다 (경로 `"permit"` · 다시 고르면 바뀜 · 고르다 취소하면 앞의 것이 남음 · 256MB 를 넘으면 허락 안 됨 · 웹 `PFILE` · EXE `run.c` 의 `PF`).
-  - 웹: `getUserMedia` (카메라 · 마이크) · `showOpenFilePicker` (파일 · Edge · Chrome 만 · 사용자가 막 누른 직후에만 열리므로 실패하면 화면에 "파일 고르기" 단추를 띄움). 코드는 `execProgram` 안 `PERMIT`. 실행이 끝나면 카메라 · 마이크를 끈다 (`PERMIT_LIVE`).
-  - EXE: `runtime/src/permit.c` — 카메라는 Windows Media Foundation (첫 카메라 · 그 밖의 OS 는 0) · 마이크는 SDL2 녹음 장치 · 파일은 열기 창 (환경 변수 `JB_PERMIT_FILE` 이 있으면 그 파일 · 시험용). Windows 개인 정보 설정에서 막혀 있으면 0.
-  - APK: 아직 안 됨 (안드로이드 쪽 앱 틀에 권한 요청이 없음 → 늘 0). C 변환은 이 기능들 (getPermit · hasPermit · deviceManager · data) 을 거부한다.
-  - 시험: `tests/fixtures/permit-main.jb` 를 웹 (`tests/dev.mjs` · 가짜 카메라 · 마이크 · 파일 고르기 흉내) 과 EXE (CI · 파일 · dummy 마이크만 실제로 확인) 가 같이 돌린다.
 - `data` 형식 (변수 형식 · Lite 와 Dev. 모두): 무엇이든 넣고 무엇에든 넣을 수 있는 바이트 묶음. 규칙은 에디터 (`toData` · `fromData` · `dco`) 와 C (`value.c` 의 `to_data` · `from_data` · `run.c` 의 `dco`) 를 같게 둔다.
   - 바이트는 복사하지 않고 나눠 쓴다: EXE 는 `Data.rc` (참조 수 · `v_copy` 는 rc 만 올림), 웹은 나눠 준 `Uint8Array` 에 `__sh` 표시. setPart 는 혼자 쓰는 바이트면 그 자리에서 (웹은 같은 길이일 때), 나눠 쓰는 중이면 새로 만든다. 프로젝트 파일 ↔ 바이트 · UTF-8 판정 · 쓰기 금지 경로는 core 의 `fileBytes` · `bytesFile` · `utf8Of` · `noWritePath` (EXE 는 `run.c` 의 `noWritePath`) 한 곳에만 둔다.
-  - 넣을 때: 숫자 → 8바이트 실수 (big-endian) · 문자열 → UTF-8 · 행렬 · 리스트 · compound → JSON 글자 · data → 복사 (장치에 연결된 것은 그 순간의 바이트).
+  - 넣을 때: 숫자 → 8바이트 실수 (big-endian) · 문자열 → UTF-8 · 행렬 · 리스트 · compound → JSON 글자 · data → 나눠 씀 (복사 없음).
   - 꺼낼 때: 받는 형식으로 억지로 읽고 안 맞으면 건너뜀 — 숫자는 8바이트일 때만 · 문자열은 올바른 UTF-8 (0 바이트 없음) · 리스트 · 행렬 · compound 는 JSON `[ ]` (행렬은 크기까지). 건너뛰면 대입은 원래 값 그대로 · 선언 · 매개변수 · 돌려줄 값은 기본값.
   - print · 문자열과 `+` · `%이름%`: 16진수 (64바이트가 넘으면 앞 32바이트 + `… (N B)`) · JSON 으로는 16진수 전체. 계산 (`+ - == …`) 은 검사 오류 · 리스트 · compound 에 못 넣음.
-  - `deviceManager` (내장 라이브러리 · `Use deviceManager call dem;`): `dem.recordCamAs("변수")` · `dem.recordMicAs("변수")` 는 data 변수를 카메라 · 마이크에 연결 (읽을 때마다 지금 바이트) · `dem.stopRecord("변수")` 는 풂 (그 순간의 바이트가 남음 · 그 영상을 입은 오브젝트는 마지막 그림으로 멈춤). 인자는 data 변수 이름 ("따옴표"). 허락이 없으면 실행 오류.
-  - 바이트: 카메라 = 너비 · 높이 (u32 big-endian) + RGBA · 마이크 = 4바이트 실수 (big-endian) 1024개 (마지막 소리 조각). 마이크 data 의 쓰임 (재생 등) 은 추후.
-  - `mag.wearTexture("id", data)`: 카메라에 연결된 data = 계속 바뀌는 영상 · 카메라에서 나온 바이트 = 그 그림 · 그 밖은 오류. EXE 는 `Obj.camBind` 와 `gfx_cam_unbind` (멈춤) · `rd_image_rgba`.
-  - 일부분: `data.이름.getPart(시작, 끝)` (식 · data) · `data.이름.setPart(시작, 끝, 값);` (그 구간을 값의 바이트로 · 길이가 달라도 됨). 번호는 0 부터 · 끝은 빠짐 · 범위 밖은 잘라 냄. 연결된 data 를 setPart 하면 먼저 연결을 푼다.
-  - 파일: `jaw.copyFileData("경로") as ("data 변수");` (파일의 바이트를 그 변수에) · `jaw.overWriteFile(값, "경로");`. 경로 `"permit"` = 허락받은 파일 (쓰기는 실제 파일에 · 웹은 `createWritable`) · 그 밖은 프로젝트 파일 (쓰기는 genJson 과 같은 곳 · 코드 .jb · .jbl · project.jbs · .jbx · ext/ 는 거부). 시험: `tests/fixtures/datafile-main.jb` (웹 · EXE · `JB_PERMIT_FILE` 은 `a|b` 꼴로 고를 때마다 다음 것).
+  - 일부분: `data.이름.getPart(시작, 끝)` (식 · data) · `data.이름.setPart(시작, 끝, 값);` (그 구간을 값의 바이트로 · 길이가 달라도 됨). 번호는 0 부터 · 끝은 빠짐 · 범위 밖은 잘라 냄.
+  - 파일: `jaw.copyFileData("경로") as ("data 변수");` (프로젝트 파일의 바이트를 그 변수에 · 이번 실행에서 쓴 파일도) · `jaw.overWriteFile(값, "경로");` (쓰기는 genJson 과 같은 곳 · 코드 .jb · .jbl · project.jbs · .jbx · ext/ 는 거부). 시험: `tests/fixtures/datafile-main.jb` (웹 · EXE).
   - 시험: `tests/fixtures/data-main.jb` 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌려 같은 줄이 나오는지 본다.
+- 프로젝트 폴더의 `run.bat` (`jdh new project` 가 만듦): 두 번 누르면 `jdh run .` 으로 main 을 실행한다 — 서버처럼 계속 도는 프로그램을 띄우기 쉽게. `jdh run` 은 콘솔 판 실행기 (`-mconsole` · print 가 그 창에 보임) 를 `build/jdh/run-base.exe` 에 두고 (JDH 버전 · SDK · `ext/*.jbx` 의 이름 · 크기 · 고친 때가 같으면 다시 컴파일하지 않음 · `run-base.exe.key`) 프로젝트 파일만 붙여 `build/jdh/run/<이름>.exe` 로 실행한다. 종료 코드를 그대로 돌려준다 (0 이 아니면 run.bat 이 창을 멈춰 둠). 시험: CI 의 run.bat 단계.
 - `jdh_log` 는 `print` 와 같은 디버그 출력이다. 에디터에서는 로그 패널에, EXE 에서는 표준 출력에 나온다 (창 프로그램이라 화면에는 안 보임).
 - 엔진 버전은 1.5 (에디터의 `JB_VER` · `JBX_ENGINE` · `src/jdh.c` 의 `JDH_ENGINE_*` 를 같이 올린다). 라이브러리 선언의 `requires.engine` (">=1.2" 꼴) 을 `jdh lib check` 와 에디터가 검사한다.
 - 신뢰 확인 (Dev.): `.jbx` 내용의 SHA-256 마다 한 번 묻고 `localStorage` 의 `jawbreaker.jbx.trust` 에 기억한다 (다시 구우면 다시 물음). 창에는 버전 · 명령어 · 값 개수 · 쓰는 권한 · "EXE 에서는 격리 없음" 을 보여 주고, files.read 가 있으면 허락 여부도 고른다. 묻는 때: 「라이브러리 불러오기 (.jbx)」 메뉴 · 파일로 넣을 때 (불러오기 · 끌어 놓기) · 프로젝트 zip 등으로 들어온 것은 처음 실행할 때. 신뢰하지 않은 라이브러리를 쓰는 프로그램은 실행하지 않는다. 코드는 에디터 쪽 DEV 구간 (`jbxTrustRun` · `jbxImport` · `jbxDocText` · `jbxAcMembers`) — 내보낸 게임에는 없다.
@@ -97,6 +90,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 - 설치 파일을 실제 PC 에서 실행한 적이 없다.
 - 격리 방식 (권한을 뺀 프레임 안의 워커) 은 헤드리스 Chrome 에서만 확인했다. Edge 앱 창 · Android WebView 는 미확인.
 - 번역 (ja · zh-CN · zh-TW) 은 원어민 검수를 받지 않았다.
-- 권한 · deviceManager: 실제 카메라 · 마이크 (웹은 가짜 장치, CI 에는 장치가 없음) · EXE 의 카메라 영상 · 카메라 data (Media Foundation 코드는 컴파일까지만 · 카메라 바이트 → 텍스쳐 · stopRecord 멈춤은 EXE 에서 실행해 보지 못함) · 실제 파일 고르기 창은 확인하지 못했다. 에디터의 "EXE 로 내보내기" 에 든 미리 만든 실행기 (`jbrt-win`) 는 다시 만들지 않아 이 기능이 없다 (`jdh build exe` 는 됨).
+- data 형식: 에디터의 "EXE 로 내보내기" 에 든 미리 만든 실행기 (`jbrt-win`) 는 다시 만들지 않아 이 기능이 없다 (`jdh build exe` 는 됨).
+- `run.bat`: 실제 PC 에서 두 번 눌러 본 적은 없다 (CI 에서 cmd 로 실행 · 콘솔 프로그램만).
 - 네트워크: https · wss (실제 인터넷의 서버) 는 확인하지 못했다 (시험은 로컬의 http · ws 서버). APK 에서의 네트워크 (INTERNET 권한) 도 미확인.
 - 업데이트: 실제 GitHub 릴리스에서 받는 것 · `jbdev.exe` 의 "업데이트하시겠습니까?" 창은 확인하지 못했다 (CI 는 로컬 HTTP 서버로 `jdh update` 만 시험 · 릴리스를 게시한 적이 없음).

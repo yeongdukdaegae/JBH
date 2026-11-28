@@ -191,23 +191,6 @@ jobs:
             foreach ($e in $expect) { if (-not (Select-String -Path net-out.txt -SimpleMatch $e -Quiet -Encoding utf8)) { Write-Host "✖ 없음: $e"; $bad++ } }
           } finally { Stop-Process -Id $srv.Id -Force }
           if ($bad) { exit 1 }
-      - name: 권한 시험 (jaw.getPermit — 파일은 JB_PERMIT_FILE 로 고름 · 카메라 · 마이크는 이 컴퓨터에 없으면 0 · 웹 시험과 같은 main.jb)
-        shell: pwsh
-        run: |
-          $env:JDH_HOME = ''
-          dist\bin\jdh.exe new project PermitGame; if ($LASTEXITCODE) { exit 1 }
-          Copy-Item tests\fixtures\permit-main.jb PermitGame\main.jb -Force
-          dist\bin\jdh.exe build exe PermitGame -o Permit.exe; if ($LASTEXITCODE) { exit 1 }
-          $env:JB_PERMIT_FILE = "$PWD\tests\fixtures\permit-data.txt"
-          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
-          $p = Start-Process .\Permit.exe -ArgumentList '--shot','permit-exe.png','--shot-at','4000' -RedirectStandardOutput permit-out.txt -RedirectStandardError permit-err.txt -PassThru
-          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
-          Get-Content permit-out.txt -Encoding utf8; Get-Content permit-err.txt -Encoding utf8
-          $bad = 0
-          foreach ($e in @('file=1', 'stopped')) { if (-not (Select-String -Path permit-out.txt -SimpleMatch $e -Quiet)) { Write-Host "✖ 없음: $e"; $bad++ } }
-          if (-not (Select-String -Path permit-out.txt -Pattern '^cam=[01] mic=[01]$' -Quiet)) { Write-Host '✖ 카메라 · 마이크 줄이 없습니다'; $bad++ }
-          if ((Select-String -Path permit-out.txt -Pattern '^cam=[01] mic=1$' -Quiet) -and -not (Select-String -Path permit-out.txt -Pattern '^sound=\w+… \(4096 B\)$' -Quiet -Encoding utf8)) { Write-Host '✖ 마이크 data 가 4096 바이트가 아닙니다'; $bad++ }
-          if ($bad) { exit 1 }
       - name: data 형식 시험 (넣기 · 꺼내기 · 안 맞으면 건너뜀 — 웹 시험과 같은 main.jb · 같은 줄)
         shell: pwsh
         run: |
@@ -225,24 +208,34 @@ jobs:
           $got = Get-Content data-out.txt -Encoding utf8; $bad = 0
           foreach ($e in $expect) { if ($got -notcontains $e) { Write-Host "✖ 없음: $e"; $bad++ } }
           if ($bad) { exit 1 }
-      - name: data 일부 고치기 · 파일 시험 (getPart · setPart · readFile · overWriteFile · 허락받은 파일 permit.1 · 2 — 웹 시험과 같은 main.jb · 같은 줄)
+      - name: data 일부 고치기 · 파일 시험 (getPart · setPart · copyFileData · overWriteFile — 웹 시험과 같은 main.jb · 같은 줄)
         shell: pwsh
         run: |
           $env:JDH_HOME = ''
           dist\bin\jdh.exe new project DataFileGame; if ($LASTEXITCODE) { exit 1 }
           Copy-Item tests\fixtures\datafile-main.jb DataFileGame\main.jb -Force
           dist\bin\jdh.exe build exe DataFileGame -o DataFile.exe; if ($LASTEXITCODE) { exit 1 }
-          [IO.File]::WriteAllText("$PWD\pf-a.txt", 'hello file'); [IO.File]::WriteAllText("$PWD\pf-b.txt", 'second')
-          $env:JB_PERMIT_FILE = "$PWD\pf-a.txt|$PWD\pf-b.txt"
           $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
           $p = Start-Process .\DataFile.exe -RedirectStandardOutput datafile-out.txt -RedirectStandardError datafile-err.txt -PassThru
           if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
           Get-Content datafile-out.txt -Encoding utf8; Get-Content datafile-err.txt -Encoding utf8
-          $expect = @('part=Hello', 'set=Hello, JB', 'ins=>Hello, JB!', 'empty=[]', 'num=3e406fe000000000006c6c6f2c204a4221', 'k=255', 'cow=Xbc abZ', 'file=line2', 'f=1 permit=HELLO file second=second')
+          $expect = @('part=Hello', 'set=Hello, JB', 'ins=>Hello, JB!', 'empty=[]', 'num=3e406fe000000000006c6c6f2c204a4221', 'k=255', 'cow=Xbc abZ', 'file=line2')
           $got = Get-Content datafile-out.txt -Encoding utf8; $bad = 0
           foreach ($e in $expect) { if ($got -notcontains $e) { Write-Host "✖ 없음: $e"; $bad++ } }
-          if ((Get-Content pf-a.txt -Raw) -ne 'HELLO file') { Write-Host '✖ overWriteFile 이 허락받은 파일을 바꾸지 않았습니다'; $bad++ }
           if ($bad) { exit 1 }
+      - name: run.bat 시험 (jdh new project 가 만든 run.bat → jdh run · 처음엔 컴파일 · 두 번째는 실행기를 다시 씀)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''; $env:PATH = "$PWD\dist\bin;$env:PATH"
+          dist\bin\jdh.exe new project RunGame; if ($LASTEXITCODE) { exit 1 }
+          if (-not (Test-Path RunGame\run.bat)) { Write-Error 'run.bat 이 없습니다'; exit 1 }
+          Set-Content RunGame\main.jb "Use jawbreaker call jaw;`r`n`r`nrun{`r`n    print(`"run ok 1`");`r`n}`r`n" -Encoding utf8
+          $o1 = cmd /c "RunGame\run.bat < nul" 2>&1 | Out-String; Write-Host $o1
+          if ($o1 -notmatch 'run ok 1') { Write-Error 'run.bat 이 main 을 실행하지 않았습니다'; exit 1 }
+          Set-Content RunGame\main.jb "Use jawbreaker call jaw;`r`n`r`nrun{`r`n    print(`"run ok 2`");`r`n}`r`n" -Encoding utf8
+          $t = Measure-Command { $script:o2 = cmd /c "RunGame\run.bat < nul" 2>&1 | Out-String }; Write-Host $o2; Write-Host "두 번째: $([int]$t.TotalSeconds)초"
+          if ($o2 -notmatch 'run ok 2') { Write-Error '고친 main 이 실행되지 않았습니다'; exit 1 }
+          if ($o2 -notmatch '실행기는 그대로') { Write-Error '두 번째에도 실행기를 다시 컴파일했습니다'; exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -250,7 +243,6 @@ jobs:
           path: |
             probe-exe.png
             layers-exe.png
-            permit-exe.png
           if-no-files-found: ignore
       - name: 업데이트 파일 만들기 (설치된 파일 목록 · 묶음) · 업데이트 시험
         shell: pwsh
