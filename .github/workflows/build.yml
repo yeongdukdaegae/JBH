@@ -333,17 +333,6 @@ jobs:
           if ($bad) { exit 1 }
           if (-not (Test-Path jbdev-shot.bmp)) { Write-Error '창 그림이 없습니다'; exit 1 }
           Write-Host "창 그림: $((Get-Item jbdev-shot.bmp).Length) 바이트"
-      - name: 창 그림 (PNG 를 base64 로 로그에 — 내려받지 않고 볼 수 있게)
-        if: always()
-        shell: pwsh
-        run: |
-          Add-Type -AssemblyName System.Drawing
-          foreach ($n in @('jbdev-shot', 'jbdev-shot-ac', 'jbdev-shot-set', 'jbdev-shot-apk')) {
-            if (-not (Test-Path "$n.bmp")) { continue }
-            $img = [System.Drawing.Image]::FromFile("$PWD\$n.bmp"); $img.Save("$PWD\$n.png", [System.Drawing.Imaging.ImageFormat]::Png); $img.Dispose()
-            $s = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\$n.png")); Write-Host "SHOT $n $($s.Length)"
-            for ($i = 0; $i -lt $s.Length; $i += 8000) { Write-Host ("SHOTL $n " + $s.Substring($i, [Math]::Min(8000, $s.Length - $i))) }
-          }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -421,3 +410,15 @@ jobs:
           if ($LASTEXITCODE -eq 0) { gh release upload $env:GITHUB_REF_NAME "installer\out\JDH-Setup-$ver.exe" upd\jdh-latest.txt upd\jdh-manifest.txt upd\jdh-core.pack upd\jdh-zig.pack --clobber }
           else { gh release create $env:GITHUB_REF_NAME "installer\out\JDH-Setup-$ver.exe" upd\jdh-latest.txt upd\jdh-manifest.txt upd\jdh-core.pack upd\jdh-zig.pack --title "JDH $ver" --notes "JDH $ver — 처음 설치는 JDH-Setup-$ver.exe · 이미 설치했다면 JawBreaker Dev. 를 열 때 업데이트를 묻습니다 (또는 jdh update)." }
           if ($LASTEXITCODE) { exit 1 }
+      - name: 창 그림 (PNG 를 base64 로 로그에 — 내려받지 않고 볼 수 있게)
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path jbdev-shot.log) { Get-Content jbdev-shot.log -Encoding utf8 | Select-Object -Last 30 }
+          Add-Type -AssemblyName System.Drawing
+          foreach ($n in @('jbdev-shot', 'jbdev-shot-ac', 'jbdev-shot-set', 'jbdev-shot-apk')) {
+            if (-not (Test-Path "$n.bmp")) { continue }
+            $img = [System.Drawing.Image]::FromFile("$PWD\$n.bmp"); $img.Save("$PWD\$n.png", [System.Drawing.Imaging.ImageFormat]::Png); $img.Dispose()
+            $s = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\$n.png")); Write-Host "SHOT $n $($s.Length)"
+            for ($i = 0; $i -lt $s.Length; $i += 8000) { Write-Host ("SHOTL $n " + $s.Substring($i, [Math]::Min(8000, $s.Length - $i))) }
+          }
