@@ -95,7 +95,7 @@ enum { L_KO, L_EN, L_JA, L_ZHCN, L_ZHTW };
 static int LANG = L_EN;
 static const wchar_t *LANGCODE[5] = {L"ko", L"en", L"ja", L"zh-CN", L"zh-TW"};
 typedef struct { int lang, ram, mono, askRun; } Cfg;
-static Cfg CFG = {-1, 0, 0, 0};
+static Cfg CFG = {-1, 0, 1, 0};   /* mono = 1 고정 (화면은 흑백 판만) */
 enum { S_NEWP, S_OPEN, S_SAVE, S_CHECK, S_RUN, S_STOP, S_EXE, S_HTML, S_NOPROJ, S_NOTPROJ, S_ASKSAVE, S_BINARY, S_RUNNING, S_DONE, S_FAILRUN, S_PICKDIR,
        S_NEWNAME, S_SAVED, S_STOPPED, S_BUSY, S_NOJDH, S_EXISTS, S_TITLE_NONE, S_DOCS, S_NEWFILE, S_NEWDIR, S_RENAME, S_DELETE, S_EXPLORE,
        S_ASKDEL, S_NAME, S_OKB, S_CANCELB, S_NOTFOUND, S_REPLACED, S_READONLY, S_BADNAME, S_FAILFILE,
@@ -232,7 +232,9 @@ static Doc DOCS[MAXDOC]; static int NDOCS, CURD = -1;
 
 /* ================= 모양 — 웹 판 에디터와 같은 색 (컬러 · 흑백) ================= */
 typedef struct { COLORREF bg, panel, panel2, line, text, dim, accent, deep, accent2; } Theme;
-static const Theme TH_COLOR = {RGB(0, 0, 12), RGB(1, 1, 20), RGB(3, 3, 30), RGB(11, 11, 56), RGB(233, 230, 245), RGB(140, 135, 166), RGB(92, 104, 255), RGB(0, 0, 159), RGB(42, 52, 224)};
+#if 0
+static const Theme TH_COLOR_UNUSED = {RGB(0, 0, 12), RGB(1, 1, 20), RGB(3, 3, 30), RGB(11, 11, 56), RGB(233, 230, 245), RGB(140, 135, 166), RGB(92, 104, 255), RGB(0, 0, 159), RGB(42, 52, 224)};
+#endif
 static const Theme TH_MONO = {RGB(0, 0, 0), RGB(11, 11, 11), RGB(23, 23, 23), RGB(46, 46, 46), RGB(233, 230, 245), RGB(140, 135, 166), RGB(255, 255, 255), RGB(42, 42, 42), RGB(90, 90, 90)};
 static Theme TH;
 #define CR_MINT RGB(77, 226, 180)
@@ -264,7 +266,6 @@ static void cfgLoad(void) {
         char *eq = strchr(ln, '='); if (!eq) continue; *eq++ = 0;
         if (!strcmp(ln, "lang")) { for (int i = 0; i < 5; i++) { char c[8]; WideCharToMultiByte(CP_UTF8, 0, LANGCODE[i], -1, c, 8, NULL, NULL); if (!strcmp(eq, c)) CFG.lang = i; } }
         else if (!strcmp(ln, "ram")) { for (int i = 0; i < 6; i++) { char c[8]; WideCharToMultiByte(CP_UTF8, 0, RAMV[i], -1, c, 8, NULL, NULL); if (!strcmp(eq, c)) CFG.ram = i; } }
-        else if (!strcmp(ln, "ui")) CFG.mono = !strcmp(eq, "mono");
         else if (!strcmp(ln, "runask")) CFG.askRun = atoi(eq) != 0;
     }
 }
@@ -272,12 +273,12 @@ static void cfgSave(void) {
     wchar_t p[MAX_PATH]; if (!appPath(L"dev-settings.txt", p)) return;
     char b[256], lc[8] = "", rv[8]; if (CFG.lang >= 0) WideCharToMultiByte(CP_UTF8, 0, LANGCODE[CFG.lang], -1, lc, 8, NULL, NULL);
     WideCharToMultiByte(CP_UTF8, 0, RAMV[CFG.ram], -1, rv, 8, NULL, NULL);
-    int n = snprintf(b, sizeof b, "lang=%s\r\nram=%s\r\nui=%s\r\nrunask=%d\r\n", lc, rv, CFG.mono ? "mono" : "color", CFG.askRun);
+    int n = snprintf(b, sizeof b, "lang=%s\r\nram=%s\r\nrunask=%d\r\n", lc, rv, CFG.askRun);
     HANDLE f = CreateFileW(p, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL); if (f == INVALID_HANDLE_VALUE) return;
     DWORD w; WriteFile(f, b, (DWORD)n, &w, NULL); CloseHandle(f);
 }
 static void themeSet(int mono) {
-    TH = mono ? TH_MONO : TH_COLOR;
+    (void)mono; TH = TH_MONO;   /* 흑백 판만 (컬러 판은 쓰지 않음) */
     if (brBg) { DeleteObject(brBg); DeleteObject(brPanel); DeleteObject(brPanel2); }
     brBg = CreateSolidBrush(TH.bg); brPanel = CreateSolidBrush(TH.panel); brPanel2 = CreateSolidBrush(TH.panel2);
 }
@@ -597,11 +598,7 @@ static void drawBtn(DRAWITEMSTRUCT *d) {
     fillRect(dc, 0, 0, w, h, TH.panel);
     int rad = SC(9), oy = dn ? 1 : 0;
     if (st == BS_J_PRIMARY) {
-        HRGN rg = CreateRoundRectRgn(0, oy, w + 1, h + 1 + oy, rad, rad); SelectClipRgn(dc, rg);
-        for (int x = 0; x < w; x++) { COLORREF c = mix(TH.deep, TH.accent2, x * 256 / (w > 1 ? w : 1)); fillRect(dc, x, oy, 1, h, dis ? mix(c, TH.panel, 150) : c); }
-        SelectClipRgn(dc, NULL); DeleteObject(rg);
-        HBRUSH nb = (HBRUSH)GetStockObject(NULL_BRUSH); HPEN pn = CreatePen(PS_SOLID, 1, mix(TH.accent, TH.panel, 110)); HGDIOBJ ob = SelectObject(dc, nb), op = SelectObject(dc, pn);
-        RoundRect(dc, 0, oy, w, h + oy - 1, rad, rad); SelectObject(dc, ob); SelectObject(dc, op); DeleteObject(pn);
+        roundRect(dc, 0, oy, w, h - 1, rad, dis ? TH.panel2 : TH.deep, dis ? TH.line : mix(TH.accent, TH.panel, 110));   /* 평평하게 (그라데이션 없음) */
     } else if (st == BS_J_GHOST) { if (dn) roundRect(dc, 0, 0, w, h, rad, TH.panel2, TH.panel2); }
     else roundRect(dc, 0, oy, w, h - 1, rad, TH.panel2, st == BS_J_SEGON ? TH.accent : TH.line);
     if (st == BS_J_SEGON) { HBRUSH nb = (HBRUSH)GetStockObject(NULL_BRUSH); HPEN pn = CreatePen(PS_SOLID, 1, TH.accent); HGDIOBJ ob = SelectObject(dc, nb), op = SelectObject(dc, pn); RoundRect(dc, 1, oy + 1, w - 1, h - 2 + oy, rad, rad); SelectObject(dc, ob); SelectObject(dc, op); DeleteObject(pn); }
@@ -1128,7 +1125,7 @@ static int setCmd(HWND d, int id, int code) {
 }
 static HWND buildSettings(DlgCtx *c) {
     int W = SC(420), M = SC(22), y = SC(18), cw = W - 2 * M;
-    HWND d = dlgNew(T(S_SET_TITLE), W, SC(452), c);
+    HWND d = dlgNew(T(S_SET_TITLE), W, SC(376), c);
     dlgLabel(d, M, y, cw, SC(18), T(S_SET_LANG), 1); y += SC(22);
     sLang = dlgCombo(d, ID_D_FIRST, M, y, cw); for (int i = 0; i < 5; i++) SendMessageW(sLang, CB_ADDSTRING, 0, (LPARAM)LANGNAME[i]); SendMessageW(sLang, CB_SETCURSEL, LANG, 0); y += SC(46);
     dlgLabel(d, M, y, cw, SC(18), T(S_SET_RAM), 1); y += SC(22);
@@ -1136,10 +1133,7 @@ static HWND buildSettings(DlgCtx *c) {
     const wchar_t *rl[6] = {T(S_RAM_AUTO), L"256 MB", L"512 MB", L"1 GB", L"2 GB", T(S_RAM_UNL)};
     for (int i = 0; i < 6; i++) SendMessageW(sRam, CB_ADDSTRING, 0, (LPARAM)rl[i]); SendMessageW(sRam, CB_SETCURSEL, CFG.ram, 0); y += SC(40);
     dlgLabel(d, M, y, cw, SC(80), T(S_RAM_HINT), 1); y += SC(90);
-    dlgLabel(d, M, y, cw, SC(18), T(S_SET_UI), 1); y += SC(22);
-    int sw = (cw - SC(8)) / 2;
-    sSegC = dlgButton(d, ID_D_FIRST + 2, M, y, sw, SC(38), T(S_UI_COLOR), CFG.mono ? BS_J_SEGOFF : BS_J_SEGON);
-    sSegM = dlgButton(d, ID_D_FIRST + 3, M + sw + SC(8), y, sw, SC(38), T(S_UI_MONO), CFG.mono ? BS_J_SEGON : BS_J_SEGOFF); y += SC(54);
+
     wchar_t v[96]; _snwprintf(v, 96, T(S_VERSION), L"1.6", JDH_VER_W); v[95] = 0;
     HWND vs = dlgLabel(d, M, y, cw, SC(18), v, 1); SetWindowLongPtrW(vs, GWL_STYLE, GetWindowLongPtrW(vs, GWL_STYLE) | SS_CENTER); y += SC(30);
     dlgButton(d, IDOK, M, y, cw, SC(40), T(S_CLOSE), BS_J_PRIMARY);

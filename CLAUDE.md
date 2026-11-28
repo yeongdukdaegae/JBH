@@ -21,10 +21,10 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 ## 핵심 규칙
 
 - 에디터는 두 판이다. **Lite** 는 기존 에디터 (HTML · 브라우저 안 실행) 로 계속 지원하며 사용자 라이브러리가 봉인돼 있다 (코드가 아예 없음). **Dev.** 는 Windows 네이티브 프로그램 (`src/jbdev.c`) 으로 바꾸는 중이다 (아래).
-- JawBreaker Dev. (네이티브 · 설치 프로그램에 들어감): 디스크의 프로젝트 폴더를 직접 열고 저장한다 (브라우저 저장 공간 없음). 모양은 웹 판 에디터와 거의 같게 둔다 (색 = 웹 판 CSS 의 `--bg` · `--panel` · `--line` · `--accent` … 와 흑백 판 · 구문 색 = `#hl`).
+- JawBreaker Dev. (네이티브 · 설치 프로그램에 들어감): 디스크의 프로젝트 폴더를 직접 열고 저장한다 (브라우저 저장 공간 없음). 모양은 웹 판 에디터와 거의 같게 둔다 — 색은 **흑백 판만** (웹 판 `[data-ui=mono]` 의 `--bg` · `--panel` · `--line` …) · 그라데이션 없음 (▶ 실행도 평평하게) · 구문 색 · 로그 색은 웹 판 `#hl` 그대로 (웹 판 흑백처럼).
   - 화면 = 머리 줄 (로고 · JawBreaker Dev. · ▶ 실행 · ■ · 검사 · ☰) · [탐색기 (📁 · 경로 줄을 누르면 보이기/숨기기 · ＋ 파일 · ＋ 폴더 · TreeView · 오른쪽 단추 = 새 파일 · 새 폴더 · 이름 바꾸기 · 지우기 (휴지통) · 탐색기에서 열기 · 맨 아래 「내장 설명서」 = 읽기 전용)] · 탭 줄 (직접 그림 · ✕ / 가운데 단추 / Ctrl+W 닫기 · Ctrl+Tab · 오른쪽 ↶ ↷ 💾 📁) · 경로 줄 (오른쪽 = 알림) · 줄 번호 (오류 줄 빨강) + 코드 칸 (RichEdit 서식 있는 글 · 붙여 넣기는 글자만) · 로그 머리 (위쪽을 끌면 높이) · 로그 칸 (줄마다 시각 · ✖ 빨강 · 알림 민트).
   - ☰ 메뉴 (웹 판 프로젝트 메뉴 차례): 새 파일 · 새 프로젝트 · 폴더 열기 · 저장 · 검사 · HTML 로 내보내기 · EXE 로 변환 · APK 로 변환 · 실행 전 저장 묻기 · 설정 · 탐색기에서 열기. 메뉴 · 작은 창 · 단추는 직접 그림 (어두운 모양).
-  - 설정 창 (웹 판 openSettings 와 같은 항목): 언어 (5개) · 램 한도 (자동 · 256 · 512 · 1G · 2G · 무제한 → `jdh build html|apk --ram`) · UI 컬러/흑백 · 버전. `%APPDATA%\JDH\dev-settings.txt` (lang · ram · ui · runask). 시험용 `JDH_LANG` 이 언제나 이김. jbdev 의 `JDH_VER_W` 를 `JDH_VERSION` 과 같이 올린다.
+  - 설정 창 (웹 판 openSettings 와 같은 항목): 언어 (5개) · 램 한도 (자동 · 256 · 512 · 1G · 2G · 무제한 → `jdh build html|apk --ram`) · 버전 (UI 고르기는 없음 — 흑백만). `%APPDATA%\JDH\dev-settings.txt` (lang · ram · runask). 시험용 `JDH_LANG` 이 언제나 이김. jbdev 의 `JDH_VER_W` 를 `JDH_VERSION` 과 같이 올린다.
   - APK 창 (웹 판 exportApk 와 같은 칸): 앱 이름 · 패키지 · 버전 번호 (지난번 + 1) · 버전 이름 · 화면 방향 · 아이콘 (프로젝트의 PNG) · 서명 키 (있는지 · 만든 날 · 내보내기 · 가져오기 = `jdh apk-key import`) → `jdh build apk`. 칸 값은 `%APPDATA%\JDH\apk-<프로젝트 폴더>.cfg`.
   - ▶ 실행 (F5) = 모두 저장 후 프로젝트의 `run.bat` (없으면 `jdh run`) 을 창 없이 띄우고 출력을 로그 칸으로 · ■ 정지 = 작업 개체 (Job) 로 자식까지 끔 · 검사 (F7) = `jdh check` · EXE = `jdh build exe` · HTML = `jdh build html --lang <화면 언어>` · 새 프로젝트 = `jdh new project`.
   - 로그 칸의 "✖ 파일:줄" 을 두 번 누르면 그 파일 · 그 줄로. 찾기 Ctrl+F · 바꾸기 Ctrl+H · 다음 F3 (Windows 찾기 창). 자동완성 = 별칭 뒤 `.` 를 치면 그 라이브러리 목록 (`Use 라이브러리 call 별칭;` 을 읽음) · Ctrl+Space = 지금 단어 (jawbreaker · 문장 틀 · `Use ` 뒤는 라이브러리 이름) · ↑↓ · Enter/Tab · Esc · `$0` 자리에 커서.
