@@ -65,6 +65,7 @@ header .btn.primary{border-color:var(--accent)}
 .tr .ic.img{color:var(--mint)}
 .layer{position:absolute;inset:0;margin:0;padding:10px 12px 60px 12px;border:0;font:var(--fs)/var(--lh) var(--mono);tab-size:4;-moz-tab-size:4;white-space:pre;letter-spacing:0;word-spacing:0;border-radius:0;-webkit-appearance:none;appearance:none}
 #hl{overflow:hidden;pointer-events:none;color:var(--text)}
+#hl .hlc{display:block;contain:layout style}
 #ta{background:transparent;color:transparent;-webkit-text-fill-color:transparent;caret-color:var(--text);resize:none;outline:none;overflow:auto}
 #ta::selection{background:rgba(33,66,131,.9)}
 .errband{position:absolute;left:0;width:6000px;height:var(--lh);background:rgba(247,84,100,.14)}
@@ -6920,7 +6921,7 @@ function highlight(src){
     if(id){
       if(KW.has(id))return `<span class="k">${id}</span>`;
       if(TYPES.has(id))return `<span class="t">${id}</span>`;
-      if(/^(and|or|xor|nand|nor|not)$/.test(id)&&/^\s*[\[(]/.test(src.slice(off+id.length))&&/(^|[\]\)]|\b(if|loop|and|or|xor|nand|nor|not))\s*$/.test(src.slice(Math.max(0,off-12),off)))return `<span class="k">${id}</span>`;   // 조건 잇기
+      if(/^(and|or|xor|nand|nor|not)$/.test(id)&&/^\s*[\[(]/.test(src.slice(off+id.length,off+id.length+64))&&/(^|[\]\)]|\b(if|loop|and|or|xor|nand|nor|not))\s*$/.test(src.slice(Math.max(0,off-12),off)))return `<span class="k">${id}</span>`;   // 조건 잇기
       if(id==='true'||id==='false')return `<span class="n">${id}</span>`;
       const prev=src[off-1],after=src[off+id.length];
       if(after==='(')return `<span class="f">${esc(id)}</span>`;
@@ -6931,18 +6932,75 @@ function highlight(src){
     return esc(other);
   });
 }
+/* 그리기: 줄마다 색칠 결과를 기억하고 (같은 줄 · 같은 상태면 다시 칠하지 않음) · 64줄 덩어리 중 바뀐 것만 갈아 끼움 · 줄 번호는 줄 수가 바뀔 때만
+ *   여러 줄 주석 (/* … *\/) 은 줄 사이로 상태를 넘김 */
+const HL_CACHE=new Map(),HL_CH=64;
+let hlChunks=[],hlBand=null,hlTail=null,gnN=-1,gnErr=-1,lhOk=false;
+addEventListener('resize',()=>{lhOk=false;});
+function hlBlockOut(t,inB){   // 이 줄 끝에서 여러 줄 주석 안인지
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(inB){if(c==='*'&&t[i+1]==='/'){inB=false;i++;}continue;}
+    if(c==='/'&&t[i+1]==='/')return false;
+    if(c==='/'&&t[i+1]==='*'){inB=true;i++;continue;}
+    if(c==='"'){i++;while(i<t.length&&t[i]!=='"'){if(t[i]==='\\')i++;i++;}}
+  }
+  return inB;
+}
+function hlLine(t,inB){
+  const k=(inB?'1':'0')+t;let r=HL_CACHE.get(k);
+  if(r)return r;
+  let html;
+  if(inB){
+    const e=t.indexOf('*/');
+    html=e<0?`<span class="c">${esc(t)}</span>`:`<span class="c">${esc(t.slice(0,e+2))}</span>`+highlight(t.slice(e+2));
+  }else html=highlight(t);
+  r=[html,hlBlockOut(t,inB)];
+  if(HL_CACHE.size>20000)HL_CACHE.clear();
+  HL_CACHE.set(k,r);return r;
+}
 function render(){
-  LH=parseFloat(getComputedStyle(ta).lineHeight)||22;
-  const v=ta.value;
-  const band=errLine?`<div class="errband" style="top:${10+(errLine-1)*LH}px"></div>`:'';
-  hl.innerHTML=band+highlight(v)+'\n ';
-  const n=v.split('\n').length;
-  let g='';for(let i=1;i<=n;i++)g+=`<div${i===errLine?' class="err"':''}>${i}</div>`;
-  gnums.innerHTML=g;
+  if(!lhOk){LH=parseFloat(getComputedStyle(ta).lineHeight)||22;lhOk=true;}
+  const lines=ta.value.split('\n'),n=lines.length;
+  if(!hlBand){hl.textContent='';hlBand=document.createElement('div');hlBand.className='errband';hl.appendChild(hlBand);hlTail=document.createTextNode('\n ');hl.appendChild(hlTail);hlChunks=[];}
+  hlBand.hidden=!errLine;if(errLine)hlBand.style.top=`${10+(errLine-1)*LH}px`;
+  let inB=false;const nc=Math.ceil(n/HL_CH);
+  for(let c=0;c<nc;c++){
+    let h='';const e=Math.min(n,(c+1)*HL_CH);
+    for(let i=c*HL_CH;i<e;i++){const r=hlLine(lines[i],inB);h+=r[0];inB=r[1];if(i<e-1)h+='\n';}
+    if(lines[e-1]==='')h+='\u200b';   // 덩어리 끝의 빈 줄도 높이를 가지게
+    let ch=hlChunks[c];
+    if(!ch){ch={el:document.createElement('div'),h:null};ch.el.className='hlc';hl.insertBefore(ch.el,hlTail);hlChunks.push(ch);}
+    if(ch.h!==h){ch.el.innerHTML=h;ch.h=h;}
+  }
+  while(hlChunks.length>nc)hlChunks.pop().el.remove();
+  if(n!==gnN||errLine!==gnErr){
+    if(n!==gnN){   // 줄 번호는 늘고 준 만큼만
+      if(gnN<0){gnums.textContent='';gnN=0;}
+      if(n>gnN){let g='';for(let i=gnN+1;i<=n;i++)g+=`<div>${i}</div>`;gnums.insertAdjacentHTML('beforeend',g);}
+      else while(gnums.childElementCount>n)gnums.lastElementChild.remove();
+      gnN=n;
+    }
+    if(gnErr>0&&gnums.children[gnErr-1])gnums.children[gnErr-1].className='';
+    if(errLine>0&&gnums.children[errLine-1])gnums.children[errLine-1].className='err';
+    gnErr=errLine;
+  }
   syncScroll();
 }
 function syncScroll(){hl.scrollTop=ta.scrollTop;hl.scrollLeft=ta.scrollLeft;gutter.scrollTop=ta.scrollTop;}
 ta.addEventListener('scroll',syncScroll);
+// 휠 스크롤: 브라우저의 부드러운 스크롤 (미끄러짐) 없이 그 자리에서 바로 옮김 (마우스 · 터치패드 · 코드 칸과 로그)
+function wheelNow(el){
+  el.addEventListener('wheel',e=>{
+    if(e.ctrlKey||e.defaultPrevented)return;
+    const k=e.deltaMode===1?LH:e.deltaMode===2?el.clientHeight:1;
+    let dx=e.deltaX*k,dy=e.deltaY*k;if(e.shiftKey&&!dx){dx=dy;dy=0;}
+    const t0=el.scrollTop,l0=el.scrollLeft;
+    el.scrollTop=t0+dy;el.scrollLeft=l0+dx;
+    if(el.scrollTop!==t0||el.scrollLeft!==l0)e.preventDefault();   // 끝에 닿으면 바깥으로 넘김
+  },{passive:false});
+}
+wheelNow(ta);wheelNow(pbody);
 /* ----- 되돌리기 · 다시 하기: 파일마다 따로 (탭을 바꿔도 남음) ----- */
 const hist=new Map();let histMute=false,histT=0;
 function histOf(f){let h=hist.get(f);if(!h){h={st:[{v:files[f]||'',ss:0,se:0}],i:0,typing:false};hist.set(f,h);}return h;}
@@ -7082,8 +7140,14 @@ const snipItem=s=>AC_I(s[0],'snippet',s[2],s[1],'',{retrigger:!!s[3]});
 
 // 주석·문자열을 지운 텍스트 (기호 추출용)
 function acStrip(t){return t.replace(/\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|"(?:[^"\\\n]|\\.)*"?/g,m=>m[0]==='"'?'""':m.replace(/[^\n]/g,' '));}
+const AC_SYMS=new Map();   // 파일마다 글자가 같으면 다시 읽지 않음
 function acSyms(path){
-  const t=acStrip(isImg(path)?'':path===active?ta.value:(files[path]||''));
+  const raw=isImg(path)?'':path===active?ta.value:(files[path]||'');
+  const c=AC_SYMS.get(path);if(c&&c.raw===raw)return c.o;
+  const o=acSymsOf(raw);AC_SYMS.set(path,{raw,o});return o;
+}
+function acSymsOf(raw){
+  const t=acStrip(raw);
   const o={uses:[],vars:[],funcs:[],lib:null,parent:null};
   for(const m of t.matchAll(new RegExp(`\\b[Uu]se\\s+(${AC_ID})\\s+call\\s+(${AC_ID})`,'gu')))o.uses.push({lib:m[1],alias:m[2]});
   for(const m of t.matchAll(new RegExp(`\\bvar\\s+(public\\s+)?(int|float|string|bit|list|compound|matrix\\s*\\[[^\\]]*\\])\\s+call\\s+(${AC_ID})`,'gu')))o.vars.push({name:m[3],ty:m[2],pub:!!m[1]});

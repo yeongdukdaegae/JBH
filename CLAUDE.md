@@ -28,6 +28,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - 설정 창 (웹 판 openSettings 와 같은 항목): 언어 (5개) · 램 한도 (자동 · 256 · 512 · 1G · 2G · 무제한 → `jdh build html|apk --ram`) · 버전 (UI 고르기는 없음 — 흑백만). `%APPDATA%\JDH\dev-settings.txt` (lang · ram · runask). 시험용 `JDH_LANG` 이 언제나 이김. jbdev 의 `JDH_VER_W` 를 `JDH_VERSION` 과 같이 올린다.
   - APK 창 (웹 판 exportApk 와 같은 칸): 앱 이름 · 패키지 · 버전 번호 (지난번 + 1) · 버전 이름 · 화면 방향 · 아이콘 (프로젝트의 PNG) · 서명 키 (있는지 · 만든 날 · 내보내기 · 가져오기 = `jdh apk-key import`) → `jdh build apk`. 칸 값은 `%APPDATA%\JDH\apk-<프로젝트 폴더>.cfg`.
   - ▶ 실행 (F5) = 모두 저장 후 프로젝트의 `run.bat` (없으면 `jdh run`) 을 창 없이 띄우고 출력을 로그 칸으로 · ■ 정지 = 작업 개체 (Job) 로 자식까지 끔 · 검사 (F7) = `jdh check` · EXE = `jdh build exe` · HTML = `jdh build html --lang <화면 언어>` · 새 프로젝트 = `jdh new project`.
+  - 색칠은 줄 안에서 끝나므로 (주석 · 문자열이 줄을 넘지 않음) 고친 뒤에는 보이는 줄 (+ 커서 줄) 만 바로 칠하고 나머지는 타이머로 조금씩 (12ms 씩) 칠한다. TOM (`ITextDocument` · `EM_GETOLEINTERFACE`) 범위로 칠해 선택 · 스크롤을 건드리지 않고 되돌리기 기록에 남기지 않는다 (`tomSuspend` · `Freeze`). 한글 등 조합 중에는 칠하지 않는다. 휠 스크롤은 RichEdit 의 부드러운 스크롤 (관성) 을 쓰지 않고 `EM_LINESCROLL` 로 바로 옮긴다 (코드 칸 · 로그 칸).
   - 로그 칸의 "✖ 파일:줄" 을 두 번 누르면 그 파일 · 그 줄로. 찾기 Ctrl+F · 바꾸기 Ctrl+H · 다음 F3 (Windows 찾기 창). 자동완성 = 별칭 뒤 `.` 를 치면 그 라이브러리 목록 (`Use 라이브러리 call 별칭;` 을 읽음) · Ctrl+Space = 지금 단어 (jawbreaker · 문장 틀 · `Use ` 뒤는 라이브러리 이름) · ↑↓ · Enter/Tab · Esc · `$0` 자리에 커서.
   - 설명서 · 자동완성 목록 · HTML 틀은 웹 판에서 뽑는다: `python3 editor/build.py` 다음 `node editor/gen_native.mjs` → `editor/native/` (docs/<언어>/*.jbl · ac-<언어>.txt · game-<언어>.html · 저장소에 넣음). 설치본: `editor\native\` (jbdev 가 bin\..\editor\native 에서 찾음) · `sdk\html\game-*.html` (jdh build html 의 틀 · 시험용 `JDH_HTML_TEMPLATE`).
   - 화면 글자는 `TR` 표 (5개 언어 · Windows 표시 언어 · 시험용 `JDH_LANG`). 지난 프로젝트는 `%APPDATA%\JDH\dev-last.txt`. `--selftest <프로젝트> <결과>` = 열기 → 검사 → 실행 → HTML → APK → 자동완성 → 설명서 → 설정 · APK 창 그림을 차례로 하고 로그 · 창 그림을 남김 (CI · 창 그림은 CI 로그에 PNG base64 로도 찍음 — `SHOTL <이름> …` 줄을 이어 붙여 풂).
@@ -92,6 +93,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 - `.jbx` 형식: `"JBLX"` · u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)… — 안에 `jdl.json` · `lib.wasm` · `native/*.c` · `doc/*`. (`"JBX1"` 은 `jaw.exportFile` 의 난독화 파일이 쓰는 표시라 쓰지 않는다.)
 - 결정 기준은 실행 성능이다. 단 격리는 안전을 우선한다.
 - 화면 문구 (안내 · 알림 · 창 제목 · 네이티브 `TR` 과 웹 `I18N`) 는 **합니다체** 로 쓴다 ("저장했습니다" · "먼저 정지하십시오" · "저장하겠습니까?") — 해요체 (~세요 · ~까요) · ~함 꼴은 쓰지 않는다. 단추 · 메뉴 · 상태 표시 (저장됨 · 없음) · 자동완성 설명은 짧은 말 그대로. 언어의 오류 메시지 · 내장 설명서는 예전 문체 그대로.
+- 웹 판 코드 칸 그리기 (`render`): 줄마다 색칠 결과를 기억하고 (`HL_CACHE` · 여러 줄 주석은 상태를 넘김) 64줄 덩어리 (`.hlc` · 블록 · `contain`) 중 바뀐 것만 갈아 끼운다 · 줄 번호는 늘고 준 만큼만 · 줄 높이는 창 크기가 바뀔 때만 다시 잼 · 자동완성의 파일 읽기 (`acSyms`) 는 글자가 같으면 다시 하지 않음. 휠은 `wheelNow` 로 브라우저의 부드러운 스크롤 없이 바로 옮긴다 (코드 칸 · 로그).
 - 웹 판 에디터 (Lite · Dev.) 도 IntelliJ 꼴: 색은 `:root` (기본 = 파란 강조 #3574f0 · 흑백 `[data-ui=mono]` = 회색 강조) · 둥근 정도 4px · 그라데이션 · 그림자 빛 · 로고 움직임 없음. 시작 화면은 IntelliJ 시작 창 꼴 (왼쪽 막대 · 오른쪽 단추 + 「계속하기」 목록 · 좁은 화면은 위아래로).
 - 에디터의 화면 글자는 5개 언어 (ko · en · ja · zh-CN · zh-TW) 다. 새 문구는 `I18N_EN` 과 `I18N_X` 의 같은 자리에 넣는다.
 
@@ -99,7 +101,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 
 - 에디터를 고치면: `python3 editor/build.py` → `node tests/dev.mjs` · `node tests/lite.mjs` (Playwright 필요 · `PW` 와 `CHROME` 환경 변수로 위치 지정 가능).
 - 라이브러리 굽기 시험: `JDH_ZIG="python3 -m ziglang" JDH_SDK=sdk ./jdh lib build tests/libs/Counter` (`pip install ziglang`).
-- Windows 에서만 확인되는 것은 GitHub Actions 로 확인한다. main 에 올리면 빌드가 돌고, 라이브러리를 쓰는 프로젝트를 EXE 로 만들어 실제 실행까지 한다.
+- Windows 에서만 확인되는 것은 GitHub Actions 로 확인한다. 전체 시험 (`build.yml` · 약 10분) 은 **큰 변화에서만** 돈다: 버전 태그 · 직접 실행 (Run workflow) · main 에 올린 커밋 메시지에 `[full-ci]` 가 있을 때 (같은 브랜치에 새로 올리면 앞의 것은 취소). 사소한 화면 수정은 `shots.yml` (창 그림만 · 작업 브랜치에 jbdev.c 를 올리면 돎) 로 확인하고 캡처를 보낸다. 도구 (llvm-mingw · zig · SDL2) 와 zig 컴파일 캐시는 actions/cache 로 다시 씀.
 - 확인하지 못한 것은 확인하지 못했다고 말한다.
 - 설계에서 벗어나는 결정은 먼저 묻는다.
 - 릴리스 게시처럼 밖으로 공개되는 일은 요청받았을 때만 한다.

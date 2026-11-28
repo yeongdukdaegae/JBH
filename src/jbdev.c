@@ -18,6 +18,8 @@
 #include <shellapi.h>
 #include <shlobj.h>
 #include <richedit.h>
+#include <richole.h>
+#include <tom.h>
 #include <wchar.h>
 #include <string.h>
 #include <stdio.h>
@@ -218,6 +220,7 @@ enum { ID_BTN = 100, ID_TREE = 200, ID_EDIT, ID_LOG, ID_STATUS, ID_TAB, ID_AC, I
 #define WM_APP_OUT (WM_APP + 1)   /* 자식의 출력 (lParam = wchar_t* · 받은 쪽이 free) */
 #define WM_APP_END (WM_APP + 2)   /* 자식이 끝남 (wParam = 종료 코드) */
 #define TIMER_COLOR 1
+#define TIMER_BGCOLOR 2   /* 화면 밖 줄을 조금씩 색칠 */
 static HWND hMain, hTree, hEdit, hLog, hTabs, hPath, hGut, hAc, hFind, hBtn[B_N];
 static HFONT hFontUI, hFontCode, hFontBold, hFontBrand, hFontSmall, hFontLog, hFontPath, hFontEmoji, hFontIcon, hFontTitle;
 static wchar_t STATUS[512];                          /* 경로 줄 오른쪽의 알림 */
@@ -407,33 +410,87 @@ static wchar_t *editTextRE(int *len) {   /* RichEdit 위치와 같은 글자 (\r
     int L = GetWindowTextLengthW(hEdit); wchar_t *w = malloc((L + 1) * sizeof(wchar_t)); GETTEXTEX gt = {(DWORD)((L + 1) * sizeof(wchar_t)), GT_DEFAULT, 1200, NULL, NULL};
     L = (int)SendMessageW(hEdit, EM_GETTEXTEX, (WPARAM)&gt, (LPARAM)w); w[L] = 0; *len = L; return w;
 }
-static void recolor(void) {
-    if (!hEdit) return;
-    if (GetWindowTextLengthW(hEdit) > 400000) return;   /* 아주 큰 파일은 색칠하지 않음 */
-    int L; wchar_t *w = editTextRE(&L);
+/* 색칠은 줄 안에서 끝남 (주석 · 문자열이 줄을 넘지 않음) → 아무 줄 범위나 따로 칠해도 결과가 같음
+ *   고친 뒤: 보이는 줄 (+ 커서 줄) 만 바로 · 나머지는 TIMER_BGCOLOR 로 조금씩 (긴 파일에서 멈추지 않게)
+ *   TOM (ITextDocument) 범위로 칠함 — 선택 · 스크롤을 건드리지 않고 · 되돌리기 기록에 남기지 않고 (tomSuspend) · Freeze 로 다시 그리기를 한 번만 */
+static ITextDocument *TDOC;
+static int BGLINE = -1, COMPOSING;   /* 다음에 칠할 화면 밖 줄 (-1 = 끝남) · 한글 등 조합 중 */
+static LRESULT CALLBACK editSub(HWND h, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR id, DWORD_PTR ref) {   /* 한글 등 조합 중에는 색칠하지 않음 */
+    (void)id; (void)ref;
+    if (msg == WM_IME_STARTCOMPOSITION) COMPOSING = 1;
+    else if (msg == WM_IME_ENDCOMPOSITION) COMPOSING = 0;
+    return DefSubclassProc(h, msg, wp, lp);
+}
+static void tomInit(void) {
+    SetWindowSubclass(hEdit, editSub, 1, 0);
+    IRichEditOle *ole = NULL;
+    static const GUID IID_TDoc = {0x8CC497C0, 0xA1DF, 0x11CE, {0x80, 0x98, 0x00, 0xAA, 0x00, 0x47, 0xBE, 0x5D}};
+    if (SendMessageW(hEdit, EM_GETOLEINTERFACE, 0, (LPARAM)&ole) && ole) { ole->lpVtbl->QueryInterface(ole, &IID_TDoc, (void **)&TDOC); ole->lpVtbl->Release(ole); }
+}
+static void tomPaint(long a, long b, int c) {
+    ITextRange *r = NULL; ITextFont *f = NULL;
+    if (FAILED(TDOC->lpVtbl->Range(TDOC, a, b, &r)) || !r) return;
+    if (SUCCEEDED(r->lpVtbl->GetFont(r, &f)) && f) { f->lpVtbl->SetForeColor(f, (long)colOf(c)); f->lpVtbl->SetItalic(f, c == C_COM ? tomTrue : tomFalse); f->lpVtbl->Release(f); }
+    r->lpVtbl->Release(r);
+}
+/* [la, lb] 줄을 칠함 */
+static void colorLines(int la, int lb) {
+    if (!hEdit || CURD < 0) return;
+    int n = (int)SendMessageW(hEdit, EM_GETLINECOUNT, 0, 0); if (la < 0) la = 0; if (lb >= n) lb = n - 1; if (la > lb) return;
+    LONG ca = (LONG)SendMessageW(hEdit, EM_LINEINDEX, la, 0), cb = lb + 1 < n ? (LONG)SendMessageW(hEdit, EM_LINEINDEX, lb + 1, 0) : -1;
+    if (ca < 0) return;
+    if (cb < 0) { GETTEXTLENGTHEX gl = {GTL_NUMCHARS | GTL_PRECISE, 1200}; cb = (LONG)SendMessageW(hEdit, EM_GETTEXTLENGTHEX, (WPARAM)&gl, 0); }
+    if (cb <= ca) return;
+    int L = cb - ca; wchar_t *w = malloc((L + 2) * sizeof(wchar_t)); TEXTRANGEW tr = {{ca, cb}, w};
+    L = (int)SendMessageW(hEdit, EM_GETTEXTRANGE, 0, (LPARAM)&tr); w[L] = 0;
     COLORING = 1;
-    CHARRANGE sel; SendMessageW(hEdit, EM_EXGETSEL, 0, (LPARAM)&sel);
-    POINT sp; SendMessageW(hEdit, EM_GETSCROLLPOS, 0, (LPARAM)&sp);
     DWORD em = (DWORD)SendMessageW(hEdit, EM_SETEVENTMASK, 0, 0);
-    SendMessageW(hEdit, WM_SETREDRAW, FALSE, 0);
-    paintRange(0, L, C_TEXT);
+    long fz = 0; CHARRANGE sel; POINT sp;
+    if (TDOC) { TDOC->lpVtbl->Undo(TDOC, tomSuspend, NULL); TDOC->lpVtbl->Freeze(TDOC, &fz); }
+    else { SendMessageW(hEdit, EM_EXGETSEL, 0, (LPARAM)&sel); SendMessageW(hEdit, EM_GETSCROLLPOS, 0, (LPARAM)&sp); SendMessageW(hEdit, WM_SETREDRAW, FALSE, 0); }
+    #define PAINT(x, y, c) (TDOC ? tomPaint(ca + (x), ca + (y), (c)) : paintRange(ca + (x), ca + (y), (c)))
+    PAINT(0, L, C_TEXT);
     for (int i = 0; i < L;) {
         wchar_t c = w[i];
-        if (c == L'/' && i + 1 < L && w[i + 1] == L'/') { int j = i; while (j < L && w[j] != L'\r' && w[j] != L'\n') j++; paintRange(i, j, C_COM); i = j; continue; }
-        if (c == L'"') { int j = i + 1; while (j < L && w[j] != L'"' && w[j] != L'\r' && w[j] != L'\n') { if (w[j] == L'\\' && j + 1 < L) j++; j++; } if (j < L && w[j] == L'"') j++; paintRange(i, j, C_STR); i = j; continue; }
-        if ((c >= L'0' && c <= L'9') && (i == 0 || !(iswalnum(w[i - 1]) || w[i - 1] == L'_'))) { int j = i; while (j < L && (iswalnum(w[j]) || w[j] == L'.')) j++; paintRange(i, j, C_NUM); i = j; continue; }
+        if (c == L'/' && i + 1 < L && w[i + 1] == L'/') { int j = i; while (j < L && w[j] != L'\r' && w[j] != L'\n') j++; PAINT(i, j, C_COM); i = j; continue; }
+        if (c == L'"') { int j = i + 1; while (j < L && w[j] != L'"' && w[j] != L'\r' && w[j] != L'\n') { if (w[j] == L'\\' && j + 1 < L) j++; j++; } if (j < L && w[j] == L'"') j++; PAINT(i, j, C_STR); i = j; continue; }
+        if ((c >= L'0' && c <= L'9') && (i == 0 || !(iswalnum(w[i - 1]) || w[i - 1] == L'_'))) { int j = i; while (j < L && (iswalnum(w[j]) || w[j] == L'.')) j++; PAINT(i, j, C_NUM); i = j; continue; }
         if (iswalpha(c) || c == L'_') {
             int j = i; while (j < L && (iswalnum(w[j]) || w[j] == L'_')) j++;
-            if (inList(w + i, j - i, KW)) paintRange(i, j, C_KW); else if (inList(w + i, j - i, TY)) paintRange(i, j, C_TYPE);
+            if (inList(w + i, j - i, KW)) PAINT(i, j, C_KW); else if (inList(w + i, j - i, TY)) PAINT(i, j, C_TYPE);
             i = j; continue;
         }
         i++;
     }
-    SendMessageW(hEdit, EM_EXSETSEL, 0, (LPARAM)&sel);
-    SendMessageW(hEdit, EM_SETSCROLLPOS, 0, (LPARAM)&sp);
-    SendMessageW(hEdit, WM_SETREDRAW, TRUE, 0); InvalidateRect(hEdit, NULL, TRUE);
+    #undef PAINT
+    if (TDOC) { TDOC->lpVtbl->Unfreeze(TDOC, &fz); TDOC->lpVtbl->Undo(TDOC, tomResume, NULL); }
+    else { SendMessageW(hEdit, EM_EXSETSEL, 0, (LPARAM)&sel); SendMessageW(hEdit, EM_SETSCROLLPOS, 0, (LPARAM)&sp); SendMessageW(hEdit, WM_SETREDRAW, TRUE, 0); InvalidateRect(hEdit, NULL, FALSE); }
     SendMessageW(hEdit, EM_SETEVENTMASK, 0, em);
     COLORING = 0; free(w);
+}
+/* 보이는 줄 (+ 위아래 조금 · 커서 줄) */
+static void colorVisible(void) {
+    if (!hEdit || CURD < 0 || COMPOSING) return;
+    RECT r; GetClientRect(hEdit, &r); int vis = r.bottom / SC(20) + 2;
+    int first = (int)SendMessageW(hEdit, EM_GETFIRSTVISIBLELINE, 0, 0);
+    CHARRANGE cr; SendMessageW(hEdit, EM_EXGETSEL, 0, (LPARAM)&cr);
+    int cl = (int)SendMessageW(hEdit, EM_EXLINEFROMCHAR, 0, cr.cpMax);
+    colorLines(first - 4, first + vis + 4);
+    if (cl < first - 4 || cl > first + vis + 4) colorLines(cl - 2, cl + 2);
+}
+/* 파일 전체: 보이는 줄은 바로 · 나머지는 뒤에서 */
+static void recolor(void) {
+    if (!hEdit || CURD < 0) return;
+    colorVisible();
+    BGLINE = 0; SetTimer(hMain, TIMER_BGCOLOR, 15, NULL);
+}
+static void colorBackground(void) {
+    if (BGLINE < 0 || CURD < 0) { KillTimer(hMain, TIMER_BGCOLOR); BGLINE = -1; return; }
+    if (COMPOSING) return;
+    int n = (int)SendMessageW(hEdit, EM_GETLINECOUNT, 0, 0);
+    DWORD t0 = GetTickCount();
+    while (BGLINE < n && GetTickCount() - t0 < 12) { colorLines(BGLINE, BGLINE + 79); BGLINE += 80; }   /* 한 번에 12ms 까지 */
+    if (BGLINE >= n) { KillTimer(hMain, TIMER_BGCOLOR); BGLINE = -1; }
 }
 
 /* ================= 탭 · 열기 · 저장 ================= */
@@ -1664,14 +1721,17 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         case ID_M_RENAME: cmdRename(); return 0;
         case ID_M_DELETE: cmdDelete(); return 0;
         case ID_EDIT:
-            if (HIWORD(wp) == EN_CHANGE && !COLORING && CURD >= 0) { if (!DOCS[CURD].dirty) { DOCS[CURD].dirty = 1; tabLabel(CURD); } SetTimer(h, TIMER_COLOR, 250, NULL); InvalidateRect(hGut, NULL, FALSE); InvalidateRect(hTabs, NULL, FALSE); }
+            if (HIWORD(wp) == EN_CHANGE && !COLORING && CURD >= 0) { if (!DOCS[CURD].dirty) { DOCS[CURD].dirty = 1; tabLabel(CURD); } SetTimer(h, TIMER_COLOR, 80, NULL); InvalidateRect(hGut, NULL, FALSE); InvalidateRect(hTabs, NULL, FALSE); }
             if (HIWORD(wp) == EN_VSCROLL || HIWORD(wp) == EN_UPDATE) InvalidateRect(hGut, NULL, FALSE);
             return 0;
         case ID_AC: if (HIWORD(wp) == LBN_DBLCLK) acAccept(); else if (HIWORD(wp) == LBN_SELCHANGE) { int k = (int)SendMessageW(hAc, LB_GETCURSEL, 0, 0); if (k >= 0 && k < nAcShown) { AcItem *a = &ACI[acShown[k]]; status(L"%ls %ls — %ls", a->label, a->detail, a->doc); } } return 0;
         }
         break;
     }
-    case WM_TIMER: if (wp == TIMER_COLOR) { KillTimer(h, TIMER_COLOR); recolor(); } return 0;
+    case WM_TIMER:
+        if (wp == TIMER_COLOR) { KillTimer(h, TIMER_COLOR); if (COMPOSING) SetTimer(h, TIMER_COLOR, 150, NULL); else colorVisible(); }
+        else if (wp == TIMER_BGCOLOR) colorBackground();
+        return 0;
     case WM_NOTIFY: {
         NMHDR *nh = (NMHDR*)lp;
         if (nh->idFrom == ID_EDIT && nh->code == EN_SELCHANGE) { InvalidateRect(hPath, NULL, FALSE); InvalidateRect(hGut, NULL, FALSE); return 0; }
@@ -1749,7 +1809,7 @@ static void createUI(HINSTANCE hi) {
     SendMessageW(hEdit, EM_SETTEXTMODE, TM_RICHTEXT | TM_MULTILEVELUNDO | TM_MULTICODEPAGE, 0);   /* 색칠하려면 서식 있는 글 (붙여 넣기는 글자만) */
     SendMessageW(hEdit, WM_SETFONT, (WPARAM)hFontCode, TRUE); SendMessageW(hEdit, EM_SETEVENTMASK, 0, ENM_CHANGE | ENM_SCROLL | ENM_UPDATE | ENM_SELCHANGE); SendMessageW(hEdit, EM_EXLIMITTEXT, 0, 64 * 1024 * 1024);
     { PARAFORMAT2 pf; ZeroMemory(&pf, sizeof pf); pf.cbSize = sizeof pf; pf.dwMask = PFM_TABSTOPS | PFM_LINESPACING; pf.cTabCount = 32; for (int i = 0; i < 32; i++) pf.rgxTabs[i] = (i + 1) * 4 * 120; pf.bLineSpacingRule = 4; pf.dyLineSpacing = 330; SendMessageW(hEdit, EM_SETPARAFORMAT, 0, (LPARAM)&pf); }
-    SendMessageW(hEdit, EM_SETREADONLY, TRUE, 0); darkScroll(hEdit);
+    SendMessageW(hEdit, EM_SETREADONLY, TRUE, 0); darkScroll(hEdit); tomInit();
     hLog = CreateWindowExW(0, MSFTEDIT_CLASS, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY, 0, 0, 10, 10, hMain, (HMENU)ID_LOG, hi, NULL);
     SendMessageW(hLog, WM_SETFONT, (WPARAM)hFontLog, TRUE); SendMessageW(hLog, EM_EXLIMITTEXT, 0, 16 * 1024 * 1024); darkScroll(hLog);
     hAc = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, L"LISTBOX", L"", WS_POPUP | WS_BORDER | WS_VSCROLL | LBS_NOTIFY | LBS_OWNERDRAWFIXED | LBS_HASSTRINGS, 0, 0, 10, 10, hMain, NULL, hi, NULL);
@@ -1764,6 +1824,21 @@ static void findNatDir(void) {
     NATDIR[0] = 0;
 }
 
+/* 휠 스크롤: RichEdit 의 부드러운 스크롤 (관성처럼 미끄러짐) 을 쓰지 않고 그 자리에서 줄 단위로 바로 옮김
+ *   delta > 0 = 위 (세로) · 왼쪽 (Shift+휠) · hw = 가로 휠 (delta > 0 = 오른쪽) */
+static void wheelScroll(HWND h, int horiz, int delta, int hw) {
+    static int acc[2][2]; int *a = &acc[h == hLog][horiz ? 1 : 0];
+    if ((*a > 0 && delta < 0) || (*a < 0 && delta > 0)) *a = 0;   /* 방향이 바뀌면 남은 양은 버림 */
+    *a += delta;
+    UINT per = 3; SystemParametersInfoW(horiz ? SPI_GETWHEELSCROLLCHARS : SPI_GETWHEELSCROLLLINES, 0, &per, 0);
+    if (per == WHEEL_PAGESCROLL || per > 100) per = 20;
+    if (!per) return;
+    int n = *a * (int)per / WHEEL_DELTA; if (!n) return;   /* 터치패드의 작은 delta 는 모아서 */
+    *a -= n * WHEEL_DELTA / (int)per;
+    if (horiz) SendMessageW(h, EM_LINESCROLL, (WPARAM)(hw ? n : -n), 0);
+    else SendMessageW(h, EM_LINESCROLL, 0, (LPARAM)-n);
+    if (h == hEdit && hGut) InvalidateRect(hGut, NULL, FALSE);
+}
 int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int show) {
     (void)hp; (void)cl;
     cfgLoad(); pickLang();
@@ -1827,6 +1902,11 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int show) {
         if (m.message == WM_CHAR && m.hwnd == hEdit && m.wParam == L' ' && GetKeyState(VK_CONTROL) < 0) continue;   /* Ctrl+Space 의 빈칸은 넣지 않음 */
         if (m.message == WM_KEYDOWN && m.hwnd == hEdit && ((GetKeyState(VK_CONTROL) < 0 && m.wParam == 'V') || (GetKeyState(VK_SHIFT) < 0 && m.wParam == VK_INSERT))) { SendMessageW(hEdit, EM_PASTESPECIAL, CF_UNICODETEXT, 0); continue; }   /* 붙여 넣기는 글자만 */
         if ((m.message == WM_LBUTTONDOWN || m.message == WM_MOUSEWHEEL) && m.hwnd != hAc) acClose();
+        if ((m.message == WM_MOUSEWHEEL || m.message == WM_MOUSEHWHEEL) && (m.hwnd == hEdit || m.hwnd == hLog) && !(GET_KEYSTATE_WPARAM(m.wParam) & MK_CONTROL)) {
+            int hw = m.message == WM_MOUSEHWHEEL, sh = !hw && (GET_KEYSTATE_WPARAM(m.wParam) & MK_SHIFT);
+            wheelScroll(m.hwnd, hw || sh, GET_WHEEL_DELTA_WPARAM(m.wParam), hw);
+            continue;
+        }
         TranslateMessage(&m); DispatchMessageW(&m);
         if (m.message == WM_CHAR && m.hwnd == hEdit) acAfterChar((wchar_t)m.wParam);
         if (m.message == WM_KEYDOWN && m.hwnd == hEdit && (m.wParam == VK_BACK || m.wParam == VK_DELETE)) acRefilter();

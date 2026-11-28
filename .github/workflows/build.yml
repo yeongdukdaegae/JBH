@@ -1,21 +1,43 @@
 # GitHub 가 Windows 에서 빌드해 설치 파일을 만들어 줍니다 (PC 없이도 됨).
 #   저장소의 Actions 탭 → "JDH build" → Run workflow → 끝나면 아래 Artifacts 에서 JDH-Setup 을 받습니다.
 name: JDH build
+#   전체 시험은 큰 변화에서만: 버전 태그 · 직접 실행 (Run workflow) · main 에 올린 커밋 메시지에 [full-ci] 가 있을 때.
+#   사소한 화면 수정은 shots.yml (창 그림만) 으로 본다.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     tags: ['v*']   # 버전 태그 (v0.6.0 꼴) 를 올리면 빌드 · 시험 뒤 릴리스로 게시 → 설치된 JDH 가 새 버전으로 알아봄
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}   # 같은 브랜치에 새로 올리면 앞의 것은 그만 (태그는 끝까지)
 jobs:
   build:
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[full-ci]')
     runs-on: windows-latest
     permissions:
       contents: write   # 릴리스 게시 (태그일 때만 씀)
     steps:
       - uses: actions/checkout@v4
+      - name: 받은 도구 캐시 (llvm-mingw · zig · SDL2)
+        id: tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            mingw
+            zigpkg
+            sdl
+          key: tools-v1
+      - name: zig 컴파일 캐시 (실행기 · 라이브러리 — 소스가 같으면 다시 컴파일하지 않음)
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\zig
+          key: zigcache-${{ hashFiles('runtime/**', 'sdk/**', 'src/jdh.c', 'tests/libs/**') }}
+          restore-keys: zigcache-
       - name: llvm-mingw 받기
         shell: pwsh
         run: |
+          if (Test-Path mingw) { $dir = (Get-ChildItem mingw -Directory | Select-Object -First 1).FullName; "MINGW=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8; exit 0 }
           $rel = Invoke-RestMethod https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest
           $asset = $rel.assets | Where-Object { $_.name -like '*ucrt-x86_64.zip' } | Select-Object -First 1
           Invoke-WebRequest $asset.browser_download_url -OutFile mingw.zip
@@ -28,7 +50,7 @@ jobs:
       - name: 라이브러리용 컴파일러 (zig) 넣기
         shell: cmd
         run: |
-          python -m pip install ziglang -t zigpkg --no-deps -q
+          if not exist zigpkg\ziglang python -m pip install ziglang -t zigpkg --no-deps -q
           if not exist dist\toolchain mkdir dist\toolchain
           xcopy /e /i /q /y zigpkg\ziglang dist\toolchain\zig >nul
           dist\toolchain\zig\zig.exe version
@@ -45,11 +67,13 @@ jobs:
       - name: SDL2 (실행기용) 넣기
         shell: pwsh
         run: |
-          $rels = Invoke-RestMethod "https://api.github.com/repos/libsdl-org/SDL/releases?per_page=60"
-          $asset = $rels | Where-Object { $_.tag_name -like 'release-2.*' } | ForEach-Object { $_.assets } | Where-Object { $_.name -like 'SDL2-devel-*-mingw.zip' } | Select-Object -First 1
-          Write-Host $asset.name
-          Invoke-WebRequest $asset.browser_download_url -OutFile sdl.zip
-          Expand-Archive sdl.zip -DestinationPath sdl
+          if (-not (Test-Path sdl)) {
+            $rels = Invoke-RestMethod "https://api.github.com/repos/libsdl-org/SDL/releases?per_page=60"
+            $asset = $rels | Where-Object { $_.tag_name -like 'release-2.*' } | ForEach-Object { $_.assets } | Where-Object { $_.name -like 'SDL2-devel-*-mingw.zip' } | Select-Object -First 1
+            Write-Host $asset.name
+            Invoke-WebRequest $asset.browser_download_url -OutFile sdl.zip
+            Expand-Archive sdl.zip -DestinationPath sdl
+          }
           $src = (Get-ChildItem sdl -Directory | Select-Object -First 1).FullName + "\x86_64-w64-mingw32"
           New-Item -ItemType Directory -Force dist\sdk\SDL2 | Out-Null
           Copy-Item "$src\include" dist\sdk\SDL2\include -Recurse
@@ -414,7 +438,7 @@ jobs:
       - name: 설치 파일 만들기
         shell: cmd
         run: |
-          where iscc >nul 2>nul || choco install innosetup -y --no-progress
+          if not exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" choco install innosetup -y --no-progress
           "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" installer\jdh.iss
       - uses: actions/upload-artifact@v4
         with:
