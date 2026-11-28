@@ -3,6 +3,9 @@
 name: JawBreaker Dev. 창 그림
 on:
   workflow_dispatch:
+  push:
+    branches-ignore: [main]          # 작업 브랜치에서 화면 코드를 고쳐 올리면 자동으로
+    paths: ['src/jbdev.c', '.github/workflows/shots.yml']
 jobs:
   shots:
     runs-on: windows-latest
