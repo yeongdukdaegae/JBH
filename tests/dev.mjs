@@ -37,8 +37,8 @@ const runAsk=async(src,pick,wait=1500)=>{   // pick: 신뢰 확인 창에서 누
   await r.catch(()=>{});await pg.waitForTimeout(wait);return {title,msg,L:await logs()};
 };
 let A=await runAsk(null,'취소',300);
-ok(A.title==='라이브러리 신뢰 확인'&&/Counter 0\.2\.0/.test(A.msg)&&/쓰는 엔진 기능 없음/.test(A.msg)&&/격리 없이/.test(A.msg),'trust window before the first run: '+A.title);
-ok(A.L.some(x=>/신뢰하지 않아 실행하지 않음/.test(x))&&!A.L.some(x=>/total=/.test(x)),'cancel → the program does not run');
+ok(A.title==='라이브러리를 신뢰하겠습니까?'&&/Counter 0\.2\.0/.test(A.msg)&&/쓰는 엔진 기능 없음/.test(A.msg)&&/격리 없이/.test(A.msg),'trust window before the first run: '+A.title);
+ok(A.L.some(x=>/신뢰하지 않아 실행하지 않았습니다/.test(x))&&!A.L.some(x=>/total=/.test(x)),'cancel → the program does not run');
 A=await runAsk(null,'신뢰하고 쓰기',1500);
 let L=A.L;console.log(L.map(x=>'    | '+x).join('\n'));
 ok(L.some(x=>x.includes('total=7')),'trust → runs');
@@ -108,7 +108,7 @@ ok(await pg.evaluate(()=>!!document.getElementById('m-importlib')),'menu has "�
 await pg.setInputFiles('#jbxin',{name:'Probe-0.1.0.jbx',mimeType:'application/octet-stream',buffer:fs.readFileSync(ROOT+'/tests/fixtures/dev-Probe.jbx')});
 await pg.waitForTimeout(500);
 let T=await pg.evaluate(()=>document.getElementById('modal').hidden?null:document.getElementById('m-title').textContent);
-ok(T==='라이브러리 신뢰 확인','import → trust window');
+ok(T==='라이브러리를 신뢰하겠습니까?','import → trust window');
 await pg.locator('#m-btns button',{hasText:'취소'}).first().click();await pg.waitForTimeout(300);
 ok(await pg.evaluate(()=>!files['ext/Probe.jbx']),'cancel → not added');
 await pg.setInputFiles('#jbxin',{name:'Probe-0.1.0.jbx',mimeType:'application/octet-stream',buffer:fs.readFileSync(ROOT+'/tests/fixtures/dev-Probe.jbx')});
@@ -178,7 +178,7 @@ await pg.evaluate(()=>{delete files['ext/Layers.jbx'];});
   await pg.evaluate(a=>{files['ext/Net.jbx']=bytesToDataUrl('Net.jbx',new Uint8Array(a));},[...fs.readFileSync(ROOT+'/tests/fixtures/dev-Net.jbx')]);
   const NET=fs.readFileSync(ROOT+'/tests/fixtures/net-main.jb','utf8');
   A=await runAsk(NET,'신뢰 · 네트워크 허락',14500);L=A.L;console.log(L.map(x=>'    | '+x).join('\n'));
-  ok(/네트워크/.test(A.msg)&&/밖으로 보낼 수 있음/.test(A.msg),'trust window: network permission and its warning');
+  ok(/네트워크/.test(A.msg)&&/밖으로 보낼 수 있습니다/.test(A.msg),'trust window: network permission and its warning');
   const NEXPECT=['get status=200 size=9 body=hello net','post status=200 body=tag7:한글 body','missing status=404 body=nope','big status=200 size=200000 sum=995134','refused status=0','badurl started=0 status=0',
     'ws state=1 msgs=welcome','ws n=3 msgs=welcome|echo:one|echo:둘','ws closed by server state=2','ws refused state=-1'];
   for(const e of NEXPECT)ok(L.includes(e),'net: '+e);
@@ -199,7 +199,7 @@ await pg.evaluate(()=>{delete files['ext/Layers.jbx'];});
  try{
   L=await run(fs.readFileSync(ROOT+'/tests/fixtures/server-main.jb','utf8'),1500);console.log(L.map(x=>'    | '+x).join('\n'));
   for(const e of ['info0=[0, 0, [], 1, 0, "한글"]','one=[5] empty=[]','server off'])ok(L.includes(e),'server/compound: '+e);
-  ok(L.some(x=>/서버 \(접속 받기\) 는 EXE 에서만 됨/.test(x)),'server: web says the server only works in EXE');
+  ok(L.some(x=>/서버 \(접속 받기\) 는 EXE 에서만 됩니다/.test(x)),'server: web says the server only works in EXE');
   ok(L.some(x=>x.includes("라이브러리 'Server' 의 값 'bad' 에 { } (객체)가 있습니다")),'compound: { } value → error (same text as EXE)');
  }finally{await pg.evaluate(()=>{delete files['ext/Net.jbx'];delete files['ext/Server.jbx'];});}
 }

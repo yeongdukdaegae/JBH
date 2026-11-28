@@ -326,7 +326,7 @@ body.typing .panel{display:none}
     <div class="exwhere" id="exwhere" hidden></div>
     <div class="exmsg" id="exmsg"></div>
     <div class="tree" id="tree"></div>
-    <div class="sh-foot">최상위의 .jbs = 프로젝트 표시 · lib/ = 라이브러리(.jbl) · sendto("경로") 는 프로젝트 안의 .jb 파일을 실행함.</div>
+    <div class="sh-foot">최상위의 .jbs = 프로젝트 표시 · lib/ = 라이브러리(.jbl) · sendto("경로") 는 프로젝트 안의 .jb 파일을 실행합니다.</div>
   </div>
   <div style="flex:1" id="exback"></div>
 </div>
@@ -346,7 +346,7 @@ body.typing .panel{display:none}
   </div>
   <div class="pbody" id="pbody">
     <div class="log" id="log"></div>
-    <pre class="cview" id="cview" hidden>// [C 변환] 버튼을 누르면 여기에 C 코드가 생성됨.</pre>
+    <pre class="cview" id="cview" hidden>// [C 변환] 버튼을 누르면 여기에 C 코드가 생성됩니다.</pre>
   </div>
 </section>
 
@@ -383,7 +383,7 @@ body.typing .panel{display:none}
       </div>
     </div>
     <div class="st-msg" id="st-msg"></div>
-    <p class="st-foot"><span class="dnd">zip 이나 .jb 파일을 이 화면에 끌어다 놓아도 됨.<br></span>저장은 zip 파일로 — 연결한 zip 을 바로 덮어씀 (브라우저에는 저장하지 않음).</p>
+    <p class="st-foot"><span class="dnd">zip 이나 .jb 파일을 이 화면에 끌어다 놓아도 됩니다.<br></span>저장은 zip 파일로 — 연결한 zip 을 바로 덮어씁니다 (브라우저에는 저장하지 않음).</p>
   </main>
 </div>
 
@@ -427,7 +427,7 @@ function savedFiles(){
 }
 function keepFile(p,t){
   try{localStorage.setItem(SAVE_KEY+p,t);}
-  catch(e){showErr(new Error('세이브를 저장하지 못함 (저장 공간이 꽉 찼거나 막혀 있음): '+p));}
+  catch(e){showErr(new Error('세이브를 저장하지 못했습니다 (저장 공간이 꽉 찼거나 막혀 있음): '+p));}
 }
 async function run(){
   let prog;
@@ -519,10 +519,10 @@ const JBMEM=(()=>{
       list.sort((a,b)=>a.t-b.t);
       let k=0;
       for(const it of list){if(used<=goal)break;out(it);k++;}
-      if(k&&!(told&1)){told|=1;if(note)note(`🧹 램 한도 ${fmt(limit)} 를 넘어 오래 안 쓴 캐시를 비움 (다시 쓰일 때 다시 읽음)`);}
+      if(k&&!(told&1)){told|=1;if(note)note(`🧹 램 한도 ${fmt(limit)} 를 넘어 오래 안 쓴 캐시를 비웠습니다 (다시 쓰일 때 다시 읽음)`);}
       if(used>limit){   // 지금 쓰는 것만으로 넘침 — 30 프레임 뒤에 다시 봄
         failAt=M.n+30;
-        if(!inP&&++failN>=2&&!(told&2)){told|=2;if(note)note(`⚠ 지금 쓰는 것만으로 램 한도 ${fmt(limit)} 를 넘음 (${fmt(used)} 사용 중) — ☰ → 설정에서 램 한도를 올릴 것`);}
+        if(!inP&&++failN>=2&&!(told&2)){told|=2;if(note)note(`⚠ 지금 쓰는 것만으로 램 한도 ${fmt(limit)} 를 넘습니다 (${fmt(used)} 사용 중) — ☰ → 설정에서 램 한도를 올리십시오`);}
       }else{failN=0;failAt=0;}
     },
     frame(){   // 그리기 시작 (disUI.paint)
@@ -2660,9 +2660,9 @@ const JBEXT={
       fr.style.cssText='position:absolute;width:0;height:0;border:0;visibility:hidden';
       fr.srcdoc=JBX_FRAME;
       const man={cmds:{},vals:{},perms:lib.perms.slice(),host:JBX_HOST,net:lib.perms.includes('network')&&netGrant.has(lib.id)};for(const k in lib.cmds)man.cmds[k]=lib.cmds[k].spec;for(const k in lib.vals)man.vals[k]=lib.vals[k];
-      if(lib.perms.includes('files.read')&&!grant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 파일 읽기를 허락하지 않아 파일이 없는 것처럼 실행함`);
-      if(lib.perms.includes('network')&&!netGrant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 네트워크를 허락하지 않아 접속하지 않음`);
-      if(lib.perms.includes('server'))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 서버 (접속 받기) 는 EXE 에서만 됨 — 여기서는 포트를 열지 않음`);
+      if(lib.perms.includes('files.read')&&!grant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 파일 읽기를 허락하지 않아 파일이 없는 것처럼 실행합니다`);
+      if(lib.perms.includes('network')&&!netGrant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 네트워크를 허락하지 않아 접속하지 않습니다`);
+      if(lib.perms.includes('server'))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 서버 (접속 받기) 는 EXE 에서만 됩니다 — 여기서는 포트를 열지 않습니다`);
       fr.onload=()=>{if(L.dead)return;try{
         const wb=lib.wasm.slice().buffer,init={port:ch.port2,wasm:wb,man},xfer=[ch.port2,wb];
         if(lib.perms.includes('files.read')&&grant.has(lib.id)){init.files=jbxFiles(prog.files);for(const u of init.files.values())xfer.push(u.buffer);}
@@ -6232,13 +6232,13 @@ const COL_SRC_EN=`// colliders — built-in sub-library of DisPlayer (read-only 
 // · C conversion runs the same physics (see the C conversion note in DisPlayer.jbl).
 `;
 const DEFAULT_FILES={
-'project.jbs':`// Jawbreaker 프로젝트 파일 — 이 파일이 있는 폴더가 프로젝트 최상위임.
+'project.jbs':`// Jawbreaker 프로젝트 파일 — 이 파일이 있는 폴더가 프로젝트 최상위입니다.
 // 첫 줄은 항상 'jbs 1'. 아래는 '키 = 값' (name, main).
 jbs 1
 name = Jawbreaker 예제
 main = main.jb
 `,
-'main.jb':`// 코드는 run{ } 안에 써야 실행됨.
+'main.jb':`// 코드는 run{ } 안에 써야 실행됩니다.
 Use jawbreaker call jaw;
 Use greet call g;
 
@@ -6374,7 +6374,7 @@ function updateDirtyUI(){
   if(typeof tabsEl==='undefined')return;
   for(const b of tabsEl.querySelectorAll('.tab[title]'))b.classList.toggle('mod',isModified(b.title));
   const d=isDirty(),sb=document.getElementById('savenow');
-  if(sb){sb.classList.toggle('dirty',d);sb.title=d?'저장 안 된 변경 있음 — 중간 저장 (Ctrl+S)':'중간 저장 (Ctrl+S)';}
+  if(sb){sb.classList.toggle('dirty',d);sb.title=d?'저장 안 된 변경이 있습니다 — 중간 저장 (Ctrl+S)':'중간 저장 (Ctrl+S)';}
 }
 if(typeof addEventListener==='function')addEventListener('beforeunload',e=>{if(isDirty()){e.preventDefault();e.returnValue='';}});
 
@@ -6401,24 +6401,24 @@ function pathError(n,isD,self){
   const e=pathRuleError(n,isD);if(e)return e;
   if(!isD&&extOf(n)==='jbs'){
     const other=Object.keys(files).find(f=>isJbsRoot(f)&&f!==self);
-    if(other)return `.jbs 파일은 하나만 둘 수 있음 (${other})`;
+    if(other)return `.jbs 파일은 하나만 둘 수 있습니다 (${other})`;
   }
   return null;
 }
 // 파일 목록과 무관한 경로 규칙만 검사
 function pathRuleError(n,isD){
-  if(!n)return '경로를 입력할 것';
+  if(!n)return '경로를 입력하십시오';
   const segs=n.split('/'),name=segs[segs.length-1];
   for(const s of (isD?segs:segs.slice(0,-1)))if(!DIR_RE.test(s))return `폴더 이름은 글자·숫자·_·- 만 쓸 수 있습니다: ${s}`;
   if(!isD){
     if(!FILE_RE.test(name))return '파일 이름은 글자·숫자·_·- 와 확장자 하나 (.jb · .jbl · .jbs · .json · .tl · 이미지 · 소리 · 글꼴 .ttf · .otf) 로 씁니다';
     const ext=extOf(name);
     if(ext==='jbs'){
-      if(segs.length>1)return '.jbs 프로젝트 파일은 프로젝트 최상위에만 둘 수 있음';
+      if(segs.length>1)return '.jbs 프로젝트 파일은 프로젝트 최상위에만 둘 수 있습니다';
     }
     if(JBX_RE.test(name)!==(segs[0]==='ext'&&segs.length>1))return JBX_RE.test(name)?'.jbx 라이브러리 파일은 ext/ 폴더 안에 있어야 합니다':'ext/ 폴더에는 .jbx 라이브러리 파일만 둘 수 있습니다';
-    if(ext==='jbl'&&segs[0]!=='lib')return '.jbl 라이브러리 파일은 lib/ 폴더 안에 있어야 함';
-    if((ext==='jb'||ext==='img')&&segs[0]==='lib')return 'lib/ 폴더에는 .jbl 라이브러리 파일만 둘 수 있음';
+    if(ext==='jbl'&&segs[0]!=='lib')return '.jbl 라이브러리 파일은 lib/ 폴더 안에 있어야 합니다';
+    if((ext==='jb'||ext==='img')&&segs[0]==='lib')return 'lib/ 폴더에는 .jbl 라이브러리 파일만 둘 수 있습니다';
   }
   return null;
 }
@@ -6448,8 +6448,8 @@ function fsMove(from,to){
     files[to]=files[from];delete files[from];map.set(from,to);
     if(dirOf(to))dirs.add(dirOf(to));
   }else if(isDirP(from)){
-    if(from==='lib')return{err:'lib 폴더는 이름을 바꾸거나 옮길 수 없음'};
-    if(to===from||to.startsWith(from+'/'))return{err:'폴더를 자기 자신 안으로 옮길 수 없음'};
+    if(from==='lib')return{err:'lib 폴더는 이름을 바꾸거나 옮길 수 없습니다'};
+    if(to===from||to.startsWith(from+'/'))return{err:'폴더를 자기 자신 안으로 옮길 수 없습니다'};
     let e=pathError(to,true);if(e)return{err:e};
     if(isFileP(to)||isDirP(to))return{err:`이미 같은 이름이 있습니다: ${to}`};
     const mv=Object.keys(files).filter(f=>f.startsWith(from+'/'));
@@ -6460,24 +6460,24 @@ function fsMove(from,to){
     for(const f of mv){const nf=to+f.slice(from.length);files[nf]=files[f];delete files[f];map.set(f,nf);}
     for(const d of [...dirs])if(d===from||d.startsWith(from+'/')){dirs.delete(d);dirs.add(to+d.slice(from.length));}
     dirs.add(to);
-  }else return{err:'대상을 찾을 수 없음'};
+  }else return{err:'대상을 찾을 수 없습니다'};
   try{for(const [a,b] of map){const h=hist.get(a);hist.delete(a);hist.delete(b);if(h)hist.set(b,h);}}catch(e){}   // 되돌리기 기록도 같이 옮김
   persist();return{map};
 }
 // 반환: {err} 또는 {removed:[삭제된 파일 경로]}
 function fsDelete(p){
   if(isFileP(p)){
-    if(isJbsRoot(p))return{err:'프로젝트 파일(.jbs)은 지울 수 없음'};
+    if(isJbsRoot(p))return{err:'프로젝트 파일(.jbs)은 지울 수 없습니다'};
     delete files[p];try{hist.delete(p);}catch(e){}persist();return{removed:[p]};
   }
   if(isDirP(p)){
-    if(p==='lib')return{err:'lib 폴더는 지울 수 없음'};
+    if(p==='lib')return{err:'lib 폴더는 지울 수 없습니다'};
     const rm=Object.keys(files).filter(f=>f.startsWith(p+'/'));
     for(const f of rm){delete files[f];try{hist.delete(f);}catch(e){}}
     for(const d of [...dirs])if(d===p||d.startsWith(p+'/'))dirs.delete(d);
     persist();return{removed:rm};
   }
-  return{err:'대상을 찾을 수 없음'};
+  return{err:'대상을 찾을 수 없습니다'};
 }
 
 /* ===================== UI ===================== */
@@ -7677,7 +7677,7 @@ async function downloadBlob(name,blob){
   if(dl){
     const fn=DL_EXT.test(name)?name:name+'.txt';   // .jb · .c 등은 .txt 를 붙여 저장
     try{await dl.save({filename:fn,data:blob});toast('⬇ '+fn+' 저장');}
-    catch(e){if(!e||e.code!=='declined')toast('저장하지 못함'+(e&&e.message?': '+e.message:''),true);}
+    catch(e){if(!e||e.code!=='declined')toast('저장하지 못했습니다'+(e&&e.message?': '+e.message:''),true);}
     return;
   }
   try{
@@ -7759,7 +7759,7 @@ $('#pcopy').onclick=async()=>{
   flushLog();
   const t=panelMode==='log'?[...logEl.querySelectorAll('.tx')].map(x=>x.textContent).join('\n'):lastC||cview.textContent;
   try{await navigator.clipboard.writeText(t);addLog('복사됨','sys');}
-  catch(e){const r=document.createRange();r.selectNodeContents(panelMode==='log'?logEl:cview);const s=getSelection();s.removeAllRanges();s.addRange(r);addLog('복사 권한이 없어 선택만 해 둠','sys');}
+  catch(e){const r=document.createRange();r.selectNodeContents(panelMode==='log'?logEl:cview);const s=getSelection();s.removeAllRanges();s.addRange(r);addLog('복사 권한이 없어 선택만 해 두었습니다','sys');}
 };
 $('#pdl').onclick=()=>{if(lastC)download(lastCName,lastC);};
 (function(){
@@ -8140,15 +8140,15 @@ const JBX_PERM_TXT={'draw':'· 화면에 그리기 (draw)','objects.read':'· �
 const jbxDocOf=d=>!d?'':typeof d==='string'?d:d[LANG]||d.ko||d.en||'';
 // 신뢰 확인 창 → {files: 0 | 1} · 취소하면 null
 async function jbxConfirm(lib,replacing){
-  const L=[tr('이 라이브러리의 C 코드가 격리된 공간에서 실행됨. 믿을 수 있는 곳에서 받은 것만 허락할 것.'),'',
+  const L=[tr('이 라이브러리의 C 코드가 격리된 공간에서 실행됩니다. 믿을 수 있는 곳에서 받은 것만 허락하십시오.'),'',
     `${lib.id} ${lib.version} — ${tr('명령어')} ${Object.keys(lib.cmds).length} · ${tr('값')} ${Object.keys(lib.vals).length}`,'',
     tr(lib.perms.length?'쓰는 엔진 기능:':'쓰는 엔진 기능 없음 (명령어 · 값만)'),...lib.perms.map(p=>tr(JBX_PERM_TXT[p]||p)),'',
-    tr('EXE 로 내보내면 이 라이브러리는 격리 없이 실행됨.')];
-  if(replacing)L.push('',tr('같은 이름의 라이브러리를 이것으로 바꿈.'));
+    tr('EXE 로 내보내면 이 라이브러리는 격리 없이 실행됩니다.')];
+  if(replacing)L.push('',tr('같은 이름의 라이브러리를 이것으로 바꿉니다.'));
   const fr=lib.perms.includes('files.read'),nw=lib.perms.includes('network');
-  if(nw)L.push('',tr('네트워크를 허락하면 이 라이브러리가 읽은 것 (오브젝트 · 허락한 파일) 을 밖으로 보낼 수 있음.'));
+  if(nw)L.push('',tr('네트워크를 허락하면 이 라이브러리가 읽은 것 (오브젝트 · 허락한 파일) 을 밖으로 보낼 수 있습니다.'));
   const B=(label,value,primary)=>({label:tr(label),value,primary}),no=B('취소',null);
-  const v=await ask(tr('라이브러리 신뢰 확인'),L.join('\n'),
+  const v=await ask(tr('라이브러리를 신뢰하겠습니까?'),L.join('\n'),
     fr&&nw?[B('신뢰 · 모두 허락','f1n1',true),B('신뢰 · 파일 읽기만 허락','f1n0'),B('신뢰 · 네트워크만 허락','f0n1'),B('신뢰 · 모두 막음','f0n0'),no]
     :fr?[B('신뢰 · 파일 읽기 허락','f1n0',true),B('신뢰 · 파일 읽기는 막음','f0n0'),no]
     :nw?[B('신뢰 · 네트워크 허락','f0n1',true),B('신뢰 · 네트워크는 막음','f0n0'),no]
@@ -8168,7 +8168,7 @@ async function jbxTrustRun(prog){
   const g=new Set();g.net=new Set();if(!prog.exts)return g;   // g = files.read 를 허락한 id · g.net = network 를 허락한 id
   for(const lib of prog.exts.values()){
     const t=await jbxTrustOf(lib,files[lib.path]);
-    if(!t)throw new JBError(`라이브러리 '${lib.id}' 을(를) 신뢰하지 않아 실행하지 않음`,1,lib.path);
+    if(!t)throw new JBError(`라이브러리 '${lib.id}' 을(를) 신뢰하지 않아 실행하지 않았습니다`,1,lib.path);
     if(t.files&&lib.perms.includes('files.read'))g.add(lib.id);
     if(t.net&&lib.perms.includes('network'))g.net.add(lib.id);
   }
@@ -8181,11 +8181,11 @@ async function jbxImport(name,dataUrl){
   const p='ext/'+lib.id+'.jbx',had=isFileP(p);
   if(!(had&&files[p]===dataUrl)){
     const t=await jbxTrustOf(lib,dataUrl,had);
-    if(!t){addLog(tr('라이브러리를 넣지 않음 (신뢰하지 않음)')+': '+lib.id,'sys');showPanel('log');return false;}
+    if(!t){addLog(tr('라이브러리를 넣지 않았습니다 (신뢰하지 않음)')+': '+lib.id,'sys');showPanel('log');return false;}
     files[p]=dataUrl;dirs.add('ext');exs.openDirs.add('ext');persist();
     if(!$('#explorer').hidden)renderExplorer();
   }
-  addLog(`✔ ${tr('라이브러리를 넣음')}: ${p} (${lib.id} ${lib.version}) — Use ${lib.id} call ${lib.id.slice(0,3).toLowerCase()};`,'sys');showPanel('log');
+  addLog(`✔ ${tr('라이브러리를 넣었습니다')}: ${p} (${lib.id} ${lib.version}) — Use ${lib.id} call ${lib.id.slice(0,3).toLowerCase()};`,'sys');showPanel('log');
   return true;
 }
 // ext/*.jbx 를 열면: 선언 (명령어 · 값 · 권한) 과 doc/ 의 설명서 (읽기 전용)
@@ -8216,7 +8216,7 @@ async function doRun(){
   if(isDirty()){
     if(runAutoSave())flushSave();
     else{
-      const v=await ask('저장하시겠습니까?','저장하지 않은 변경 있음. 실행하기 전에 저장?',
+      const v=await ask('저장하시겠습니까?','저장하지 않은 변경이 있습니다. 실행하기 전에 저장하겠습니까?',
         [{label:'저장하고 실행',value:'save',primary:true},{label:'저장하지 않고 실행',value:'skip'},
          {label:'항상 저장하고 실행 (다시 묻지 않음)',value:'always'},{label:'취소',value:null}]);
       if(!v)return;
@@ -8227,7 +8227,7 @@ async function doRun(){
   if(document.activeElement===ta)ta.blur();
   errLine=0;render();showPanel('log');follow=true;
   const mainName=pickMain();
-  if(!mainName){addLog('✖ 실행할 .jb 파일 없음 (.jb 파일을 열거나 project.jbs 에 main = 파일 을 지정할 것)','err');return;}
+  if(!mainName){addLog('✖ 실행할 .jb 파일이 없습니다 (.jb 파일을 열거나 project.jbs 에 main = 파일 을 지정하십시오)','err');return;}
   addLog(`▶ ${mainName} 실행`,'sys');
   let prog;
   try{prog=buildProgram(files,mainName);}catch(e){handleErr(e);return;}
@@ -8240,7 +8240,7 @@ async function doRun(){
       if(active===p){ta.value=t;render();}
       persist();renderExplorer();
       if(zipHandle){jsonPend.set(p,t);writeZip(true,true);}   // 연결된 zip 파일에 바로 넣음 (다른 수정은 💾 저장 때)
-      else if(!jsonWarned){jsonWarned=true;addLog(`💾 ${p} — 연결된 zip 이 없어 파일에는 아직 없음 (💾 저장하면 zip 에 들어감)`,'sys');}
+      else if(!jsonWarned){jsonWarned=true;addLog(`💾 ${p} — 연결된 zip 이 없어 파일에는 아직 없습니다 (💾 저장하면 zip 에 들어감)`,'sys');}
     }},ctl);
     addLog(`■ 정상 종료 (${((performance.now()-ctl.t0)/1000).toFixed(2)}s)`,'sys');
   }catch(e){
@@ -8253,14 +8253,14 @@ function doCompile(){
   if(document.activeElement===ta)ta.blur();
   errLine=0;render();
   const mainName=pickMain();
-  if(!mainName){addLog('✖ 변환할 .jb 파일 없음','err');showPanel('log');return;}
+  if(!mainName){addLog('✖ 변환할 .jb 파일이 없습니다','err');showPanel('log');return;}
   try{
     const prog=buildProgram(files,mainName);
     lastC=genC(prog);lastCName=baseOf(mainName).replace(/\.jb$/,'')+'.c';
     cview.textContent=lastC;showPanel('c');pbody.scrollTop=0;
     const bm=/\/\* build:\s+(.*?) \*\//.exec(lastC),build=bm?bm[1]:`gcc ${lastCName} -o out`;
     addLog(`✔ ${mainName} (+ 작업 ${prog.tasks.size}개, 라이브러리 ${prog.libs.length}개) → ${lastCName} (${lastC.split('\n').length}줄)  ·  ${build}`,'sys');
-    if(/\n#include <SDL\.h>/.test(lastC))addLog(`🪟 DisPlayer 화면은 실행하면 SDL2 창(팝업)으로 뜸${/#define JB_TTF/.test(lastC)?' · 글자는 SDL2_ttf':''}${/#define JB_IMG/.test(lastC)?' · 이미지는 SDL2_image (프로젝트 폴더에서 실행)':''} — 설치 방법은 C 코드 맨 위 주석`,'sys');
+    if(/\n#include <SDL\.h>/.test(lastC))addLog(`🪟 DisPlayer 화면은 실행하면 SDL2 창(팝업)으로 뜹니다${/#define JB_TTF/.test(lastC)?' · 글자는 SDL2_ttf':''}${/#define JB_IMG/.test(lastC)?' · 이미지는 SDL2_image (프로젝트 폴더에서 실행)':''} — 설치 방법은 C 코드 맨 위 주석`,'sys');
   }catch(e){handleErr(e);}
 }
 $('#run').onclick=doRun;
@@ -8357,8 +8357,8 @@ function startForm(mode){
     inp.value='';
     inp.placeholder=mode==='newfile'?'이름.jb  (lib 안에서는 .jbl)':'폴더 이름';
   }else if(mode==='move'){
-    if(!exs.sel){exMsg('이름·이동할 파일이나 폴더를 먼저 선택할 것');exs.mode=null;return;}
-    if(exs.sel==='lib'||isJbsRoot(exs.sel)&&false){exMsg('lib 폴더는 이름을 바꾸거나 옮길 수 없음');exs.mode=null;return;}
+    if(!exs.sel){exMsg('이름·이동할 파일이나 폴더를 먼저 선택하십시오');exs.mode=null;return;}
+    if(exs.sel==='lib'||isJbsRoot(exs.sel)&&false){exMsg('lib 폴더는 이름을 바꾸거나 옮길 수 없습니다');exs.mode=null;return;}
     inp.value=exs.sel;inp.placeholder='새 경로 (예: tools/new.jb)';
   }
   f.hidden=false;updateWhere();inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);
@@ -8375,11 +8375,11 @@ function afterMove(map){
 function submitExForm(){
   const mode=exs.mode;if(!mode)return;
   const raw=$('#exin').value.trim();
-  if(!raw){exMsg('이름을 입력할 것');return;}
+  if(!raw){exMsg('이름을 입력하십시오');return;}
   const isNew=mode==='newfile'||mode==='newdir';
   const base=(isNew&&!/^[\/\\]/.test(raw))?createBase():'';
   const n=normPath((base?base+'/':'')+raw);
-  if(n===null){exMsg('프로젝트 폴더 밖으로 나갈 수 없음 (..)');return;}
+  if(n===null){exMsg('프로젝트 폴더 밖으로 나갈 수 없습니다 (..)');return;}
   if(mode==='newdir'){
     const r=fsCreate(n,true);if(r.err){exMsg(r.err);return;}
     exs.openDirs.add(n);for(let d=dirOf(n);d;d=dirOf(d))exs.openDirs.add(d);
@@ -8410,9 +8410,9 @@ document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{
   const m=b.dataset.ex;
   if(m!=='del'){startForm(m);return;}
   cancelForm();
-  if(!exs.sel){exMsg('삭제할 파일이나 폴더를 먼저 선택할 것');return;}
+  if(!exs.sel){exMsg('삭제할 파일이나 폴더를 먼저 선택하십시오');return;}
   if(!exs.confirm){
-    exs.confirm=true;b.textContent='정말 삭제?';b.classList.add('primary');exMsg(`'${exs.sel}' ${exs.selType==='dir'?'폴더와 안의 모든 파일을':'파일을'} 지움. 한 번 더 누르면 삭제`);
+    exs.confirm=true;b.textContent='정말 삭제?';b.classList.add('primary');exMsg(`'${exs.sel}' ${exs.selType==='dir'?'폴더와 안의 모든 파일을':'파일을'} 지웁니다. 한 번 더 누르면 삭제`);
     exs.t=setTimeout(()=>{exs.confirm=false;resetDelBtn();exMsg('');},3000);
     return;
   }
@@ -8870,15 +8870,15 @@ const I18N_EN=[
 ['현재 파일 저장','Download current file'],['실행 전 저장 묻기','Ask to save before run'],['시작 화면','Start screen'],
 ['📦 프로젝트','📦 Project'],['닫기 ✕','Close ✕'],['＋ 파일','＋ File'],['＋ 폴더','＋ Folder'],['이름·이동','Rename/Move'],
 ['삭제','Delete'],['zip 내보내기','Export zip'],['HTML 내보내기','Export HTML'],['확인','OK'],['취소','Cancel'],
-['최상위의 .jbs = 프로젝트 표시 · lib/ = 라이브러리(.jbl) · sendto("경로") 는 프로젝트 안의 .jb 파일을 실행함.',
+['최상위의 .jbs = 프로젝트 표시 · lib/ = 라이브러리(.jbl) · sendto("경로") 는 프로젝트 안의 .jb 파일을 실행합니다.',
  'The top-level .jbs marks the project · lib/ = libraries (.jbl) · sendto("path") runs a .jb file in the project.'],
 ['디버그 로그','Debug log'],['생성된 C','Generated C'],['지우기','Clear'],['복사','Copy'],['▾ 닫기','▾ Hide'],['▴ 열기','▴ Show'],
-['// [C 변환] 버튼을 누르면 여기에 C 코드가 생성됨.','// Press [To C] to generate C code here.'],
+['// [C 변환] 버튼을 누르면 여기에 C 코드가 생성됩니다.','// Press [To C] to generate C code here.'],
 ['v1.2 · 코드 에디터','v1.2 · Code editor'],['새 프로젝트','New project'],['빈 프로젝트로 시작','Start with an empty project'],
 ['계속하기','Continue'],['zip · .jb / .jbl / .jbs 파일','zip · .jb / .jbl / .jbs files'],['프로젝트 이름','Project name'],
 ['예제 코드로 시작 (라이브러리 · sendto · 동시 실행 예제)','Start with example code (libraries · sendto · parallel runs)'],
-['만들기','Create'],['zip 이나 .jb 파일을 이 화면에 끌어다 놓아도 됨.','You can also drop a zip or .jb file on this screen.'],
-['저장은 zip 파일로 — 연결한 zip 을 바로 덮어씀 (브라우저에는 저장하지 않음).','Saving goes to a zip file — the linked zip is overwritten directly (nothing is kept in the browser).'],['__unused_old__','Only one project is saved in this browser. Export a zip to keep a copy.'],
+['만들기','Create'],['zip 이나 .jb 파일을 이 화면에 끌어다 놓아도 됩니다.','You can also drop a zip or .jb file on this screen.'],
+['저장은 zip 파일로 — 연결한 zip 을 바로 덮어씁니다 (브라우저에는 저장하지 않음).','Saving goes to a zip file — the linked zip is overwritten directly (nothing is kept in the browser).'],['__unused_old__','Only one project is saved in this browser. Export a zip to keep a copy.'],
 ['프로젝트 메뉴','Project menu'],['중간 저장 (Ctrl+S)','Save (Ctrl+S)'],['파일 · 폴더 관리','Files & folders'],
 ['현재 파일 저장(다운로드)','Download current file'],['파일 · 폴더 관리 열기','Open files & folders'],
 ['디버그 로그 닫기','Hide debug log'],['디버그 로그 열기','Show debug log'],['디스플레이 닫기 (실행 중지)','Close display (stops the run)'],
@@ -8886,89 +8886,89 @@ const I18N_EN=[
 ['프로젝트 최상위','Project root'],['내장 · 읽기 전용','built-in · read-only'],['만들 위치:','Create in:'],['최상위 (/)','root (/)'],
 ['— 이름만 쓰면 이 위치, 앞에 / 를 붙이면 최상위 기준','— a plain name goes here; start with / to use the root'],
 ['이름.jb  (lib 안에서는 .jbl)','name.jb  (.jbl inside lib)'],['폴더 이름','Folder name'],['새 경로 (예: tools/new.jb)','New path (e.g. tools/new.jb)'],
-['정말 삭제?','Really delete?'],['저장 안 됨','Not saved'],['저장 안 된 변경 있음 — 중간 저장 (Ctrl+S)','Unsaved changes — Save (Ctrl+S)'],
+['정말 삭제?','Really delete?'],['저장 안 됨','Not saved'],['저장 안 된 변경이 있습니다 — 중간 저장 (Ctrl+S)','Unsaved changes — Save (Ctrl+S)'],
 ['언어 / Language','Language / 언어'],['화면 언어','Language'],
-['// Jawbreaker 프로젝트 파일 — 이 파일이 있는 폴더가 프로젝트 최상위임.','// Jawbreaker project file — the folder holding this file is the project root.'],
-['// 코드는 run{ } 안에 써야 실행됨.','// Code runs only inside run{ }.'],
+['// Jawbreaker 프로젝트 파일 — 이 파일이 있는 폴더가 프로젝트 최상위입니다.','// Jawbreaker project file — the folder holding this file is the project root.'],
+['// 코드는 run{ } 안에 써야 실행됩니다.','// Code runs only inside run{ }.'],
 // ---- 설정 ----
 ['설정 / Settings','Settings / 설정'],['⚙ 설정','⚙ Settings'],['언어','Language'],['램 한도','RAM limit'],['컬러','Color'],['흑백','Black & white'],['닫기','Close'],
 ['자동 (기기에 맞춤)','Auto (fits this device)'],['무제한','Unlimited'],
 ['지금 사용 {} / {} (자동)','In use {1} / {2} (auto)'],['지금 사용 {} / {}','In use {1} / {2}'],
-['게임 실행 중 풀어 둔 이미지 · 소리 · 글자 그림이 쓰는 램의 상한. 넘으면 오래 안 쓴 것부터 비우고, 다시 쓰일 때 다시 읽음. HTML · APK 로 내보낸 게임에도 들어감 (EXE 제외).',
+['게임 실행 중 풀어 둔 이미지 · 소리 · 글자 그림이 쓰는 램의 상한입니다. 넘으면 오래 안 쓴 것부터 비우고, 다시 쓰일 때 다시 읽습니다. HTML · APK 로 내보낸 게임에도 들어갑니다 (EXE 제외).',
  'Caps the RAM used by decoded images · sounds · text bitmaps while a game runs. When it is exceeded, the least recently used ones are cleared and reloaded when needed. It is also built into games exported as HTML · APK (not EXE).'],
-['🧹 램 한도 {} 를 넘어 오래 안 쓴 캐시를 비움 (다시 쓰일 때 다시 읽음)','🧹 Over the {1} RAM limit — cleared caches that had not been used for a while (reloaded when needed)'],
-['⚠ 지금 쓰는 것만으로 램 한도 {} 를 넘음 ({} 사용 중) — ☰ → 설정에서 램 한도를 올릴 것','⚠ What is in use right now already exceeds the {1} RAM limit ({2} in use) — raise the RAM limit in ☰ → Settings'],
+['🧹 램 한도 {} 를 넘어 오래 안 쓴 캐시를 비웠습니다 (다시 쓰일 때 다시 읽음)','🧹 Over the {1} RAM limit — cleared caches that had not been used for a while (reloaded when needed)'],
+['⚠ 지금 쓰는 것만으로 램 한도 {} 를 넘습니다 ({} 사용 중) — ☰ → 설정에서 램 한도를 올리십시오','⚠ What is in use right now already exceeds the {1} RAM limit ({2} in use) — raise the RAM limit in ☰ → Settings'],
 // ---- 저장 · 실행 ----
-['저장하시겠습니까?','Save changes?'],['저장하지 않은 변경 있음. 실행하기 전에 저장?','You have unsaved changes. Save before running?'],
-['저장하지 않은 변경 있음.','You have unsaved changes.'],['저장하고 실행','Save and run'],['저장하지 않고 실행','Run without saving'],
+['저장하시겠습니까?','Save changes?'],['저장하지 않은 변경이 있습니다. 실행하기 전에 저장하겠습니까?','You have unsaved changes. Save before running?'],
+['저장하지 않은 변경이 있습니다.','You have unsaved changes.'],['저장하고 실행','Save and run'],['저장하지 않고 실행','Run without saving'],
 ['항상 저장하고 실행 (다시 묻지 않음)','Always save and run (don\'t ask again)'],['💾 저장하고 실행','💾 Saved and running'],
 ['저장하고 시작 화면으로','Save and go to start screen'],['저장하지 않음','Don\'t save'],
 ['실행 전 저장: 항상 저장 (누르면 묻기)','Before run: always save (tap to ask)'],['실행 전 저장: 묻기 (누르면 항상 저장)','Before run: ask (tap to always save)'],
-['실행할 때 묻지 않고 저장함','Runs will save without asking'],['실행할 때 저장할지 물음','Runs will ask before saving'],
-['💾 저장됨 · {}','💾 Saved · {1}'],['저장하지 못함 (브라우저 저장소를 쓸 수 없음) — zip 으로 내보내 보관할 것','Couldn\'t save (browser storage unavailable). Export a zip to keep your work.'],
-['⬇ {} 저장','⬇ Saved {1}'],['저장하지 못함','Couldn\'t save'],['저장하지 못했습니다: {}','Couldn\'t save: {1}'],['다운로드 실패: {}','Download failed: {1}'],
-['복사됨','Copied'],['복사 권한이 없어 선택만 해 둠','No clipboard permission, so the text is selected for you'],['내부 오류: {}','Internal error: {1}'],
-['✖ 실행할 .jb 파일 없음 (.jb 파일을 열거나 project.jbs 에 main = 파일 을 지정할 것)','✖ No .jb file to run (open a .jb file or set main = file in project.jbs)'],
+['실행할 때 묻지 않고 저장합니다','Runs will save without asking'],['실행할 때 저장할지 묻습니다','Runs will ask before saving'],
+['💾 저장됨 · {}','💾 Saved · {1}'],['저장하지 못했습니다 (브라우저 저장소를 쓸 수 없음) — zip 으로 내보내 보관하십시오','Couldn\'t save (browser storage unavailable). Export a zip to keep your work.'],
+['⬇ {} 저장','⬇ Saved {1}'],['저장하지 못했습니다','Couldn\'t save'],['저장하지 못했습니다: {}','Couldn\'t save: {1}'],['다운로드 실패: {}','Download failed: {1}'],
+['복사됨','Copied'],['복사 권한이 없어 선택만 해 두었습니다','No clipboard permission, so the text is selected for you'],['내부 오류: {}','Internal error: {1}'],
+['✖ 실행할 .jb 파일이 없습니다 (.jb 파일을 열거나 project.jbs 에 main = 파일 을 지정하십시오)','✖ No .jb file to run (open a .jb file or set main = file in project.jbs)'],
 ['▶ {} 실행','▶ Running {1}'],['■ 정상 종료 ({})','■ Finished ({1})'],['■ 사용자가 중지함','■ Stopped by user'],['■ terminate() 로 종료 ({})','■ Ended by terminate() ({1})'],
-['✖ 변환할 .jb 파일 없음','✖ No .jb file to convert'],
+['✖ 변환할 .jb 파일이 없습니다','✖ No .jb file to convert'],
 ['✔ {} (+ 작업 {}개, 라이브러리 {}개) → {} ({}줄)  ·  {}','✔ {1} (+ {2} tasks, {3} libraries) → {4} ({5} lines)  ·  {6}'],
-['🪟 DisPlayer 화면은 실행하면 SDL2 창(팝업)으로 뜸 · 글자는 SDL2_ttf — 설치 방법은 C 코드 맨 위 주석','🪟 The DisPlayer display opens as an SDL2 window (pop-up) when run · text uses SDL2_ttf — install notes are in the comment at the top of the C code'],
-['🪟 DisPlayer 화면은 실행하면 SDL2 창(팝업)으로 뜸{} — 설치 방법은 C 코드 맨 위 주석','🪟 The DisPlayer display opens as an SDL2 window (pop-up) when run{1} — install notes are in the comment at the top of the C code'],
+['🪟 DisPlayer 화면은 실행하면 SDL2 창(팝업)으로 뜹니다 · 글자는 SDL2_ttf — 설치 방법은 C 코드 맨 위 주석','🪟 The DisPlayer display opens as an SDL2 window (pop-up) when run · text uses SDL2_ttf — install notes are in the comment at the top of the C code'],
+['🪟 DisPlayer 화면은 실행하면 SDL2 창(팝업)으로 뜹니다{} — 설치 방법은 C 코드 맨 위 주석','🪟 The DisPlayer display opens as an SDL2 window (pop-up) when run{1} — install notes are in the comment at the top of the C code'],
 [' · 글자는 SDL2_ttf',' · text uses SDL2_ttf'],[' · 이미지는 SDL2_image (프로젝트 폴더에서 실행)',' · images use SDL2_image (run from the project folder)'],
-['🪟 DisPlayer 화면은 실행하면 SDL2 창(팝업)으로 뜸 — 설치 방법은 C 코드 맨 위 주석','🪟 The DisPlayer display opens as an SDL2 window (pop-up) when run — install notes are in the comment at the top of the C code'],
+['🪟 DisPlayer 화면은 실행하면 SDL2 창(팝업)으로 뜹니다 — 설치 방법은 C 코드 맨 위 주석','🪟 The DisPlayer display opens as an SDL2 window (pop-up) when run — install notes are in the comment at the top of the C code'],
 ['→ sendto {}','→ sendto {1}'],['⇉ setup {}','⇉ setup {1}'],['DisPlayer: 오브젝트 기능 활성화','DisPlayer: objects enabled'],
 ['📂 프로젝트 \'{}\' — ▶ 실행 / C 변환 · ☰ 새 파일 · 불러오기 · zip 내보내기 · 📁 파일·폴더 관리','📂 Project \'{1}\' — ▶ Run / To C · ☰ new file · open · export zip · 📁 files & folders'],
 ['(이름 없음)','(untitled)'],['(.jbs 오류)','(.jbs error)'],
 // ---- 시작 화면 · 불러오기 · 내보내기 ----
 ['방금 저장','saved just now'],['{}분 전 저장','saved {1} min ago'],['{}시간 전 저장','saved {1} h ago'],['{} 저장','saved {1}'],['파일 {}개','{1} files'],
 ['새 프로젝트 만들기','Create a new project'],['프로젝트 불러오기','Open a project'],['✖ 프로젝트를 만들지 못했습니다: {}','✖ Couldn\'t create the project: {1}'],
-['지금 프로젝트 \'{}\' 은(는) 새 프로젝트로 바뀜.','The current project \'{1}\' will be replaced.'],
-['브라우저에는 프로젝트가 하나만 저장되므로, 필요하면 먼저 zip 으로 보관할 것.','Only one project is kept in this browser, so export a zip first if you need it.'],
+['지금 프로젝트 \'{}\' 은(는) 새 프로젝트로 바뀝니다.','The current project \'{1}\' will be replaced.'],
+['브라우저에는 프로젝트가 하나만 저장되니, 필요하면 먼저 zip 으로 보관하십시오.','Only one project is kept in this browser, so export a zip first if you need it.'],
 ['zip 으로 내보내고 진행','Export zip, then continue'],['그냥 진행 (지금 프로젝트 버림)','Continue (discard current project)'],['내보내기 실패','Export failed'],['내보내기 실패: {}','Export failed: {1}'],
 ['📦 {} 내보냄 (파일 {}개)','📦 Exported {1} ({2} files)'],['🌐 {} 내보냄','🌐 Exported {1}'],
-['🌐 {} 내보냄 — 열면 {} 이(가) 바로 실행됨 ({})','🌐 Exported {1} — opening it runs {2} right away ({3})'],['DisPlayer 화면','DisPlayer screen'],['콘솔 화면','console screen'],['게임 화면만 · 디버그 로그 · 닫기 버튼 없음','game screen only · no debug log · no close button'],['화면을 쓰지 않아 아무것도 보이지 않음 — print 는 브라우저 콘솔로','nothing shows since it uses no display — print goes to the browser console'],
-['✖ 실행할 main 파일 없음: {} (project.jbs 의 main = 을 확인할 것)','✖ The main file doesn\'t exist: {1} (check main = in project.jbs)'],
-['✖ 오류가 있어 HTML 로 내보내지 않음','✖ Not exported to HTML because the code has errors'],
+['🌐 {} 내보냄 — 열면 {} 이(가) 바로 실행됩니다 ({})','🌐 Exported {1} — opening it runs {2} right away ({3})'],['DisPlayer 화면','DisPlayer screen'],['콘솔 화면','console screen'],['게임 화면만 · 디버그 로그 · 닫기 버튼 없음','game screen only · no debug log · no close button'],['화면을 쓰지 않아 아무것도 보이지 않음 — print 는 브라우저 콘솔로','nothing shows since it uses no display — print goes to the browser console'],
+['✖ 실행할 main 파일이 없습니다: {} (project.jbs 의 main = 을 확인하십시오)','✖ The main file doesn\'t exist: {1} (check main = in project.jbs)'],
+['✖ 오류가 있어 HTML 로 내보내지 않았습니다','✖ Not exported to HTML because the code has errors'],
 ['EXE로 변환 (Windows)','Convert to EXE (Windows)'],['APK로 변환 (Android)','Convert to APK (Android)'],['EXE 변환','To EXE'],['APK 변환','To APK'],
-['✖ 오류가 있어 {} 로 내보내지 않음','✖ Not exported to {1} because the code has errors'],
-['✖ 이 편집기에는 Windows 실행기가 들어 있지 않음','✖ This editor has no Windows runtime built in'],['✖ 이 편집기에는 Android 실행기가 들어 있지 않음','✖ This editor has no Android runtime built in'],
+['✖ 오류가 있어 {} 로 내보내지 않았습니다','✖ Not exported to {1} because the code has errors'],
+['✖ 이 편집기에는 Windows 실행기가 들어 있지 않습니다','✖ This editor has no Windows runtime built in'],['✖ 이 편집기에는 Android 실행기가 들어 있지 않습니다','✖ This editor has no Android runtime built in'],
 ['🪟 EXE 만드는 중…','🪟 Building EXE…'],['🤖 APK 만드는 중…','🤖 Building APK…'],['🪟 {} 내보냄','🪟 Exported {1}'],['🤖 {} 내보냄','🤖 Exported {1}'],
 ['🪟 {} 내보냄 ({} MB) — Windows 10 · 11 (64비트) 에서 바로 실행 · 저장하는 파일은 exe 옆 {}_data 폴더에','🪟 Exported {1} ({2} MB) — runs directly on Windows 10 · 11 (64-bit) · saved files go to the {3}_data folder next to the exe'],
-['⚠ EXE 실행기는 webp · m4a 를 읽지 못함: {} — png · ogg · mp3 · wav 로 바꿀 것','⚠ The EXE runtime can\'t read webp · m4a: {1} — convert them to png · ogg · mp3 · wav'],
+['⚠ EXE 실행기는 webp · m4a 를 읽지 못합니다: {} — png · ogg · mp3 · wav 로 바꾸십시오','⚠ The EXE runtime can\'t read webp · m4a: {1} — convert them to png · ogg · mp3 · wav'],
 ['✖ EXE 를 만들지 못했습니다: {}','✖ Couldn\'t build the EXE: {1}'],['✖ APK 를 만들지 못했습니다: {}','✖ Couldn\'t build the APK: {1}'],
-['저장된 서명 키 없음','No saved signing key'],['🔑 서명 키를 가져옴','🔑 Signing key imported'],['키를 가져오지 못했습니다: {}','Couldn\'t import the key: {1}'],
-['키 파일 형식이 아님','Not a key file'],['이 브라우저에 저장할 수 없음','Can\'t save in this browser'],
+['저장된 서명 키가 없습니다','No saved signing key'],['🔑 서명 키를 가져왔습니다','🔑 Signing key imported'],['키를 가져오지 못했습니다: {}','Couldn\'t import the key: {1}'],
+['키 파일 형식이 아닙니다','Not a key file'],['이 브라우저에 저장할 수 없습니다','Can\'t save in this browser'],
 ['앱 이름','App name'],['패키지 이름','Package name'],['버전 번호 (업데이트마다 더 큰 수)','Version code (larger for every update)'],['버전 이름','Version name'],
-['화면 방향','Orientation'],['자동 회전','Auto-rotate'],['가로','Landscape'],['세로','Portrait'],['아이콘 (프로젝트의 그림)','Icon (an image in the project)'],['이름 (파일 이름 · 창 제목)','Name (file name · window title)'],['EXE 만들기','Build EXE'],['🪟 EXE로 변환 (Windows)','🪟 Convert to EXE (Windows)'],['Windows 10 · 11 (64비트) 에서 설치 없이 바로 실행되는 파일 하나를 만듦.\n저장하는 파일은 exe 옆 「이름_data」 폴더에 생김.','Builds a single file that runs on Windows 10 · 11 (64-bit) without installing.\nSaved files go to the 「name_data」 folder next to the exe.'],['✖ 이름에 \\ / : * ? " < > | 는 쓸 수 없고, 앞뒤의 . 이나 빈칸도 안 됨','✖ The name can\'t contain \\ / : * ? " < > | or start/end with . or a space'],['⚠ 실행기에서 아이콘 자리를 찾지 못해 기본 아이콘으로 만듦','⚠ Couldn\'t find the icon in the runtime — built with the default icon'],['기본 아이콘','Default icon'],
-['🔑 서명 키: 이 브라우저에 저장됨','🔑 Signing key: saved in this browser'],['🔑 서명 키: 이 브라우저에 저장됨 ({})','🔑 Signing key: saved in this browser ({1})'],['🔑 서명 키: 없음 — 처음 만들 때 새로 만듦','🔑 Signing key: none — a new one is made on first build'],
+['화면 방향','Orientation'],['자동 회전','Auto-rotate'],['가로','Landscape'],['세로','Portrait'],['아이콘 (프로젝트의 그림)','Icon (an image in the project)'],['이름 (파일 이름 · 창 제목)','Name (file name · window title)'],['EXE 만들기','Build EXE'],['🪟 EXE로 변환 (Windows)','🪟 Convert to EXE (Windows)'],['Windows 10 · 11 (64비트) 에서 설치 없이 바로 실행되는 파일 하나를 만듭니다.\n저장하는 파일은 exe 옆 「이름_data」 폴더에 생깁니다.','Builds a single file that runs on Windows 10 · 11 (64-bit) without installing.\nSaved files go to the 「name_data」 folder next to the exe.'],['✖ 이름에 \\ / : * ? " < > | 는 쓸 수 없고, 앞뒤의 . 이나 빈칸도 안 됩니다','✖ The name can\'t contain \\ / : * ? " < > | or start/end with . or a space'],['⚠ 실행기에서 아이콘 자리를 찾지 못해 기본 아이콘으로 만들었습니다','⚠ Couldn\'t find the icon in the runtime — built with the default icon'],['기본 아이콘','Default icon'],
+['🔑 서명 키: 이 브라우저에 저장됨','🔑 Signing key: saved in this browser'],['🔑 서명 키: 이 브라우저에 저장됨 ({})','🔑 Signing key: saved in this browser ({1})'],['🔑 서명 키: 없음 — 처음 만들 때 새로 만듭니다','🔑 Signing key: none — a new one is made on first build'],
 ['키 내보내기','Export key'],['키 가져오기','Import key'],['APK 만들기','Build APK'],['🤖 APK로 변환 (Android)','🤖 Convert to APK (Android)'],
-['Android 7.0 이상 · 설치할 때 "출처를 알 수 없는 앱" 허용이 필요함.\n같은 앱을 업데이트하려면 같은 패키지 이름 · 같은 서명 키 · 더 큰 버전 번호로 만들 것.','Android 7.0+ · installing needs "unknown apps" allowed.\nTo update an installed app, build with the same package name, the same signing key and a larger version code.'],
+['Android 7.0 이상 · 설치할 때 "출처를 알 수 없는 앱" 허용이 필요합니다.\n같은 앱을 업데이트하려면 같은 패키지 이름 · 같은 서명 키 · 더 큰 버전 번호로 만드십시오.','Android 7.0+ · installing needs "unknown apps" allowed.\nTo update an installed app, build with the same package name, the same signing key and a larger version code.'],
 ['✖ 패키지 이름은 영문 · 숫자 · _ 로 된 두 마디 이상 (예: com.example.game)','✖ The package name needs two or more parts of letters · digits · _ (e.g. com.example.game)'],
 ['✖ 버전 번호는 1 이상의 정수','✖ The version code must be an integer ≥ 1'],
-['🔑 새 APK 서명 키를 만들어 이 브라우저에 저장함 — ☰ → APK 변환 → 키 내보내기로 백업해 둘 것 (잃어버리면 설치된 앱을 업데이트할 수 없음)','🔑 Made a new APK signing key and saved it in this browser — back it up via ☰ → APK → Export key (without it, installed apps can\'t be updated)'],
-['⚠ 서명 키를 이 브라우저에 저장하지 못함 — 다음 APK 는 다른 키로 서명되어 업데이트로 설치되지 않음','⚠ Couldn\'t save the signing key in this browser — the next APK will be signed with a different key and won\'t install as an update'],
-['🤖 {} 내보냄 ({} MB · {} · 버전 {} ({})) — 휴대폰으로 옮겨 열면 설치됨','🤖 Exported {1} ({2} MB · {3} · version {4} ({5})) — copy it to a phone and open it to install'],
-['.jbs 파일이 없어 project.jbs 를 새로 만듦','No .jbs file was found, so project.jbs was created'],
-['건너뛴 파일 {}개:','Skipped {1} files:'],['읽지 못한 파일 {}개:','Couldn\'t read {1} files:'],['소스 파일이 아닌 항목 {}개는 무시함','Ignored {1} items that aren\'t source files'],
-['같은 이름의 파일 있음','Files with the same name exist'],['덮어쓰기','Overwrite'],['겹치는 파일은 건너뛰기','Skip those files'],
+['🔑 새 APK 서명 키를 만들어 이 브라우저에 저장했습니다 — ☰ → APK 변환 → 키 내보내기로 백업해 두십시오 (잃어버리면 설치된 앱을 업데이트할 수 없음)','🔑 Made a new APK signing key and saved it in this browser — back it up via ☰ → APK → Export key (without it, installed apps can\'t be updated)'],
+['⚠ 서명 키를 이 브라우저에 저장하지 못했습니다 — 다음 APK 는 다른 키로 서명되어 업데이트로 설치되지 않습니다','⚠ Couldn\'t save the signing key in this browser — the next APK will be signed with a different key and won\'t install as an update'],
+['🤖 {} 내보냄 ({} MB · {} · 버전 {} ({})) — 휴대폰으로 옮겨 열면 설치됩니다','🤖 Exported {1} ({2} MB · {3} · version {4} ({5})) — copy it to a phone and open it to install'],
+['.jbs 파일이 없어서 project.jbs 를 새로 만들었습니다','No .jbs file was found, so project.jbs was created'],
+['건너뛴 파일 {}개:','Skipped {1} files:'],['읽지 못한 파일 {}개:','Couldn\'t read {1} files:'],['소스 파일이 아닌 항목 {}개는 무시했습니다','Ignored {1} items that aren\'t source files'],
+['같은 이름의 파일이 있습니다','Files with the same name exist'],['덮어쓰기','Overwrite'],['겹치는 파일은 건너뛰기','Skip those files'],
 ['📂 파일 {}개를 프로젝트에 추가함{}','📂 Added {1} files to the project{2}'],['✔ 불러옴: {} (파일 {}개)','✔ Opened: {1} ({2} files)'],['파일','files'],
-['✖ {}','✖ {1}'],['✖ 불러올 .jb / .jbl 파일 없음','✖ No .jb / .jbl files to open'],['불러올 .jb / .jbl / .jbs 파일 없음','No .jb / .jbl / .jbs files to open'],
-['규칙에 맞는 파일이 없어 불러오지 못함','Nothing was opened because no file follows the project rules'],['{} — 프로젝트 폴더 밖','{1} — outside the project folder'],['{} — 이미 있음','{1} — already exists'],
-['이 브라우저는 압축된 zip 을 풀 수 없음 (최신 브라우저에서 열 것)','This browser can\'t unpack compressed zips (use a recent browser)'],
-['zip 파일이 아니거나 손상됨','Not a zip file, or the zip is damaged'],['zip 목록이 손상됨','The zip\'s file list is damaged'],['암호가 걸려 있음','password-protected'],['압축을 풀지 못함','couldn\'t be decompressed'],['지원하지 않는 압축 방식({})','unsupported compression ({1})'],
+['✖ {}','✖ {1}'],['✖ 불러올 .jb / .jbl 파일이 없습니다','✖ No .jb / .jbl files to open'],['불러올 .jb / .jbl / .jbs 파일이 없습니다','No .jb / .jbl / .jbs files to open'],
+['규칙에 맞는 파일이 없어 불러오지 못했습니다','Nothing was opened because no file follows the project rules'],['{} — 프로젝트 폴더 밖','{1} — outside the project folder'],['{} — 이미 있음','{1} — already exists'],
+['이 브라우저는 압축된 zip 을 풀 수 없습니다 (최신 브라우저에서 열어 주십시오)','This browser can\'t unpack compressed zips (use a recent browser)'],
+['zip 파일이 아니거나 손상되었습니다','Not a zip file, or the zip is damaged'],['zip 목록이 손상되었습니다','The zip\'s file list is damaged'],['암호가 걸려 있음','password-protected'],['압축을 풀지 못함','couldn\'t be decompressed'],['지원하지 않는 압축 방식({})','unsupported compression ({1})'],
 // ---- 탐색기 ----
-['이름·이동할 파일이나 폴더를 먼저 선택할 것','Select a file or folder to rename or move first'],['이름을 입력할 것','Enter a name'],
-['프로젝트 폴더 밖으로 나갈 수 없음 (..)','You can\'t leave the project folder (..)'],['폴더 만듦: {}','Folder created: {1}'],['파일 만듦: {}','File created: {1}'],
-['삭제할 파일이나 폴더를 먼저 선택할 것','Select a file or folder to delete first'],['\'{}\' {} 지움. 한 번 더 누르면 삭제','Deletes \'{1}\' ({2}). Press again to delete'],
+['이름·이동할 파일이나 폴더를 먼저 선택하십시오','Select a file or folder to rename or move first'],['이름을 입력하십시오','Enter a name'],
+['프로젝트 폴더 밖으로 나갈 수 없습니다 (..)','You can\'t leave the project folder (..)'],['폴더 만듦: {}','Folder created: {1}'],['파일 만듦: {}','File created: {1}'],
+['삭제할 파일이나 폴더를 먼저 선택하십시오','Select a file or folder to delete first'],['\'{}\' {} 지웁니다. 한 번 더 누르면 삭제','Deletes \'{1}\' ({2}). Press again to delete'],
 ['폴더와 안의 모든 파일을','the folder and everything in it'],['파일을','the file'],['삭제됨: {}','Deleted: {1}'],
-['경로를 입력할 것','Enter a path'],['폴더 이름은 글자·숫자·_·- 만 쓸 수 있습니다: {}','Folder names may only use letters, digits, _ and -: {1}'],
-['파일 이름은 이름.jb / 이름.jbl / 이름.jbs 형태여야 함','File names must look like name.jb / name.jbl / name.jbs'],
-['.jbs 프로젝트 파일은 프로젝트 최상위에만 둘 수 있음','The .jbs project file must be at the project root'],
-['.jbl 라이브러리 파일은 lib/ 폴더 안에 있어야 함','.jbl library files must be inside the lib/ folder'],
-['lib/ 폴더에는 .jbl 라이브러리 파일만 둘 수 있음','The lib/ folder may only contain .jbl library files'],
-['.jbs 파일은 하나만 둘 수 있음 ({})','Only one .jbs file is allowed ({1})'],['이미 같은 이름이 있습니다: {}','That name is already taken: {1}'],
-['lib 폴더는 이름을 바꾸거나 옮길 수 없음','The lib folder can\'t be renamed or moved'],['폴더를 자기 자신 안으로 옮길 수 없음','A folder can\'t be moved into itself'],
-['대상을 찾을 수 없음','Target not found'],['프로젝트 파일(.jbs)은 지울 수 없음','The project file (.jbs) can\'t be deleted'],['lib 폴더는 지울 수 없음','The lib folder can\'t be deleted'],
+['경로를 입력하십시오','Enter a path'],['폴더 이름은 글자·숫자·_·- 만 쓸 수 있습니다: {}','Folder names may only use letters, digits, _ and -: {1}'],
+['파일 이름은 이름.jb / 이름.jbl / 이름.jbs 형태여야 합니다','File names must look like name.jb / name.jbl / name.jbs'],
+['.jbs 프로젝트 파일은 프로젝트 최상위에만 둘 수 있습니다','The .jbs project file must be at the project root'],
+['.jbl 라이브러리 파일은 lib/ 폴더 안에 있어야 합니다','.jbl library files must be inside the lib/ folder'],
+['lib/ 폴더에는 .jbl 라이브러리 파일만 둘 수 있습니다','The lib/ folder may only contain .jbl library files'],
+['.jbs 파일은 하나만 둘 수 있습니다 ({})','Only one .jbs file is allowed ({1})'],['이미 같은 이름이 있습니다: {}','That name is already taken: {1}'],
+['lib 폴더는 이름을 바꾸거나 옮길 수 없습니다','The lib folder can\'t be renamed or moved'],['폴더를 자기 자신 안으로 옮길 수 없습니다','A folder can\'t be moved into itself'],
+['대상을 찾을 수 없습니다','Target not found'],['프로젝트 파일(.jbs)은 지울 수 없습니다','The project file (.jbs) can\'t be deleted'],['lib 폴더는 지울 수 없습니다','The lib folder can\'t be deleted'],
 // ---- 자동완성 설명 ----
 ['(값)','(value)'],['디버그 로그에 출력','print to the debug log'],['ms 밀리초 대기','wait ms milliseconds'],['진행 중인 작업 전체 종료','end everything that is running'],
 ['(string 경로)','(string path)'],['프로젝트 안의 .jb 파일을 실행하고 돌아옴','run a .jb file in the project, then come back'],
@@ -9274,7 +9274,7 @@ const I18N_EN=[
 ['파일 이름은 이름.jb / 이름.jbl / 이름.jbs (또는 이미지 .png · .jpg · .gif · .webp · .bmp) 형태여야 합니다','File names must look like name.jb / name.jbl / name.jbs (or an image .png · .jpg · .gif · .webp · .bmp)'],
 ['이미지 파일은 새로 만들 수 없습니다 — 불러오기(또는 끌어다 놓기)로 추가하세요','Image files can\'t be created here; add them with Open (or drag and drop)'],
 ['✖ 불러올 .jb / .jbl 파일(또는 이미지)이 없습니다','✖ No .jb / .jbl files (or images) to open'],
-['소스 · 이미지 파일이 아닌 항목 {}개는 무시함','Ignored {1} items that are not source or image files'],
+['소스 · 이미지 파일이 아닌 항목 {}개는 무시했습니다','Ignored {1} items that are not source or image files'],
 // ---- Magellan ----
 ['\'save\' 다음에는 \'as\' 가 필요합니다 (예: mag.importFile("img/a.png") save as ("hero");)','\'as\' is needed after \'save\' (e.g. mag.importFile("img/a.png") save as ("hero");)'],
 ['Magellan 라이브러리에는 변수가 없습니다 (명령어는 {}.{}(...) 로 호출)','The Magellan library has no variables (call commands as {1}.{2}(...))'],
@@ -9301,17 +9301,17 @@ const I18N_EN=[
 ['("id", "파일id", [x1, y1], [x2, y2])','("id", "fileid", [x1, y1], [x2, y2])'],
 // ---- zip 연결 ----
 ['zip 연결됨: {} (누르면 해제)','zip linked: {1} (tap to unlink)'],
-['저장할 zip 연결 (저장할 때 덮어쓰기)','Link a zip to save into (overwrite on save)'],['그 줄의 문장으로 넘어감 (지금 블록이나 바깥 블록 · 메뉴로 돌아가기 등)','jump to the statement on that line (current or outer block · e.g. back to a menu)'],["goTo({}): {}번째 줄의 문장을 찾을 수 없습니다 — 지금 있는 블록이나 그 바깥 블록의 문장으로만 갈 수 있습니다 (안쪽 블록 · 다른 함수 · 다른 run 으로는 못 감)","goTo({1}): no statement found on line {2} — you can only jump to a statement in the current block or a block around it (not into an inner block · another function · another run)"],["goTo({}): {}번째 줄은 지금 있는 블록이나 그 바깥 블록의 문장이 아닙니다 (안쪽 블록 · 다른 함수 · 다른 run 으로는 못 감)","goTo({1}): line {2} is not a statement in the current block or a block around it (not into an inner block · another function · another run)"],["goTo({}): {}번째 줄에 문장이 없습니다 (그 줄에서 시작하는 문장으로만 갈 수 있음)","goTo({1}): there is no statement on line {2} (jump only to a line where a statement starts)"],['goTo 의 줄 번호는 1 이상의 정수입니다 (받은 값: {})','The goTo line number must be an integer of 1 or more (got {1})'],['C 변환은 goTo 의 줄 번호가 숫자 상수일 때만 됩니다 (예: goTo(12);)','The C conversion needs goTo\'s line number to be a number constant (e.g. goTo(12);)'],['Magellan · 폴더 안 파일에 모두 이름 붙이기 (이름 = 확장자를 뺀 파일 이름)','Magellan · name every file in a folder (name = file name without extension)'],['importFolder 경로는 따옴표 안의 문자열 상수여야 합니다 (예: {}.importFolder("assets/sounds");)','The importFolder path must be a quoted string constant (e.g. {1}.importFolder("assets/sounds");)'],["importFolder: 이름 '{}' 이(가) 겹칩니다 — {} · {} (파일 이름을 바꾸거나 importFile 로 따로 이름을 붙이세요)","importFolder: the name '{1}' clashes — {2} · {3} (rename a file or name it separately with importFile)"],["'{}' 폴더에 불러올 파일이 없습니다 (이미지 · 소리 · 글꼴 · 타일맵)","The folder '{1}' has no files to import (images · sounds · fonts · tilemaps)"],['📁 importFolder: {}개 — {}','📁 importFolder: {1} files — {2}'],['soundMaster · 스피커 소리 바로 끄기 (페이드 무시)','soundMaster · stop a speaker at once (ignore the fade)'],[`sou.break 는 ("스피커") 또는 ("스피커", 페이드 무시 bit) 입니다 (받은 값: {}개)`,`sou.break takes ("speaker") or ("speaker", ignore-fade bit) (got {1})`],["Canvas · 지금 장면을 멈춰 두고 그 장면을 엶 (closeScene 으로 닫음)","Canvas · freeze this scene and open that one (close with closeScene)"],["Canvas · 팝업 장면 닫기 → 멈춘 장면이 이어서","Canvas · close the popup scene → the frozen scene resumes"],["열려 있는 팝업 장면이 없습니다 (can.popupScene(\"장면\"); 으로 연 장면만 닫을 수 있습니다)","No popup scene is open (only scenes opened with can.popupScene(\"scene\"); can be closed)"],["장면 '{}' 은(는) 지금 장면입니다 — 다른 장면을 팝업으로 여세요","Scene '{1}' is the current scene — open a different scene as a popup"],["장면 '{}' 은(는) 이미 팝업 아래에 멈춰 있습니다","Scene '{1}' is already frozen under a popup"],["⧉ 팝업 장면 {}","⧉ popup scene {1}"],["⧉ 팝업 장면 닫음 → {}","⧉ popup scene closed → {1}"],["처음 장면","the first scene"],["C 변환은 아직 can.{} 을 지원하지 않습니다 (편집기 · HTML 내보내기에서만 실행됨)","The C conversion does not support can.{1} yet (it runs in the editor · HTML export only)"],["setTilemap 은 콜라이더도 깔아서 이 파일에 'Use colliders call 별칭;' 이 필요합니다","setTilemap also places colliders, so this file needs 'Use colliders call alias;'"],["프로젝트에 '{}' 파일이 없습니다 (타일맵 에디터에서 저장한 .tl 을 프로젝트에 넣으세요)","There is no '{1}' in the project (add the .tl saved from the tilemap editor)"],["'{}' 은(는) 타일맵(.tl)이 아닙니다 (mag.importFile(\"경로.tl\") save as (\"{}\"); 로 이름을 붙이거나 .tl 경로를 쓰세요)","'{1}' is not a tilemap (.tl) (name it with mag.importFile(\"path.tl\") save as (\"{2}\"); or use a .tl path)"],["'{}' 은(는) 올바른 타일맵 파일이 아닙니다 (JSON 이 아님)","'{1}' is not a valid tilemap file (not JSON)"],["'{}' 은(는) 타일맵 에디터의 .tl 파일이 아닙니다","'{1}' is not a .tl file from the tilemap editor"],["'{}' 의 크기가 올바르지 않습니다","'{1}' has an invalid size"],["'{}' 레이어 {} 의 칸 수가 {} 와 다릅니다","'{1}' layer {2} does not have {3} tiles"],["⚠ {}: 이미지가 없는 텍스쳐 {}개 ({}) — 타일맵 에디터에서 다시 저장하세요","⚠ {1}: {2} textures have no image ({3}) — save it again in the tilemap editor"],["🗺 타일맵 '{}' ({} × {} 칸 · 타일 {}) — 레이어 {}장 · 콜라이더 {}개","🗺 Tilemap '{1}' ({2} × {3} tiles · tile {4}) — {5} layers · {6} colliders"],["C 변환은 아직 dis.setTilemap 을 지원하지 않습니다 (편집기 · HTML 내보내기에서만 실행됨)","The C conversion does not support dis.setTilemap yet (it runs in the editor · HTML export only)"],["타일맵(.tl) 깔기 — 맵의 [0, 0] 지점(⌖)을 [x, y] 에 · 콜라이더 자동 (colliders 필요)","Place a tilemap (.tl) — the map's [0, 0] point (⌖) goes to [x, y] · colliders automatic (needs colliders)"],["'fileExists' 은(는) 값 1개가 필요합니다 (받은 값: {}개)","'fileExists' needs 1 value (got {1})"],['fileExists 에는 경로(문자열)를 넣습니다 (예: "save/s.json") — 받은 형식: {}','fileExists takes a path (string) (e.g. "save/s.json") — got: {1}'],['jawbreaker · 프로젝트에 그 파일(폴더)이 있으면 1','jawbreaker · 1 if that file (folder) is in the project'],['저장되지 않음 — 파일을 갱신하지 못함','Not saved — the file could not be updated'],['이 브라우저는 파일에 직접 저장 못 함 (저장 = zip 내려받기)','This browser cannot save to a file directly (save = download a zip)'],['📦 이 브라우저는 파일에 직접 쓸 수 없어, 저장할 때마다 zip 을 새 파일로 내려받음 (Chrome · Edge · Android Chrome 에서 HTML 파일을 직접 열면 같은 zip 에 바로 저장됨)','📦 This browser cannot write files directly, so every save downloads a new zip (open the HTML file directly in Chrome · Edge · Android Chrome to save into the same zip)'],['📦 zip 연결을 해제함 — 다음 저장 때 저장할 zip 을 다시 고름','📦 Zip unlinked — you will pick a zip again on the next save'],['지금 프로젝트 \'{}\' 에 저장되지 않은 변경 있음.','Project \'{1}\' has unsaved changes.'],['저장하고 진행','Save and continue'],['저장하지 않고 진행','Continue without saving'],['저장 실패','Save failed'],['파일을 갱신하지 못해 진행하지 않음.','The file could not be updated, so nothing was changed.'],['{} · 예전 브라우저 저장본 · 파일로 저장할 것','{1} · old browser copy · save it to a file'],['📦 예전 버전이 브라우저에 남긴 프로젝트를 꺼냄 — 브라우저에서는 지웠으므로 💾 저장으로 파일에 저장할 것','📦 Restored the project an older version kept in the browser — it was removed from the browser, so save it to a file with 💾'],['✖ {} 을(를) 열지 못함: {} — 불러오기로 다시 열 것','✖ Could not open {1}: {2} — open it again with Open'],['✖ zip 을 내려받지 못했습니다: {}','✖ Could not download the zip: {1}'],['📦 {} 에 연결함 — 저장(💾 · Ctrl+S)과 zip 내보내기가 이 파일을 바로 덮어씀','📦 Linked {1} — saving (💾 · Ctrl+S) and zip export now overwrite this file directly'],['🔗 {} 에 연결함 — 저장(💾 · Ctrl+S)과 zip 내보내기가 이 파일을 바로 덮어씀','🔗 Linked {1} — saving (💾 · Ctrl+S) and zip export now overwrite this file directly'],['📦 {} 을(를) 덮어씀 (파일 {}개)','📦 Overwrote {1} ({2} files)'],['✖ {} 에 쓰지 못함 — 아래 오류 참고','✖ Could not write {1} — see the error below'],['✖ {} 에 쓰지 못함 (저장 안 됨)','✖ Could not write {1} (not saved)'],['💾 {} — 연결된 zip 이 없어 파일에는 아직 없음 (💾 저장하면 zip 에 들어감)','💾 {1} — no zip is linked, so it is not in a file yet (save with 💾 to put it in the zip)'],['✖ {} 을(를) 갱신하지 못함: {} (저장 안 됨 · ☰ 의 zip 연결을 다시 해 볼 것)','✖ Could not update {1}: {2} (not saved · try linking the zip again from ☰)'],['📦 {} 내려받음 (파일 {}개) — 이 브라우저는 파일에 직접 쓸 수 없어 새 파일로 받음 (Chrome · Edge · Android Chrome 에서 HTML 파일을 직접 열면 바로 저장됨)','📦 Downloaded {1} ({2} files) — this browser cannot write files directly, so it saves a new copy (open the HTML file directly in Chrome · Edge · Android Chrome to save in place)'],['💾 저장됨 (브라우저에만 · ☰ 에서 zip 연결 가능)','💾 Saved (browser only · link a zip from ☰)'],['💾 저장됨 · {}','💾 Saved · {1}'],['저장할 때 zip 내려받기: 켜짐 (누르면 끔)','Download a zip on every save: on (tap to turn off)'],['저장할 때 zip 내려받기: 꺼짐 (누르면 켬)','Download a zip on every save: off (tap to turn on)'],['📦 저장할 때마다 zip 을 내려받음 — 이 브라우저는 파일에 직접 쓸 수 없어 매번 새 파일로 받음','📦 A zip will download on every save — this browser cannot write files directly, so each save is a new copy'],['📦 저장할 때 zip 내려받기를 끔 (저장은 브라우저에만)','📦 Zip download on save is off (saving to the browser only)'],
-['📦 처음 상태를 {} 로 내려받음 — {} 이후 저장은 브라우저에만 됨 (☰ zip으로 내보내기로 다시 받을 수 있음)','📦 Downloaded the initial state as {1}. {2} later saves go to the browser only (use ☰ Export as zip to get a new one)'],
+['저장할 zip 연결 (저장할 때 덮어쓰기)','Link a zip to save into (overwrite on save)'],['그 줄의 문장으로 넘어감 (지금 블록이나 바깥 블록 · 메뉴로 돌아가기 등)','jump to the statement on that line (current or outer block · e.g. back to a menu)'],["goTo({}): {}번째 줄의 문장을 찾을 수 없습니다 — 지금 있는 블록이나 그 바깥 블록의 문장으로만 갈 수 있습니다 (안쪽 블록 · 다른 함수 · 다른 run 으로는 못 감)","goTo({1}): no statement found on line {2} — you can only jump to a statement in the current block or a block around it (not into an inner block · another function · another run)"],["goTo({}): {}번째 줄은 지금 있는 블록이나 그 바깥 블록의 문장이 아닙니다 (안쪽 블록 · 다른 함수 · 다른 run 으로는 못 감)","goTo({1}): line {2} is not a statement in the current block or a block around it (not into an inner block · another function · another run)"],["goTo({}): {}번째 줄에 문장이 없습니다 (그 줄에서 시작하는 문장으로만 갈 수 있음)","goTo({1}): there is no statement on line {2} (jump only to a line where a statement starts)"],['goTo 의 줄 번호는 1 이상의 정수입니다 (받은 값: {})','The goTo line number must be an integer of 1 or more (got {1})'],['C 변환은 goTo 의 줄 번호가 숫자 상수일 때만 됩니다 (예: goTo(12);)','The C conversion needs goTo\'s line number to be a number constant (e.g. goTo(12);)'],['Magellan · 폴더 안 파일에 모두 이름 붙이기 (이름 = 확장자를 뺀 파일 이름)','Magellan · name every file in a folder (name = file name without extension)'],['importFolder 경로는 따옴표 안의 문자열 상수여야 합니다 (예: {}.importFolder("assets/sounds");)','The importFolder path must be a quoted string constant (e.g. {1}.importFolder("assets/sounds");)'],["importFolder: 이름 '{}' 이(가) 겹칩니다 — {} · {} (파일 이름을 바꾸거나 importFile 로 따로 이름을 붙이세요)","importFolder: the name '{1}' clashes — {2} · {3} (rename a file or name it separately with importFile)"],["'{}' 폴더에 불러올 파일이 없습니다 (이미지 · 소리 · 글꼴 · 타일맵)","The folder '{1}' has no files to import (images · sounds · fonts · tilemaps)"],['📁 importFolder: {}개 — {}','📁 importFolder: {1} files — {2}'],['soundMaster · 스피커 소리 바로 끄기 (페이드 무시)','soundMaster · stop a speaker at once (ignore the fade)'],[`sou.break 는 ("스피커") 또는 ("스피커", 페이드 무시 bit) 입니다 (받은 값: {}개)`,`sou.break takes ("speaker") or ("speaker", ignore-fade bit) (got {1})`],["Canvas · 지금 장면을 멈춰 두고 그 장면을 엶 (closeScene 으로 닫음)","Canvas · freeze this scene and open that one (close with closeScene)"],["Canvas · 팝업 장면 닫기 → 멈춘 장면이 이어서","Canvas · close the popup scene → the frozen scene resumes"],["열려 있는 팝업 장면이 없습니다 (can.popupScene(\"장면\"); 으로 연 장면만 닫을 수 있습니다)","No popup scene is open (only scenes opened with can.popupScene(\"scene\"); can be closed)"],["장면 '{}' 은(는) 지금 장면입니다 — 다른 장면을 팝업으로 여세요","Scene '{1}' is the current scene — open a different scene as a popup"],["장면 '{}' 은(는) 이미 팝업 아래에 멈춰 있습니다","Scene '{1}' is already frozen under a popup"],["⧉ 팝업 장면 {}","⧉ popup scene {1}"],["⧉ 팝업 장면 닫음 → {}","⧉ popup scene closed → {1}"],["처음 장면","the first scene"],["C 변환은 아직 can.{} 을 지원하지 않습니다 (편집기 · HTML 내보내기에서만 실행됨)","The C conversion does not support can.{1} yet (it runs in the editor · HTML export only)"],["setTilemap 은 콜라이더도 깔아서 이 파일에 'Use colliders call 별칭;' 이 필요합니다","setTilemap also places colliders, so this file needs 'Use colliders call alias;'"],["프로젝트에 '{}' 파일이 없습니다 (타일맵 에디터에서 저장한 .tl 을 프로젝트에 넣으세요)","There is no '{1}' in the project (add the .tl saved from the tilemap editor)"],["'{}' 은(는) 타일맵(.tl)이 아닙니다 (mag.importFile(\"경로.tl\") save as (\"{}\"); 로 이름을 붙이거나 .tl 경로를 쓰세요)","'{1}' is not a tilemap (.tl) (name it with mag.importFile(\"path.tl\") save as (\"{2}\"); or use a .tl path)"],["'{}' 은(는) 올바른 타일맵 파일이 아닙니다 (JSON 이 아님)","'{1}' is not a valid tilemap file (not JSON)"],["'{}' 은(는) 타일맵 에디터의 .tl 파일이 아닙니다","'{1}' is not a .tl file from the tilemap editor"],["'{}' 의 크기가 올바르지 않습니다","'{1}' has an invalid size"],["'{}' 레이어 {} 의 칸 수가 {} 와 다릅니다","'{1}' layer {2} does not have {3} tiles"],["⚠ {}: 이미지가 없는 텍스쳐 {}개 ({}) — 타일맵 에디터에서 다시 저장하세요","⚠ {1}: {2} textures have no image ({3}) — save it again in the tilemap editor"],["🗺 타일맵 '{}' ({} × {} 칸 · 타일 {}) — 레이어 {}장 · 콜라이더 {}개","🗺 Tilemap '{1}' ({2} × {3} tiles · tile {4}) — {5} layers · {6} colliders"],["C 변환은 아직 dis.setTilemap 을 지원하지 않습니다 (편집기 · HTML 내보내기에서만 실행됨)","The C conversion does not support dis.setTilemap yet (it runs in the editor · HTML export only)"],["타일맵(.tl) 깔기 — 맵의 [0, 0] 지점(⌖)을 [x, y] 에 · 콜라이더 자동 (colliders 필요)","Place a tilemap (.tl) — the map's [0, 0] point (⌖) goes to [x, y] · colliders automatic (needs colliders)"],["'fileExists' 은(는) 값 1개가 필요합니다 (받은 값: {}개)","'fileExists' needs 1 value (got {1})"],['fileExists 에는 경로(문자열)를 넣습니다 (예: "save/s.json") — 받은 형식: {}','fileExists takes a path (string) (e.g. "save/s.json") — got: {1}'],['jawbreaker · 프로젝트에 그 파일(폴더)이 있으면 1','jawbreaker · 1 if that file (folder) is in the project'],['저장되지 않았습니다 — 파일을 갱신하지 못했습니다','Not saved — the file could not be updated'],['이 브라우저는 파일에 직접 저장하지 못합니다 (저장 = zip 내려받기)','This browser cannot save to a file directly (save = download a zip)'],['📦 이 브라우저는 파일에 직접 쓸 수 없어, 저장할 때마다 zip 을 새 파일로 내려받습니다 (Chrome · Edge · Android Chrome 에서 HTML 파일을 직접 열면 같은 zip 에 바로 저장됨)','📦 This browser cannot write files directly, so every save downloads a new zip (open the HTML file directly in Chrome · Edge · Android Chrome to save into the same zip)'],['📦 zip 연결을 해제했습니다 — 다음 저장 때 저장할 zip 을 다시 고릅니다','📦 Zip unlinked — you will pick a zip again on the next save'],['지금 프로젝트 \'{}\' 에 저장되지 않은 변경이 있습니다.','Project \'{1}\' has unsaved changes.'],['저장하고 진행','Save and continue'],['저장하지 않고 진행','Continue without saving'],['저장 실패','Save failed'],['파일을 갱신하지 못해 진행하지 않습니다.','The file could not be updated, so nothing was changed.'],['{} · 예전 브라우저 저장본 · 파일로 저장하십시오','{1} · old browser copy · save it to a file'],['📦 예전 버전이 브라우저에 남긴 프로젝트를 꺼냈습니다 — 브라우저에서는 지웠으니 💾 저장으로 파일에 저장하십시오','📦 Restored the project an older version kept in the browser — it was removed from the browser, so save it to a file with 💾'],['✖ {} 을(를) 열지 못했습니다: {} — 불러오기로 다시 여십시오','✖ Could not open {1}: {2} — open it again with Open'],['✖ zip 을 내려받지 못했습니다: {}','✖ Could not download the zip: {1}'],['📦 {} 에 연결했습니다 — 저장(💾 · Ctrl+S)과 zip 내보내기가 이 파일을 바로 덮어씁니다','📦 Linked {1} — saving (💾 · Ctrl+S) and zip export now overwrite this file directly'],['🔗 {} 에 연결했습니다 — 저장(💾 · Ctrl+S)과 zip 내보내기가 이 파일을 바로 덮어씁니다','🔗 Linked {1} — saving (💾 · Ctrl+S) and zip export now overwrite this file directly'],['📦 {} 을(를) 덮어썼습니다 (파일 {}개)','📦 Overwrote {1} ({2} files)'],['✖ {} 에 쓰지 못했습니다 — 아래 오류 참고','✖ Could not write {1} — see the error below'],['✖ {} 에 쓰지 못했습니다 (저장 안 됨)','✖ Could not write {1} (not saved)'],['💾 {} — 연결된 zip 이 없어 파일에는 아직 없습니다 (💾 저장하면 zip 에 들어감)','💾 {1} — no zip is linked, so it is not in a file yet (save with 💾 to put it in the zip)'],['✖ {} 을(를) 갱신하지 못했습니다: {} (저장 안 됨 · ☰ 의 zip 연결을 다시 해 보십시오)','✖ Could not update {1}: {2} (not saved · try linking the zip again from ☰)'],['📦 {} 내려받음 (파일 {}개) — 이 브라우저는 파일에 직접 쓸 수 없어 새 파일로 받습니다 (Chrome · Edge · Android Chrome 에서 HTML 파일을 직접 열면 바로 저장됨)','📦 Downloaded {1} ({2} files) — this browser cannot write files directly, so it saves a new copy (open the HTML file directly in Chrome · Edge · Android Chrome to save in place)'],['💾 저장됨 (브라우저에만 · ☰ 에서 zip 연결 가능)','💾 Saved (browser only · link a zip from ☰)'],['💾 저장됨 · {}','💾 Saved · {1}'],['저장할 때 zip 내려받기: 켜짐 (누르면 끔)','Download a zip on every save: on (tap to turn off)'],['저장할 때 zip 내려받기: 꺼짐 (누르면 켬)','Download a zip on every save: off (tap to turn on)'],['📦 저장할 때마다 zip 을 내려받습니다 — 이 브라우저는 파일에 직접 쓸 수 없어 매번 새 파일로 받습니다','📦 A zip will download on every save — this browser cannot write files directly, so each save is a new copy'],['📦 저장할 때 zip 내려받기를 껐습니다 (저장은 브라우저에만)','📦 Zip download on save is off (saving to the browser only)'],
+['📦 처음 상태를 {} 로 내려받았습니다 — {} 이후 저장은 브라우저에만 됩니다 (☰ zip으로 내보내기로 다시 받을 수 있음)','📦 Downloaded the initial state as {1}. {2} later saves go to the browser only (use ☰ Export as zip to get a new one)'],
 ['이 브라우저(또는 claude.ai 안)에서는 zip 파일을 덮어쓸 수 없어','this browser (or claude.ai) can\'t overwrite a zip file, so'],
 ['파일 선택 창을 열 수 없어 (claude.ai 안에서는 막혀 있음)','the file picker can\'t open here (it is blocked inside claude.ai), so'],
-['✖ zip 연결을 할 수 없음 — {}','✖ Can\'t link a zip: {1}'],
-['📦 zip 연결을 건너뜀 — ☰ 메뉴의 "저장할 zip 연결" 로 나중에 할 수 있음','📦 Skipped linking a zip. You can do it later with "Link a zip" in the ☰ menu'],
-['📦 {} 에 연결함 — 저장할 때마다 이 zip 이 바뀜 (다시 내려받지 않음)','📦 Linked {1}. Every save updates this zip (no new download)'],
-['📦 zip 연결을 해제함 (저장은 브라우저에만)','📦 Unlinked the zip (saves go to the browser only)'],
+['✖ zip 연결을 할 수 없습니다 — {}','✖ Can\'t link a zip: {1}'],
+['📦 zip 연결을 건너뛰었습니다 — ☰ 메뉴의 "저장할 zip 연결" 로 나중에 할 수 있습니다','📦 Skipped linking a zip. You can do it later with "Link a zip" in the ☰ menu'],
+['📦 {} 에 연결했습니다 — 저장할 때마다 이 zip 이 바뀝니다 (다시 내려받지 않음)','📦 Linked {1}. Every save updates this zip (no new download)'],
+['📦 zip 연결을 해제했습니다 (저장은 브라우저에만)','📦 Unlinked the zip (saves go to the browser only)'],
 ['💾 저장됨 · {} 갱신','💾 Saved · {1} updated'],
 ['✖ {} 을(를) 갱신하지 못했습니다: {} (브라우저에는 저장됨)','✖ Couldn\'t update {1}: {2} (saved in the browser)'],
-['zip 파일에 쓸 권한 없음','no permission to write the zip file'],
+['zip 파일에 쓸 권한이 없습니다','no permission to write the zip file'],
 ['이름(id)이 비어 있습니다','The name (id) is empty'],
 ['\'{}\' 은(는) 이미지 이름이 아닙니다 (mag.importFile("경로") save as ("{}"); 로 먼저 이름을 붙이세요)','\'{1}\' is not an image name (name a path first with mag.importFile("path") save as ("{2}");)'],
 ['Magellan · 경로에 짧은 이름 붙이기 (프로그램 전체 공유 · 복사하지 않음)','Magellan · give a path a short name (shared by the whole program · nothing is copied)'],
@@ -9571,12 +9571,12 @@ const I18N_EN=[
 // ---- 내보낸 실행 파일 ----
 ['▶ 다시 실행','▶ Run again'],['실행 중','running'],['■ 종료','■ Finished'],['■ 중지됨','■ Stopped'],['✖ 내부 오류: {}','✖ Internal error: {1}'],
 // ---- Lite: 봉인된 사용자 라이브러리 ----
-['라이브러리 \'{}\' 은(는) JawBreaker Dev. 에서만 쓸 수 있습니다 (JawBreaker Lite 에서는 사용자 라이브러리가 봉인되어 있습니다)','Library \'{1}\' only works in JawBreaker Dev. (user libraries are sealed in JawBreaker Lite)'],['.jbx 라이브러리 파일은 ext/ 폴더 안에 있어야 합니다','.jbx library files must be inside the ext/ folder'],['ext/ 폴더에는 .jbx 라이브러리 파일만 둘 수 있습니다','The ext/ folder can only hold .jbx library files'],['사용자 라이브러리 (.jbx) — JawBreaker Dev. 에서만 열 수 있음','User library (.jbx) — opens only in JawBreaker Dev.'],
+['라이브러리 \'{}\' 은(는) JawBreaker Dev. 에서만 쓸 수 있습니다 (JawBreaker Lite 에서는 사용자 라이브러리가 봉인되어 있습니다)','Library \'{1}\' only works in JawBreaker Dev. (user libraries are sealed in JawBreaker Lite)'],['.jbx 라이브러리 파일은 ext/ 폴더 안에 있어야 합니다','.jbx library files must be inside the ext/ folder'],['ext/ 폴더에는 .jbx 라이브러리 파일만 둘 수 있습니다','The ext/ folder can only hold .jbx library files'],['사용자 라이브러리 (.jbx) — JawBreaker Dev. 에서만 열 수 있습니다','User library (.jbx) — opens only in JawBreaker Dev.'],
 // ---- Dev.: 사용자 라이브러리 ----
-['권한은 "cam" · "mic" · "file" 중 하나입니다 (받은 값: "{}")','A permission is one of "cam" · "mic" · "file" (got: "{1}")'],['hasPermit 에는 "cam" · "mic" · "file" 중 하나를 넣습니다 — 받은 형식: {}','hasPermit takes one of "cam" · "mic" · "file" — got type: {1}'],['🔓 {}: 허락됨','🔓 {1}: allowed'],['🔒 {}: 허락되지 않음','🔒 {1}: not allowed'],["마이크 권한이 없습니다 — jaw.getPermit(\"mic\"); 로 먼저 허락을 받으세요","No microphone permission — ask first with jaw.getPermit(\"mic\");"],["이 data 는 텍스쳐로 쓸 수 없습니다 (카메라에 귀속된 data 나 카메라에서 나온 그림만)","This data cannot be used as a texture (only data bound to the camera or a picture that came from the camera)"],['카메라 권한이 없습니다 — jaw.getPermit("cam"); 로 먼저 허락을 받으세요','No camera permission — ask first with jaw.getPermit("cam");'],['C 변환은 아직 jaw.{} 을 지원하지 않습니다 (편집기 · HTML 내보내기 · jdh build exe 에서 실행됨)','C conversion does not support jaw.{1} yet (runs in the editor · HTML export · jdh build exe)'],["C 변환은 아직 deviceManager 를 지원하지 않습니다 (편집기 · HTML 내보내기 · jdh build exe 에서 실행됨)","C conversion does not support deviceManager yet (runs in the editor · HTML export · jdh build exe)"],['이 게임이 파일 하나를 읽고 고치려고 함','This game wants to read and change one file'],['파일 고르기','Choose a file'],['jawbreaker · 허락됐으면 1 ("cam" · "mic" · "file")','jawbreaker · 1 if allowed ("cam" · "mic" · "file")'],["data 에는 '{}' 를 쓸 수 없습니다 — 다른 형식의 변수에 옮겨서 쓰세요 (문자열과 + 로 이어 붙이면 16진수)","'{1}' cannot be used on data — move it into a variable of another type first (joined to a string with + it shows as hex)"],["data 는 리스트 · compound 에 넣을 수 없습니다 — 다른 형식으로 바꿔서 넣으세요","data cannot be put in a list · compound — convert it to another type first"],["C 변환은 아직 data 형식을 지원하지 않습니다 (편집기 · HTML 내보내기 · jdh build exe 에서 실행됨)","C conversion does not support the data type yet (runs in the editor · HTML export · jdh build exe)"],["deviceManager 에 '{}' 명령어가 없습니다 (사용 가능: {})","deviceManager has no command '{1}' (available: {2})"],["{} 은(는) data 변수 이름을 \"따옴표\" 로 씁니다 (예: {}.{}(\"video\");)","{1} takes the data variable name in \"quotes\" (e.g. {2}.{3}(\"video\");)"],["변수 '{}' 이(가) 선언되지 않았습니다 (var data call {}; 로 먼저 만드세요)","Variable '{1}' is not declared (create it first with var data call {2};)"],["{} 은(는) data 변수에만 쓸 수 있습니다 ('{}' 은(는) {})","{1} works only on data variables ('{2}' is {3})"],["deviceManager · 귀속을 풂 (그 순간의 바이트가 남음)","deviceManager · unbind (the bytes of that moment stay)"],["deviceManager · data 변수를 카메라에 귀속","deviceManager · bind a data variable to the camera"],["deviceManager · data 변수를 마이크에 귀속","deviceManager · bind a data variable to the microphone"],["장치 · 카메라 · 마이크","devices · camera · microphone"],["'data.{}.{}' 다음에는 ( ) 가 필요합니다","'data.{1}.{2}' must be followed by ( )"],["data 변수의 명령어는 getPart · setPart 입니다 (받은 이름: {})","The commands of a data variable are getPart · setPart (got: {1})"],["setPart 는 값을 돌려주지 않아서 식 안에서 쓸 수 없습니다 — 문장으로 씁니다 (data.이름.setPart(시작, 끝, 값);)","setPart returns no value, so it cannot be used in an expression — write it as a statement (data.name.setPart(start, end, value);)"],["getPart 는 값을 돌려주는 식이라 단독으로 쓸 수 없습니다 (예: var data call p = data.이름.getPart(0, 4);)","getPart is an expression that returns a value, so it cannot stand alone (e.g. var data call p = data.name.getPart(0, 4);)"],["getPart · setPart 는 data 변수에만 쓸 수 있습니다 ('{}' 은(는) {})","getPart · setPart work only on data variables ('{1}' is {2})"],["'{}' 의 {}번째 값은 바이트 번호 (int) 입니다 (받은 형식: {})","Value {2} of '{1}' is a byte index (int) (got type: {3})"],["as ( ) 안에는 받을 data 변수 이름을 \"따옴표\" 로 씁니다 (예: jaw.copyFileData(\"permit\") as (\"doc\");)","Inside as ( ) write the receiving data variable name in \"quotes\" (e.g. jaw.copyFileData(\"permit\") as (\"doc\");)"],["허락받은 파일이 없습니다 — 먼저 jaw.getPermit(\"file\"); 로 파일을 고르세요","No permitted file — choose a file first with jaw.getPermit(\"file\");"],["'{}' 에 쓰지 못했습니다 ({})","Could not write '{1}' ({2})"],["overWriteFile 로 쓸 수 없는 경로입니다 — 코드 (.jb · .jbl) · project.jbs · ext/ 는 안 됨 (받은 값: \"{}\")","overWriteFile cannot write this path — not code (.jb · .jbl) · project.jbs · ext/ (got: \"{1}\")"],["copyFileData 는 받을 data 변수를 as (\"이름\") 으로 정합니다 (예: jaw.copyFileData(\"permit\") as (\"doc\");)","copyFileData sets the receiving data variable with as (\"name\") (e.g. jaw.copyFileData(\"permit\") as (\"doc\");)"],["copyFileData 는 data 변수에만 넣을 수 있습니다 ('{}' 은(는) {})","copyFileData only puts into data variables ('{1}' is {2})"],["(\"경로\") as (\"data 변수\")","(\"path\") as (\"data var\")"],["프로젝트 파일의 바이트를 data 변수에 넣음","put a project file's bytes into a data variable"],["(값, \"경로\")","(value, \"path\")"],["값의 바이트로 파일을 덮어씀 (genJson 과 같은 곳)","overwrite a file with the bytes of the value (same place as genJson)"],["이 줄에 이름을 붙임 (goTo(\"이름\") 으로 이 줄로 옴)","name this line (goTo(\"name\") jumps here)"],["(\"경로.json\", \"파일 이름\")","(\"path.json\", \"file name\")"],["그 파일을 난독화해서 기기로 내려받기","download that file to the device, obfuscated"],["(\"경로.json\")","(\"path.json\")"],["기기의 파일을 골라 그 경로로 가져옴 (고를 때까지 기다림)","choose a file on the device and bring it to that path (waits until chosen)"],["(\"id\", 색, 세기)","(\"id\", color, strength)"],["빛 번짐 — 모양 둘레로 그 색이 번짐 (세기 = 번지는 거리 · 0 = 없앰)","glow — that color spreads around the shape (strength = distance · 0 = off)"],
+['권한은 "cam" · "mic" · "file" 중 하나입니다 (받은 값: "{}")','A permission is one of "cam" · "mic" · "file" (got: "{1}")'],['hasPermit 에는 "cam" · "mic" · "file" 중 하나를 넣습니다 — 받은 형식: {}','hasPermit takes one of "cam" · "mic" · "file" — got type: {1}'],['🔓 {}: 허락됨','🔓 {1}: allowed'],['🔒 {}: 허락되지 않음','🔒 {1}: not allowed'],["마이크 권한이 없습니다 — jaw.getPermit(\"mic\"); 로 먼저 허락을 받으세요","No microphone permission — ask first with jaw.getPermit(\"mic\");"],["이 data 는 텍스쳐로 쓸 수 없습니다 (카메라에 귀속된 data 나 카메라에서 나온 그림만)","This data cannot be used as a texture (only data bound to the camera or a picture that came from the camera)"],['카메라 권한이 없습니다 — jaw.getPermit("cam"); 로 먼저 허락을 받으세요','No camera permission — ask first with jaw.getPermit("cam");'],['C 변환은 아직 jaw.{} 을 지원하지 않습니다 (편집기 · HTML 내보내기 · jdh build exe 에서 실행됨)','C conversion does not support jaw.{1} yet (runs in the editor · HTML export · jdh build exe)'],["C 변환은 아직 deviceManager 를 지원하지 않습니다 (편집기 · HTML 내보내기 · jdh build exe 에서 실행됨)","C conversion does not support deviceManager yet (runs in the editor · HTML export · jdh build exe)"],['이 게임이 파일 하나를 읽고 고치려고 합니다','This game wants to read and change one file'],['파일 고르기','Choose a file'],['jawbreaker · 허락됐으면 1 ("cam" · "mic" · "file")','jawbreaker · 1 if allowed ("cam" · "mic" · "file")'],["data 에는 '{}' 를 쓸 수 없습니다 — 다른 형식의 변수에 옮겨서 쓰세요 (문자열과 + 로 이어 붙이면 16진수)","'{1}' cannot be used on data — move it into a variable of another type first (joined to a string with + it shows as hex)"],["data 는 리스트 · compound 에 넣을 수 없습니다 — 다른 형식으로 바꿔서 넣으세요","data cannot be put in a list · compound — convert it to another type first"],["C 변환은 아직 data 형식을 지원하지 않습니다 (편집기 · HTML 내보내기 · jdh build exe 에서 실행됨)","C conversion does not support the data type yet (runs in the editor · HTML export · jdh build exe)"],["deviceManager 에 '{}' 명령어가 없습니다 (사용 가능: {})","deviceManager has no command '{1}' (available: {2})"],["{} 은(는) data 변수 이름을 \"따옴표\" 로 씁니다 (예: {}.{}(\"video\");)","{1} takes the data variable name in \"quotes\" (e.g. {2}.{3}(\"video\");)"],["변수 '{}' 이(가) 선언되지 않았습니다 (var data call {}; 로 먼저 만드세요)","Variable '{1}' is not declared (create it first with var data call {2};)"],["{} 은(는) data 변수에만 쓸 수 있습니다 ('{}' 은(는) {})","{1} works only on data variables ('{2}' is {3})"],["deviceManager · 귀속을 풂 (그 순간의 바이트가 남음)","deviceManager · unbind (the bytes of that moment stay)"],["deviceManager · data 변수를 카메라에 귀속","deviceManager · bind a data variable to the camera"],["deviceManager · data 변수를 마이크에 귀속","deviceManager · bind a data variable to the microphone"],["장치 · 카메라 · 마이크","devices · camera · microphone"],["'data.{}.{}' 다음에는 ( ) 가 필요합니다","'data.{1}.{2}' must be followed by ( )"],["data 변수의 명령어는 getPart · setPart 입니다 (받은 이름: {})","The commands of a data variable are getPart · setPart (got: {1})"],["setPart 는 값을 돌려주지 않아서 식 안에서 쓸 수 없습니다 — 문장으로 씁니다 (data.이름.setPart(시작, 끝, 값);)","setPart returns no value, so it cannot be used in an expression — write it as a statement (data.name.setPart(start, end, value);)"],["getPart 는 값을 돌려주는 식이라 단독으로 쓸 수 없습니다 (예: var data call p = data.이름.getPart(0, 4);)","getPart is an expression that returns a value, so it cannot stand alone (e.g. var data call p = data.name.getPart(0, 4);)"],["getPart · setPart 는 data 변수에만 쓸 수 있습니다 ('{}' 은(는) {})","getPart · setPart work only on data variables ('{1}' is {2})"],["'{}' 의 {}번째 값은 바이트 번호 (int) 입니다 (받은 형식: {})","Value {2} of '{1}' is a byte index (int) (got type: {3})"],["as ( ) 안에는 받을 data 변수 이름을 \"따옴표\" 로 씁니다 (예: jaw.copyFileData(\"permit\") as (\"doc\");)","Inside as ( ) write the receiving data variable name in \"quotes\" (e.g. jaw.copyFileData(\"permit\") as (\"doc\");)"],["허락받은 파일이 없습니다 — 먼저 jaw.getPermit(\"file\"); 로 파일을 고르세요","No permitted file — choose a file first with jaw.getPermit(\"file\");"],["'{}' 에 쓰지 못했습니다 ({})","Could not write '{1}' ({2})"],["overWriteFile 로 쓸 수 없는 경로입니다 — 코드 (.jb · .jbl) · project.jbs · ext/ 는 안 됨 (받은 값: \"{}\")","overWriteFile cannot write this path — not code (.jb · .jbl) · project.jbs · ext/ (got: \"{1}\")"],["copyFileData 는 받을 data 변수를 as (\"이름\") 으로 정합니다 (예: jaw.copyFileData(\"permit\") as (\"doc\");)","copyFileData sets the receiving data variable with as (\"name\") (e.g. jaw.copyFileData(\"permit\") as (\"doc\");)"],["copyFileData 는 data 변수에만 넣을 수 있습니다 ('{}' 은(는) {})","copyFileData only puts into data variables ('{1}' is {2})"],["(\"경로\") as (\"data 변수\")","(\"path\") as (\"data var\")"],["프로젝트 파일의 바이트를 data 변수에 넣음","put a project file's bytes into a data variable"],["(값, \"경로\")","(value, \"path\")"],["값의 바이트로 파일을 덮어씀 (genJson 과 같은 곳)","overwrite a file with the bytes of the value (same place as genJson)"],["이 줄에 이름을 붙임 (goTo(\"이름\") 으로 이 줄로 옴)","name this line (goTo(\"name\") jumps here)"],["(\"경로.json\", \"파일 이름\")","(\"path.json\", \"file name\")"],["그 파일을 난독화해서 기기로 내려받기","download that file to the device, obfuscated"],["(\"경로.json\")","(\"path.json\")"],["기기의 파일을 골라 그 경로로 가져옴 (고를 때까지 기다림)","choose a file on the device and bring it to that path (waits until chosen)"],["(\"id\", 색, 세기)","(\"id\", color, strength)"],["빛 번짐 — 모양 둘레로 그 색이 번짐 (세기 = 번지는 거리 · 0 = 없앰)","glow — that color spreads around the shape (strength = distance · 0 = off)"],
 ["최근 프로젝트 없음","No recent projects"],
 ["프로젝트","Projects"],
-/*DEV-START*/['⧉ 라이브러리 {}: 파일 읽기를 허락하지 않아 파일이 없는 것처럼 실행함','⧉ Library {1}: file reading is not allowed — running as if there were no files'],['라이브러리 신뢰 확인','Trust this library?'],['이 라이브러리의 C 코드가 격리된 공간에서 실행됨. 믿을 수 있는 곳에서 받은 것만 허락할 것.','This library\'s C code runs in an isolated space. Only allow libraries from sources you trust.'],['쓰는 엔진 기능:','Engine features it uses:'],['쓰는 엔진 기능 없음 (명령어 · 값만)','Uses no engine features (commands · values only)'],['· 화면에 그리기 (draw)','· Draw on the screen (draw)'],['· 오브젝트 읽기 — 위치 · 크기 · 속도 · 색 · 글자 (objects.read)','· Read objects — position · scale · velocity · color · text (objects.read)'],['· 오브젝트 바꾸기 — 위치 · 크기 · 속도 · 색 · 글자 (objects.write)','· Change objects — position · scale · velocity · color · text (objects.write)'],['· 이 프로젝트의 파일 읽기 — 읽기만 (files.read)','· Read this project\'s files — read only (files.read)'],['EXE 로 내보내면 이 라이브러리는 격리 없이 실행됨.','When exported as an EXE, this library runs without isolation.'],['같은 이름의 라이브러리를 이것으로 바꿈.','This replaces the library with the same name.'],['신뢰 · 파일 읽기 허락','Trust · allow reading files'],['신뢰 · 파일 읽기는 막음','Trust · block reading files'],['신뢰하고 쓰기','Trust and use'],['라이브러리 \'{}\' 을(를) 신뢰하지 않아 실행하지 않음','Library \'{1}\' is not trusted, so the program was not run'],['라이브러리를 넣지 않음 (신뢰하지 않음)','The library was not added (not trusted)'],['라이브러리를 넣음','Library added'],['라이브러리 불러오기 (.jbx)','Import library (.jbx)'],['사용자 라이브러리 설명서 (읽기 전용)','User library documentation (read only)'],['명령어','Commands'],['값','Values'],['별칭','alias'],['엔진 기능 (권한)','Engine features (permissions)'],['사용자 라이브러리','User library'],['\'{}\' 의 {}번째 값은 리스트여야 합니다 (받은 형식: {})','Value {2} of \'{1}\' must be a list (got type: {3})'],['\'{}\' 의 {}번째 값은 리스트여야 합니다 (받은 값: {})','Value {2} of \'{1}\' must be a list (got: {3})'],['\'{}\' 의 {}번째 값은 항목이 {}개인 리스트여야 합니다 (받은 것: {}개)','Value {2} of \'{1}\' must be a list of {3} items (got {4})'],['\'{}\' 의 {}번째 값의 {}번째 항목은 {} 형식이어야 합니다 (받은 값: {})','Item {3} of value {2} of \'{1}\' must be {4} (got: {5})'],['\'{}\' 의 {}번째 값은 행렬이어야 합니다 (받은 형식: {})','Value {2} of \'{1}\' must be a matrix (got type: {3})'],['\'{}\' 의 {}번째 값은 행렬이어야 합니다 (받은 값: {})','Value {2} of \'{1}\' must be a matrix (got: {3})'],['\'{}\' 의 {}번째 값은 {} 행렬이어야 합니다 (받은 값: {})','Value {2} of \'{1}\' must be {3} (got: {4})'],['⧉ 라이브러리 {}: 네트워크를 허락하지 않아 접속하지 않음','⧉ Library {1}: network access is not allowed — it will not connect'],['· 네트워크 — 인터넷의 어느 서버에든 접속 (network)','· Network — connect to any server on the internet (network)'],['네트워크를 허락하면 이 라이브러리가 읽은 것 (오브젝트 · 허락한 파일) 을 밖으로 보낼 수 있음.','If you allow network access, this library can send what it reads (objects · files you allow) to the outside.'],['신뢰 · 모두 허락','Trust · allow all'],['신뢰 · 파일 읽기만 허락','Trust · allow file reading only'],['신뢰 · 네트워크만 허락','Trust · allow network only'],['신뢰 · 모두 막음','Trust · block all'],['신뢰 · 네트워크 허락','Trust · allow network'],['신뢰 · 네트워크는 막음','Trust · block network'],['· 서버 — 이 PC 의 포트를 열고 HTTP · WebSocket 접속을 받음 · EXE 에서만 (server)','· Server — opens a port on this PC and accepts HTTP · WebSocket connections · EXE only (server)'],['⧉ 라이브러리 {}: 서버 (접속 받기) 는 EXE 에서만 됨 — 여기서는 포트를 열지 않음','⧉ Library {1}: the server (accepting connections) only works in EXE — no port is opened here'],['라이브러리 \'{}\' 의 값 \'{}\' 이(가) 올바른 JSON 이 아닙니다','The value \'{2}\' of library \'{1}\' is not valid JSON'],['라이브러리 \'{}\' 의 값 \'{}\' 에 { } (객체)가 있습니다 — compound 값은 [ ] · 숫자 · 문자열 · true/false · null 만 씁니다','The value \'{2}\' of library \'{1}\' contains { } (an object) — a compound value uses only [ ] · numbers · strings · true/false · null'],/*DEV-END*/
+/*DEV-START*/['⧉ 라이브러리 {}: 파일 읽기를 허락하지 않아 파일이 없는 것처럼 실행합니다','⧉ Library {1}: file reading is not allowed — running as if there were no files'],['라이브러리를 신뢰하겠습니까?','Trust this library?'],['이 라이브러리의 C 코드가 격리된 공간에서 실행됩니다. 믿을 수 있는 곳에서 받은 것만 허락하십시오.','This library\'s C code runs in an isolated space. Only allow libraries from sources you trust.'],['쓰는 엔진 기능:','Engine features it uses:'],['쓰는 엔진 기능 없음 (명령어 · 값만)','Uses no engine features (commands · values only)'],['· 화면에 그리기 (draw)','· Draw on the screen (draw)'],['· 오브젝트 읽기 — 위치 · 크기 · 속도 · 색 · 글자 (objects.read)','· Read objects — position · scale · velocity · color · text (objects.read)'],['· 오브젝트 바꾸기 — 위치 · 크기 · 속도 · 색 · 글자 (objects.write)','· Change objects — position · scale · velocity · color · text (objects.write)'],['· 이 프로젝트의 파일 읽기 — 읽기만 (files.read)','· Read this project\'s files — read only (files.read)'],['EXE 로 내보내면 이 라이브러리는 격리 없이 실행됩니다.','When exported as an EXE, this library runs without isolation.'],['같은 이름의 라이브러리를 이것으로 바꿉니다.','This replaces the library with the same name.'],['신뢰 · 파일 읽기 허락','Trust · allow reading files'],['신뢰 · 파일 읽기는 막음','Trust · block reading files'],['신뢰하고 쓰기','Trust and use'],['라이브러리 \'{}\' 을(를) 신뢰하지 않아 실행하지 않았습니다','Library \'{1}\' is not trusted, so the program was not run'],['라이브러리를 넣지 않았습니다 (신뢰하지 않음)','The library was not added (not trusted)'],['라이브러리를 넣었습니다','Library added'],['라이브러리 불러오기 (.jbx)','Import library (.jbx)'],['사용자 라이브러리 설명서 (읽기 전용)','User library documentation (read only)'],['명령어','Commands'],['값','Values'],['별칭','alias'],['엔진 기능 (권한)','Engine features (permissions)'],['사용자 라이브러리','User library'],['\'{}\' 의 {}번째 값은 리스트여야 합니다 (받은 형식: {})','Value {2} of \'{1}\' must be a list (got type: {3})'],['\'{}\' 의 {}번째 값은 리스트여야 합니다 (받은 값: {})','Value {2} of \'{1}\' must be a list (got: {3})'],['\'{}\' 의 {}번째 값은 항목이 {}개인 리스트여야 합니다 (받은 것: {}개)','Value {2} of \'{1}\' must be a list of {3} items (got {4})'],['\'{}\' 의 {}번째 값의 {}번째 항목은 {} 형식이어야 합니다 (받은 값: {})','Item {3} of value {2} of \'{1}\' must be {4} (got: {5})'],['\'{}\' 의 {}번째 값은 행렬이어야 합니다 (받은 형식: {})','Value {2} of \'{1}\' must be a matrix (got type: {3})'],['\'{}\' 의 {}번째 값은 행렬이어야 합니다 (받은 값: {})','Value {2} of \'{1}\' must be a matrix (got: {3})'],['\'{}\' 의 {}번째 값은 {} 행렬이어야 합니다 (받은 값: {})','Value {2} of \'{1}\' must be {3} (got: {4})'],['⧉ 라이브러리 {}: 네트워크를 허락하지 않아 접속하지 않습니다','⧉ Library {1}: network access is not allowed — it will not connect'],['· 네트워크 — 인터넷의 어느 서버에든 접속 (network)','· Network — connect to any server on the internet (network)'],['네트워크를 허락하면 이 라이브러리가 읽은 것 (오브젝트 · 허락한 파일) 을 밖으로 보낼 수 있습니다.','If you allow network access, this library can send what it reads (objects · files you allow) to the outside.'],['신뢰 · 모두 허락','Trust · allow all'],['신뢰 · 파일 읽기만 허락','Trust · allow file reading only'],['신뢰 · 네트워크만 허락','Trust · allow network only'],['신뢰 · 모두 막음','Trust · block all'],['신뢰 · 네트워크 허락','Trust · allow network'],['신뢰 · 네트워크는 막음','Trust · block network'],['· 서버 — 이 PC 의 포트를 열고 HTTP · WebSocket 접속을 받음 · EXE 에서만 (server)','· Server — opens a port on this PC and accepts HTTP · WebSocket connections · EXE only (server)'],['⧉ 라이브러리 {}: 서버 (접속 받기) 는 EXE 에서만 됩니다 — 여기서는 포트를 열지 않습니다','⧉ Library {1}: the server (accepting connections) only works in EXE — no port is opened here'],['라이브러리 \'{}\' 의 값 \'{}\' 이(가) 올바른 JSON 이 아닙니다','The value \'{2}\' of library \'{1}\' is not valid JSON'],['라이브러리 \'{}\' 의 값 \'{}\' 에 { } (객체)가 있습니다 — compound 값은 [ ] · 숫자 · 문자열 · true/false · null 만 씁니다','The value \'{2}\' of library \'{1}\' contains { } (an object) — a compound value uses only [ ] · numbers · strings · true/false · null'],/*DEV-END*/
 ];
 /*I18N-X*/
 const I18N_X={
@@ -9745,7 +9745,7 @@ async function openSettings(){
   sel.value=ramGet();
   const hint=document.createElement('div');hint.className='mhint';
   const use=document.createElement('div'),info=document.createElement('div');hint.append(use,info);
-  info.textContent='게임 실행 중 풀어 둔 이미지 · 소리 · 글자 그림이 쓰는 램의 상한. 넘으면 오래 안 쓴 것부터 비우고, 다시 쓰일 때 다시 읽음. HTML · APK 로 내보낸 게임에도 들어감 (EXE 제외).';
+  info.textContent='게임 실행 중 풀어 둔 이미지 · 소리 · 글자 그림이 쓰는 램의 상한입니다. 넘으면 오래 안 쓴 것부터 비우고, 다시 쓰일 때 다시 읽습니다. HTML · APK 로 내보낸 게임에도 들어갑니다 (EXE 제외).';
   let useT='';
   const showUse=()=>{   // 지금 쓰는 양 / 한도 (바뀔 때만 고침)
     const st=JBMEM.stat(),t=`지금 사용 ${JBMEM.fmt(st.used)} / ${st.limit?JBMEM.fmt(st.limit):'무제한'}`+(st.cfg==='auto'?' (자동)':'');
@@ -9770,7 +9770,7 @@ async function deflateRaw(u8){
   try{return await streamThrough(u8,new CompressionStream('deflate-raw'));}catch(e){return null;}
 }
 async function inflateRaw(u8){
-  if(typeof DecompressionStream==='undefined')throw new Error('이 브라우저는 압축된 zip 을 풀 수 없음 (최신 브라우저에서 열 것)');
+  if(typeof DecompressionStream==='undefined')throw new Error('이 브라우저는 압축된 zip 을 풀 수 없습니다 (최신 브라우저에서 열어 주십시오)');
   return streamThrough(u8,new DecompressionStream('deflate-raw'));
 }
 // entries: [{name, data:Uint8Array}] — data 가 null 이면 폴더
@@ -9816,11 +9816,11 @@ async function readZip(buf){
   const u8=new Uint8Array(buf),dv=new DataView(buf);
   let eo=-1;
   for(let i=u8.length-22;i>=Math.max(0,u8.length-22-65535);i--){if(dv.getUint32(i,true)===0x06054b50){eo=i;break;}}
-  if(eo<0)throw new Error('zip 파일이 아니거나 손상됨');
+  if(eo<0)throw new Error('zip 파일이 아니거나 손상되었습니다');
   const cnt=dv.getUint16(eo+10,true);let p=dv.getUint32(eo+16,true);
   const out=[];
   for(let k=0;k<cnt;k++){
-    if(p+46>u8.length||dv.getUint32(p,true)!==0x02014b50)throw new Error('zip 목록이 손상됨');
+    if(p+46>u8.length||dv.getUint32(p,true)!==0x02014b50)throw new Error('zip 목록이 손상되었습니다');
     const flag=dv.getUint16(p+8,true),method=dv.getUint16(p+10,true),csize=dv.getUint32(p+20,true);
     const nlen=dv.getUint16(p+28,true),xlen=dv.getUint16(p+30,true),clen=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true);
     const name=(flag&0x800)?new TextDecoder('utf-8').decode(u8.subarray(p+46,p+46+nlen)):decodeBytes(u8.subarray(p+46,p+46+nlen));
@@ -9908,26 +9908,26 @@ function updateZipUI(){
   if(!b)return;
   if(zipHandle)b.textContent=`zip 연결됨: ${zipHandle.name} (누르면 해제)`;
   else if(canLinkZip())b.textContent='저장할 zip 연결 (저장할 때 덮어쓰기)';
-  else b.textContent='이 브라우저는 파일에 직접 저장 못 함 (저장 = zip 내려받기)';
+  else b.textContent='이 브라우저는 파일에 직접 저장하지 못합니다 (저장 = zip 내려받기)';
 }
 // 새 zip 파일을 고르고 지금 상태를 씀. 안 되는 곳에서는 initial 일 때 처음 상태 zip 을 내려받음
 async function linkZip(initial){
   const fallback=async why=>{
-    if(initial){try{const snap={f:Object.assign({},files),d:[...dirs]};const fn=await exportZip(snap.f,snap.d,projName());savedFrom(snap);addLog(`📦 처음 상태를 ${fn} 로 내려받음 — ${why} 이후 저장은 브라우저에만 됨 (☰ zip으로 내보내기로 다시 받을 수 있음)`,'sys');}catch(e){}}
-    else addLog(`✖ zip 연결을 할 수 없음 — ${why}`,'err');
+    if(initial){try{const snap={f:Object.assign({},files),d:[...dirs]};const fn=await exportZip(snap.f,snap.d,projName());savedFrom(snap);addLog(`📦 처음 상태를 ${fn} 로 내려받았습니다 — ${why} 이후 저장은 브라우저에만 됩니다 (☰ zip으로 내보내기로 다시 받을 수 있음)`,'sys');}catch(e){}}
+    else addLog(`✖ zip 연결을 할 수 없습니다 — ${why}`,'err');
   };
   if(!canLinkZip())return fallback('이 브라우저(또는 claude.ai 안)에서는 zip 파일을 덮어쓸 수 없어');
   try{
     zipHandle=await window.showSaveFilePicker({suggestedName:safeName(projName())+'.zip',types:[{description:'zip',accept:{'application/zip':['.zip']}}]});
   }catch(e){
-    if(e&&e.name==='AbortError'){if(initial)addLog('📦 zip 연결을 건너뜀 — ☰ 메뉴의 "저장할 zip 연결" 로 나중에 할 수 있음','sys');return;}
+    if(e&&e.name==='AbortError'){if(initial)addLog('📦 zip 연결을 건너뛰었습니다 — ☰ 메뉴의 "저장할 zip 연결" 로 나중에 할 수 있습니다','sys');return;}
     return fallback('파일 선택 창을 열 수 없어 (claude.ai 안에서는 막혀 있음)');
   }
   zipWarned=false;await zipStore(zipHandle);updateZipUI();
   const ok=await writeZip(true);
-  if(ok){addLog(`📦 ${zipHandle.name} 에 연결함 — 저장(💾 · Ctrl+S)과 zip 내보내기가 이 파일을 바로 덮어씀`,'sys');toast('💾 저장됨 · '+zipHandle.name);}
+  if(ok){addLog(`📦 ${zipHandle.name} 에 연결했습니다 — 저장(💾 · Ctrl+S)과 zip 내보내기가 이 파일을 바로 덮어씁니다`,'sys');toast('💾 저장됨 · '+zipHandle.name);}
 }
-async function unlinkZip(){zipHandle=null;updateZipUI();addLog('📦 zip 연결을 해제함 — 다음 저장 때 저장할 zip 을 다시 고름','sys');}
+async function unlinkZip(){zipHandle=null;updateZipUI();addLog('📦 zip 연결을 해제했습니다 — 다음 저장 때 저장할 zip 을 다시 고릅니다','sys');}
 // 저장할 때: 연결된 zip 을 지금 상태로 덮어씀 (여러 번 겹치면 한 번 더)
 // jsonOnly: 실행 중 genJson 이 만든 파일만 zip 에 넣음 — 나머지는 마지막으로 저장한 상태 그대로 (저장 안 한 코드 수정은 넣지 않음)
 const jsonPend=new Map();let zipAgainFull=false,jsonWarned=false;
@@ -9944,7 +9944,7 @@ function writeZip(quiet,jsonOnly){
   zipBusy=(async()=>{
     try{
       if(h.queryPermission&&await h.queryPermission({mode:'readwrite'})!=='granted'){
-        if(!h.requestPermission||await h.requestPermission({mode:'readwrite'})!=='granted')throw new Error('zip 파일에 쓸 권한 없음');
+        if(!h.requestPermission||await h.requestPermission({mode:'readwrite'})!=='granted')throw new Error('zip 파일에 쓸 권한이 없습니다');
       }
       const w=await h.createWritable();
       await w.write(await zipBlob(snap.f,snap.d,snap.n));await w.close();
@@ -9956,8 +9956,8 @@ function writeZip(quiet,jsonOnly){
       if(!quiet)toast('💾 저장됨 · '+h.name+' 갱신');
       zipWarned=false;return true;
     }catch(e){
-      toast(`✖ ${h.name} 에 쓰지 못함 (저장 안 됨)`,true);
-      if(!zipWarned){zipWarned=true;addLog(`✖ ${h.name} 을(를) 갱신하지 못함: ${e.message||e} (저장 안 됨 · ☰ 의 zip 연결을 다시 해 볼 것)`,'err');}
+      toast(`✖ ${h.name} 에 쓰지 못했습니다 (저장 안 됨)`,true);
+      if(!zipWarned){zipWarned=true;addLog(`✖ ${h.name} 을(를) 갱신하지 못했습니다: ${e.message||e} (저장 안 됨 · ☰ 의 zip 연결을 다시 해 보십시오)`,'err');}
       return false;
     }finally{
       zipBusy=null;zipNext=null;
@@ -9970,12 +9970,12 @@ async function exportCurrent(){
   if(!isDoc(active)&&!isImg(active)&&Object.hasOwn(files,active))files[active]=ta.value;
   if(zipHandle){   // 연결된 zip 을 직접 덮어씀
     const ok=await writeZip();
-    addLog(ok?`📦 ${zipHandle.name} 을(를) 덮어씀 (파일 ${Object.keys(files).length}개)`:`✖ ${zipHandle&&zipHandle.name} 에 쓰지 못함 — 아래 오류 참고`,ok?'sys':'err');showPanel('log');return;
+    addLog(ok?`📦 ${zipHandle.name} 을(를) 덮어썼습니다 (파일 ${Object.keys(files).length}개)`:`✖ ${zipHandle&&zipHandle.name} 에 쓰지 못했습니다 — 아래 오류 참고`,ok?'sys':'err');showPanel('log');return;
   }
   if(canLinkZip()){await linkZip(false);showPanel('log');return;}   // 파일을 골라 직접 쓰고, 이후 저장도 그 파일에
   try{
     const fn=await exportZip(files,dirs,projName());
-    addLog(`📦 ${fn} 내려받음 (파일 ${Object.keys(files).length}개) — 이 브라우저는 파일에 직접 쓸 수 없어 새 파일로 받음 (Chrome · Edge · Android Chrome 에서 HTML 파일을 직접 열면 바로 저장됨)`,'sys');
+    addLog(`📦 ${fn} 내려받음 (파일 ${Object.keys(files).length}개) — 이 브라우저는 파일에 직접 쓸 수 없어 새 파일로 받습니다 (Chrome · Edge · Android Chrome 에서 HTML 파일을 직접 열면 바로 저장됨)`,'sys');
   }catch(e){addLog('내보내기 실패: '+(e.message||e),'err');}
   showPanel('log');
 }
@@ -9983,10 +9983,10 @@ async function exportCurrent(){
 async function confirmReplace(what){
   if(!projectOpen||!isDirty())return true;   // 파일에 다 저장돼 있으면 그냥 진행
   const nm=projName()||'(이름 없음)';
-  const v=await ask(what,`지금 프로젝트 '${nm}' 에 저장되지 않은 변경 있음.`,
+  const v=await ask(what,`지금 프로젝트 '${nm}' 에 저장되지 않은 변경이 있습니다.`,
     [{label:'저장하고 진행',value:'save',primary:true},{label:'저장하지 않고 진행',value:'go'},{label:'취소',value:null}]);
   if(!v)return false;
-  if(v==='save'&&!await flushSave()){await ask('저장 실패','파일을 갱신하지 못해 진행하지 않음.',[{label:'확인',value:null}]);return false;}
+  if(v==='save'&&!await flushSave()){await ask('저장 실패','파일을 갱신하지 못해 진행하지 않습니다.',[{label:'확인',value:null}]);return false;}
   return true;
 }
 // 새 프로젝트 상태를 적용하고 에디터 화면으로
@@ -10008,7 +10008,7 @@ function enterEditor(){
   $start.hidden=true;closeMenu();
   if(!$('#explorer').hidden)closeExplorer();
   exs.sel='';exs.selType='';exs.openDirs=new Set(['lib']);
-  lastC='';cview.textContent='// [C 변환] 버튼을 누르면 여기에 C 코드가 생성됨.';
+  lastC='';cview.textContent='// [C 변환] 버튼을 누르면 여기에 C 코드가 생성됩니다.';
   openFile(active);
   showPanel('log');
   addLog(`📂 프로젝트 '${projName()||'(이름 없음)'}' — ▶ 실행 / C 변환 · ☰ 새 파일 · 불러오기 · zip 내보내기 · 📁 파일·폴더 관리`,'sys');
@@ -10021,12 +10021,12 @@ function newProjectFiles(name,withExample){
     return{files:f,dirs:[...DEFAULT_DIRS]};
   }
   return{files:{
-'project.jbs':`${tr('// Jawbreaker 프로젝트 파일 — 이 파일이 있는 폴더가 프로젝트 최상위임.')}
+'project.jbs':`${tr('// Jawbreaker 프로젝트 파일 — 이 파일이 있는 폴더가 프로젝트 최상위입니다.')}
 jbs 1
 name = ${nm}
 main = main.jb
 `,
-'main.jb':`${tr('// 코드는 run{ } 안에 써야 실행됨.')}
+'main.jb':`${tr('// 코드는 run{ } 안에 써야 실행됩니다.')}
 Use jawbreaker call jaw;
 
 run{
@@ -10071,7 +10071,7 @@ function buildImported(entries,label){
   const clean=[];
   for(const e of entries){const p=cleanEntryPath(e);if(p)clean.push(Object.assign({},e,{path:p}));}
   const fe=clean.filter(e=>!e.dir);
-  if(!fe.some(e=>SRC_EXT.test(e.path)))return{err:'불러올 .jb / .jbl / .jbs 파일 없음'};
+  if(!fe.some(e=>SRC_EXT.test(e.path)))return{err:'불러올 .jb / .jbl / .jbs 파일이 없습니다'};
   // 프로젝트 최상위 = 가장 얕은 .jbs 가 있는 폴더 (없으면 공통 상위 폴더, lib 는 제외)
   const jbs=fe.filter(e=>e.path.endsWith('.jbs')).sort((a,b)=>a.path.split('/').length-b.path.split('/').length);
   let root;
@@ -10089,12 +10089,12 @@ function buildImported(entries,label){
     const rel=e.path.slice(pre.length);if(!rel)continue;
     if(e.dir){if(!pathRuleError(rel,true))nd.add(rel);continue;}
     let why=pathRuleError(rel,false);
-    if(!why&&rel.endsWith('.jbs')&&jbsName)why=`.jbs 파일은 하나만 둘 수 있음 (${jbsName})`;
+    if(!why&&rel.endsWith('.jbs')&&jbsName)why=`.jbs 파일은 하나만 둘 수 있습니다 (${jbsName})`;
     if(why){skipped.push(`${rel} — ${why}`);continue;}
     if(rel.endsWith('.jbs'))jbsName=rel;
     nf[rel]=e.text;
   }
-  if(!Object.keys(nf).length)return{err:'규칙에 맞는 파일이 없어 불러오지 못함\n'+skipped.slice(0,5).join('\n')};
+  if(!Object.keys(nf).length)return{err:'규칙에 맞는 파일이 없어 불러오지 못했습니다\n'+skipped.slice(0,5).join('\n')};
   let createdJbs=false;
   if(!jbsName){
     const jbFiles=Object.keys(nf).filter(k=>k.endsWith('.jb'));
@@ -10106,10 +10106,10 @@ function buildImported(entries,label){
 }
 function importNotes(r,c){
   const n=[];
-  if(r.createdJbs)n.push('.jbs 파일이 없어 project.jbs 를 새로 만듦');
+  if(r.createdJbs)n.push('.jbs 파일이 없어서 project.jbs 를 새로 만들었습니다');
   if(r.skipped&&r.skipped.length)n.push(`건너뛴 파일 ${r.skipped.length}개:\n  `+r.skipped.slice(0,8).join('\n  ')+(r.skipped.length>8?'\n  …':''));
   if(c.bad.length)n.push(`읽지 못한 파일 ${c.bad.length}개:\n  `+c.bad.slice(0,5).join('\n  '));
-  if(c.ignored)n.push(`소스 · 이미지 파일이 아닌 항목 ${c.ignored}개는 무시함`);
+  if(c.ignored)n.push(`소스 · 이미지 파일이 아닌 항목 ${c.ignored}개는 무시했습니다`);
   return n;
 }
 // 프로젝트가 열린 상태에서 낱개 파일(.jb/.jbl) → 현재 프로젝트에 추가
@@ -10137,7 +10137,7 @@ async function addToProject(c){
   let list=add;
   const clash=add.filter(a=>isFileP(a.p));
   if(clash.length){
-    const v=await ask('같은 이름의 파일 있음',clash.map(a=>a.p).join('\n'),
+    const v=await ask('같은 이름의 파일이 있습니다',clash.map(a=>a.p).join('\n'),
       [{label:'덮어쓰기',value:'over',primary:true},{label:'겹치는 파일은 건너뛰기',value:'skip'},{label:'취소',value:null}]);
     if(!v)return;
     if(v==='skip'){list=add.filter(a=>!isFileP(a.p));clash.forEach(a=>skipped.push(`${a.p} — 이미 있음`));}
@@ -10173,7 +10173,7 @@ async function handleImport(list,ctx,handles){
   addLog(`✔ 불러옴: ${c.label||'파일'} (파일 ${Object.keys(r.files).length}개)`,'sys');
   if(handles&&handles.length===1&&c.fromZip&&/\.zip$/i.test(handles[0].name)){   // 연 zip 에 바로 저장되게 연결
     zipHandle=handles[0];zipWarned=false;await zipStore(zipHandle);updateZipUI();
-    addLog(`🔗 ${zipHandle.name} 에 연결함 — 저장(💾 · Ctrl+S)과 zip 내보내기가 이 파일을 바로 덮어씀`,'sys');
+    addLog(`🔗 ${zipHandle.name} 에 연결했습니다 — 저장(💾 · Ctrl+S)과 zip 내보내기가 이 파일을 바로 덮어씁니다`,'sys');
   }
   for(const n of importNotes(r,c))addLog(n,r.skipped.length||c.bad.length?'err':'sys');
 }
@@ -10206,7 +10206,7 @@ async function saveNow(){
   if(!projectOpen)return;
   if(!isDoc(active)&&!isImg(active)&&Object.hasOwn(files,active))files[active]=ta.value;
   const ok=await flushSave();   // 성공 알림은 파일을 쓴 쪽에서 · 실패하면 저장 안 됨 표시가 남음
-  if(!ok&&isDirty())toast('저장되지 않음 — 파일을 갱신하지 못함',true);
+  if(!ok&&isDirty())toast('저장되지 않았습니다 — 파일을 갱신하지 못했습니다',true);
 }
 $('#savenow').onclick=saveNow;
 document.addEventListener('keydown',e=>{
@@ -10231,14 +10231,14 @@ async function exportHtml(){
   let pj,main;
   try{pj=readProject(files);}catch(e){handleErr(e);return;}
   main=normPath(pj.main||'')||'main.jb';
-  if(!isFileP(main)){addLog(`✖ 실행할 main 파일 없음: ${main} (project.jbs 의 main = 을 확인할 것)`,'err');setPanelOpen(true);showPanel('log');return;}
+  if(!isFileP(main)){addLog(`✖ 실행할 main 파일이 없습니다: ${main} (project.jbs 의 main = 을 확인하십시오)`,'err');setPanelOpen(true);showPanel('log');return;}
   // 내보내기 전에 오류가 없는지 확인
-  try{buildProgram(files,main);}catch(e){addLog('✖ 오류가 있어 HTML 로 내보내지 않음','err');handleErr(e);return;}
+  try{buildProgram(files,main);}catch(e){addLog('✖ 오류가 있어 HTML 로 내보내지 않았습니다','err');handleErr(e);return;}
   const html=gameHtml(pj,main);
   const fn=safeName(pj.name)+'.html';
   downloadBlob(fn,new Blob([html],{type:'text/html;charset=utf-8'}));
   const usesDis=/\b[Uu]se\s+DisPlayer\b/.test(Object.keys(files).map(f=>files[f]).join('\n'));
-  addLog(`🌐 ${fn} 내보냄 — 열면 ${main} 이(가) 바로 실행됨 (${usesDis?'게임 화면만 · 디버그 로그 · 닫기 버튼 없음':'화면을 쓰지 않아 아무것도 보이지 않음 — print 는 브라우저 콘솔로'})`,'sys');
+  addLog(`🌐 ${fn} 내보냄 — 열면 ${main} 이(가) 바로 실행됩니다 (${usesDis?'게임 화면만 · 디버그 로그 · 닫기 버튼 없음':'화면을 쓰지 않아 아무것도 보이지 않음 — print 는 브라우저 콘솔로'})`,'sys');
   toast('🌐 '+fn+' 내보냄');
 }
 // 게임 HTML 한 파일 (HTML 내보내기 · APK 의 assets/index.html)
@@ -10507,8 +10507,8 @@ function exportCheck(what){
   let pj;
   try{pj=readProject(files);}catch(e){handleErr(e);return null;}
   const main=normPath(pj.main||'')||'main.jb';
-  if(!isFileP(main)){addLog(`✖ 실행할 main 파일 없음: ${main} (project.jbs 의 main = 을 확인할 것)`,'err');setPanelOpen(true);showPanel('log');return null;}
-  try{buildProgram(files,main);}catch(e){addLog(`✖ 오류가 있어 ${what} 로 내보내지 않음`,'err');handleErr(e);return null;}
+  if(!isFileP(main)){addLog(`✖ 실행할 main 파일이 없습니다: ${main} (project.jbs 의 main = 을 확인하십시오)`,'err');setPanelOpen(true);showPanel('log');return null;}
+  try{buildProgram(files,main);}catch(e){addLog(`✖ 오류가 있어 ${what} 로 내보내지 않았습니다`,'err');handleErr(e);return null;}
   return {pj,main};
 }
 let exporting=false;
@@ -10544,7 +10544,7 @@ async function exportExe(){
   /*DEV-START*/if(Object.keys(files).some(f=>/^ext\/.+\.jbx$/i.test(f))){addLog('✖ 사용자 라이브러리가 들어 있는 프로젝트의 EXE 는 명령 창에서 만듭니다:  jdh build exe <프로젝트 폴더>','err');setPanelOpen(true);showPanel('log');return;}/*DEV-END*/
   const c=exportCheck('EXE');if(!c)return;
   const rt=exeRuntime();
-  if(!rt){addLog('✖ 이 편집기에는 Windows 실행기가 들어 있지 않음','err');return;}
+  if(!rt){addLog('✖ 이 편집기에는 Windows 실행기가 들어 있지 않습니다','err');return;}
   const pname=c.pj.name||'';
   let cfg={};try{cfg=JSON.parse(localStorage.getItem(exeCfgKey(pname))||'{}')||{};}catch(e){}
   const F=mkForm();
@@ -10552,11 +10552,11 @@ async function exportExe(){
   const fIcon=iconSel(F,cfg.icon);
   F.form.appendChild(F.err);
   for(;;){
-    const v=await ask('🪟 EXE로 변환 (Windows)','Windows 10 · 11 (64비트) 에서 설치 없이 바로 실행되는 파일 하나를 만듦.\n저장하는 파일은 exe 옆 「이름_data」 폴더에 생김.',
+    const v=await ask('🪟 EXE로 변환 (Windows)','Windows 10 · 11 (64비트) 에서 설치 없이 바로 실행되는 파일 하나를 만듭니다.\n저장하는 파일은 exe 옆 「이름_data」 폴더에 생깁니다.',
       [{label:'EXE 만들기',value:'ok',primary:true},{label:'취소',value:null}],F.form);
     if(!v)return;
     const nm=fName.value.replace(/[\r\n]+/g,' ').trim().replace(/\.exe$/i,'').trim();
-    if(!nm||safeName(nm)!==nm){F.err.textContent='✖ 이름에 \\ / : * ? " < > | 는 쓸 수 없고, 앞뒤의 . 이나 빈칸도 안 됨';continue;}
+    if(!nm||safeName(nm)!==nm){F.err.textContent='✖ 이름에 \\ / : * ? " < > | 는 쓸 수 없고, 앞뒤의 . 이나 빈칸도 안 됩니다';continue;}
     cfg={name:nm,icon:fIcon.value};F.err.textContent='';break;
   }
   exporting=true;toast('🪟 EXE 만드는 중…');
@@ -10571,14 +10571,14 @@ async function exportExe(){
     if(cfg.icon&&files[cfg.icon]){
       const bmp=await iconBitmap(cfg.icon);
       const n=JBX.exeIcon(bin,s=>iconRender(bmp,s).getContext('2d').getImageData(0,0,s,s).data);
-      if(!n)addLog('⚠ 실행기에서 아이콘 자리를 찾지 못해 기본 아이콘으로 만듦','sys');
+      if(!n)addLog('⚠ 실행기에서 아이콘 자리를 찾지 못해 기본 아이콘으로 만들었습니다','sys');
     }
     try{localStorage.setItem(exeCfgKey(pname),JSON.stringify(cfg));}catch(e){}
     const fn=cfg.name+'.exe';
     await downloadBlob(fn,new Blob([bin],{type:'application/vnd.microsoft.portable-executable'}));
     const bad=Object.keys(files).filter(f=>EXE_NOT.test(f));
     addLog(`🪟 ${fn} 내보냄 (${(bin.length/1048576).toFixed(1)} MB) — Windows 10 · 11 (64비트) 에서 바로 실행 · 저장하는 파일은 exe 옆 ${cfg.name}_data 폴더에`,'sys');
-    if(bad.length)addLog(`⚠ EXE 실행기는 webp · m4a 를 읽지 못함: ${bad.join(', ')} — png · ogg · mp3 · wav 로 바꿀 것`,'sys');
+    if(bad.length)addLog(`⚠ EXE 실행기는 webp · m4a 를 읽지 못합니다: ${bad.join(', ')} — png · ogg · mp3 · wav 로 바꾸십시오`,'sys');
     toast('🪟 '+fn+' 내보냄');
   }catch(e){addLog('✖ EXE 를 만들지 못했습니다: '+(e&&e.message||e),'err');}
   finally{exporting=false;}
@@ -10588,13 +10588,13 @@ const LSK='jawbreaker.apk.key';
 function apkKeyGet(){try{const k=JSON.parse(localStorage.getItem(LSK)||'null');return k&&k.pkcs8&&k.cert?k:null;}catch(e){return null;}}
 function apkKeySet(k){try{localStorage.setItem(LSK,JSON.stringify(k));return true;}catch(e){return false;}}
 async function apkKeyCheck(k){
-  if(!k||typeof k.pkcs8!=='string'||typeof k.cert!=='string')throw new Error('키 파일 형식이 아님');
+  if(!k||typeof k.pkcs8!=='string'||typeof k.cert!=='string')throw new Error('키 파일 형식이 아닙니다');
   await crypto.subtle.importKey('pkcs8',JBX.b64(k.pkcs8),{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
   JBX.spkiOf(JBX.b64(k.cert));
   return {pkcs8:k.pkcs8,cert:k.cert,made:k.made||0};
 }
 function apkKeyExport(){
-  const k=apkKeyGet();if(!k){toast('저장된 서명 키 없음',true);return;}
+  const k=apkKeyGet();if(!k){toast('저장된 서명 키가 없습니다',true);return;}
   downloadBlob('jawbreaker-apk-key.json',new Blob([JSON.stringify({...k,note:'Jawbreaker APK 서명 키 — 잃어버리면 이미 설치된 앱을 업데이트할 수 없습니다. 남에게 주지 마세요.'},null,1)],{type:'application/json'}));
 }
 function apkKeyImport(after){
@@ -10603,8 +10603,8 @@ function apkKeyImport(after){
     const f=inp.files[0];if(!f)return;
     try{
       const k=await apkKeyCheck(JSON.parse(await f.text()));
-      if(!apkKeySet(k))throw new Error('이 브라우저에 저장할 수 없음');
-      toast('🔑 서명 키를 가져옴');after&&after();
+      if(!apkKeySet(k))throw new Error('이 브라우저에 저장할 수 없습니다');
+      toast('🔑 서명 키를 가져왔습니다');after&&after();
     }catch(e){toast('키를 가져오지 못했습니다: '+(e&&e.message||e),true);}
   };
   inp.click();
@@ -10622,7 +10622,7 @@ async function exportApk(){
   if(exporting)return;
   const c=exportCheck('APK');if(!c)return;
   const tpl=apkTpl();
-  if(!tpl){addLog('✖ 이 편집기에는 Android 실행기가 들어 있지 않음','err');return;}
+  if(!tpl){addLog('✖ 이 편집기에는 Android 실행기가 들어 있지 않습니다','err');return;}
   const name=c.pj.name||'Jawbreaker';
   let cfg={};try{cfg=JSON.parse(localStorage.getItem(apkCfgKey(name))||'{}')||{};}catch(e){}
   const F=mkForm(),{form,row,inp,sel,err}=F;
@@ -10636,7 +10636,7 @@ async function exportApk(){
   const keyInfo=()=>{
     const k=apkKeyGet();keyRow.replaceChildren();
     const s=document.createElement('span');
-    s.textContent=k?'🔑 서명 키: 이 브라우저에 저장됨'+(k.made?' ('+new Date(k.made).toLocaleDateString(LOCALE())+')':''):'🔑 서명 키: 없음 — 처음 만들 때 새로 만듦';
+    s.textContent=k?'🔑 서명 키: 이 브라우저에 저장됨'+(k.made?' ('+new Date(k.made).toLocaleDateString(LOCALE())+')':''):'🔑 서명 키: 없음 — 처음 만들 때 새로 만듭니다';
     const b1=document.createElement('button');b1.type='button';b1.className='btn';b1.textContent='키 내보내기';b1.disabled=!k;b1.onclick=apkKeyExport;
     const b2=document.createElement('button');b2.type='button';b2.className='btn';b2.textContent='키 가져오기';b2.onclick=()=>apkKeyImport(keyInfo);
     keyRow.append(s,b1,b2);
@@ -10644,7 +10644,7 @@ async function exportApk(){
   keyInfo();form.appendChild(keyRow);
   form.appendChild(err);
   for(;;){
-    const v=await ask('🤖 APK로 변환 (Android)','Android 7.0 이상 · 설치할 때 "출처를 알 수 없는 앱" 허용이 필요함.\n같은 앱을 업데이트하려면 같은 패키지 이름 · 같은 서명 키 · 더 큰 버전 번호로 만들 것.',
+    const v=await ask('🤖 APK로 변환 (Android)','Android 7.0 이상 · 설치할 때 "출처를 알 수 없는 앱" 허용이 필요합니다.\n같은 앱을 업데이트하려면 같은 패키지 이름 · 같은 서명 키 · 더 큰 버전 번호로 만드십시오.',
       [{label:'APK 만들기',value:'ok',primary:true},{label:'취소',value:null}],form);
     if(!v)return;
     const o={label:fLabel.value.trim()||name,pkg:fPkg.value.trim(),versionCode:Math.floor(Number(fCode.value)),versionName:fVer.value.trim()||'1.0',orientation:fOri.value,icon:fIcon.value};
@@ -10657,8 +10657,8 @@ async function exportApk(){
     let key=apkKeyGet();
     if(!key){
       key={...await JBX.keyNew('Jawbreaker'),made:Date.now()};
-      if(apkKeySet(key))addLog('🔑 새 APK 서명 키를 만들어 이 브라우저에 저장함 — ☰ → APK 변환 → 키 내보내기로 백업해 둘 것 (잃어버리면 설치된 앱을 업데이트할 수 없음)','sys');
-      else addLog('⚠ 서명 키를 이 브라우저에 저장하지 못함 — 다음 APK 는 다른 키로 서명되어 업데이트로 설치되지 않음','sys');
+      if(apkKeySet(key))addLog('🔑 새 APK 서명 키를 만들어 이 브라우저에 저장했습니다 — ☰ → APK 변환 → 키 내보내기로 백업해 두십시오 (잃어버리면 설치된 앱을 업데이트할 수 없음)','sys');
+      else addLog('⚠ 서명 키를 이 브라우저에 저장하지 못했습니다 — 다음 APK 는 다른 키로 서명되어 업데이트로 설치되지 않습니다','sys');
     }
     const g=gameHtml(c.pj,c.main);
     let icon=null;
@@ -10667,7 +10667,7 @@ async function exportApk(){
     try{localStorage.setItem(apkCfgKey(name),JSON.stringify(cfg));}catch(e){}
     const fn=safeName(c.pj.name)+'.apk';
     await downloadBlob(fn,new Blob([bin],{type:'application/vnd.android.package-archive'}));
-    addLog(`🤖 ${fn} 내보냄 (${(bin.length/1048576).toFixed(1)} MB · ${cfg.pkg} · 버전 ${cfg.versionName} (${cfg.versionCode})) — 휴대폰으로 옮겨 열면 설치됨`,'sys');
+    addLog(`🤖 ${fn} 내보냄 (${(bin.length/1048576).toFixed(1)} MB · ${cfg.pkg} · 버전 ${cfg.versionName} (${cfg.versionCode})) — 휴대폰으로 옮겨 열면 설치됩니다`,'sys');
     toast('🤖 '+fn+' 내보냄');
   }catch(e){addLog('✖ APK 를 만들지 못했습니다: '+(e&&e.message||e),'err');}
   finally{exporting=false;}
@@ -10684,7 +10684,7 @@ function ago(t){
 }
 async function showStart(){
   if(projectOpen&&isDirty()){
-    const v=await ask('저장하시겠습니까?','저장하지 않은 변경 있음.',
+    const v=await ask('저장하시겠습니까?','저장하지 않은 변경이 있습니다.',
       [{label:'저장하고 시작 화면으로',value:'save',primary:true},{label:'저장하지 않음',value:'skip'},{label:'취소',value:null}]);
     if(!v)return;
     if(v==='save'&&!await flushSave())return;
@@ -10704,7 +10704,7 @@ function contUI(){
   const o=lastZip?null:readLegacy();
   $('#st-cont').hidden=!lastZip&&!o;
   if(lastZip)$('#st-cont-info').textContent=lastZip.name;
-  else if(o)$('#st-cont-info').textContent=[projName(o.files)||'(이름 없음)','예전 브라우저 저장본 · 파일로 저장할 것'].join(' · ');
+  else if(o)$('#st-cont-info').textContent=[projName(o.files)||'(이름 없음)','예전 브라우저 저장본 · 파일로 저장하십시오'].join(' · ');
 }
 $('#st-cont').onclick=async()=>{
   if(lastZip){
@@ -10712,12 +10712,12 @@ $('#st-cont').onclick=async()=>{
     try{
       if(h.queryPermission&&await h.queryPermission({mode:'readwrite'})!=='granted'&&(!h.requestPermission||await h.requestPermission({mode:'readwrite'})!=='granted'))throw new Error('파일을 열 권한이 없습니다');
       await handleImport([await h.getFile()],'start',[h]);
-    }catch(e){startMsg('✖ '+h.name+' 을(를) 열지 못함: '+(e.message||e)+' — 불러오기로 다시 열 것');}
+    }catch(e){startMsg('✖ '+h.name+' 을(를) 열지 못했습니다: '+(e.message||e)+' — 불러오기로 다시 여십시오');}
     return;
   }
   const o=readLegacy();if(!o)return;
   applyProject(o.files,o.dirs||[]);dropLegacy();   // 브라우저에서 지우고, 저장하면 파일로
-  addLog('📦 예전 버전이 브라우저에 남긴 프로젝트를 꺼냄 — 브라우저에서는 지웠으므로 💾 저장으로 파일에 저장할 것','sys');
+  addLog('📦 예전 버전이 브라우저에 남긴 프로젝트를 꺼냈습니다 — 브라우저에서는 지웠으니 💾 저장으로 파일에 저장하십시오','sys');
 };
 $('#st-new').onclick=()=>{
   $('#st-btns').hidden=true;$('#st-form').hidden=false;startMsg('');
@@ -10773,7 +10773,7 @@ $menu.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{
     case 'ziplink':
       if(zipHandle)unlinkZip();
       else if(canLinkZip())linkZip(false);
-      else{addLog('📦 이 브라우저는 파일에 직접 쓸 수 없어, 저장할 때마다 zip 을 새 파일로 내려받음 (Chrome · Edge · Android Chrome 에서 HTML 파일을 직접 열면 같은 zip 에 바로 저장됨)','sys');showPanel('log');}
+      else{addLog('📦 이 브라우저는 파일에 직접 쓸 수 없어, 저장할 때마다 zip 을 새 파일로 내려받습니다 (Chrome · Edge · Android Chrome 에서 HTML 파일을 직접 열면 같은 zip 에 바로 저장됨)','sys');showPanel('log');}
       break;
     case 'html':exportHtml();break;
     case 'exe':exportExe();break;
@@ -10784,7 +10784,7 @@ $menu.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{
     case 'settings':openSettings();break;
     case 'runask':
       try{runAutoSave()?localStorage.removeItem(LSR):localStorage.setItem(LSR,'1');}catch(e){}
-      toast(runAutoSave()?'실행할 때 묻지 않고 저장함':'실행할 때 저장할지 물음');break;
+      toast(runAutoSave()?'실행할 때 묻지 않고 저장합니다':'실행할 때 저장할지 묻습니다');break;
   }
 });
 /*DEV-START*/{   // ☰ 메뉴 「라이브러리 불러오기 (.jbx)」 — 신뢰 확인을 거쳐 ext/ 에

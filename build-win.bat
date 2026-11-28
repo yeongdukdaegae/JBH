@@ -32,4 +32,4 @@ copy /y runtime\win\app.manifest dist\sdk\runtime\win\app.manifest >nul || exit 
 copy /y runtime\win\icon.ico dist\sdk\runtime\win\icon.ico >nul || exit /b 1
 echo.
 echo 빌드 끝: dist\bin\jdh.exe · dist\bin\jbdev.exe · dist\editor\jbdev.html
-echo 설치 파일: Inno Setup 으로 installer\jdh.iss 를 컴파일하면 installer\out\JDH-Setup-0.8.1.exe
+echo 설치 파일: Inno Setup 으로 installer\jdh.iss 를 컴파일하면 installer\out\JDH-Setup-0.8.2.exe
