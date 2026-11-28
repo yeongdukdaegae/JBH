@@ -193,6 +193,16 @@ await pg.evaluate(()=>{delete files['ext/Layers.jbx'];});
   ok(L.includes('nogrant started=0 status=0')&&L.includes('nogrant ws=-1')&&L.some(x=>/네트워크를 허락하지 않아/.test(x)),'net: without the grant nothing connects');
  }finally{srv.kill();await pg.evaluate(()=>{delete files['ext/Net.jbx'];});}
 }
+// ---- 서버 (server · EXE 에서만) · compound 값 — tests/libs/Server · 웹에서는 listen 이 늘 0 · compound 줄은 EXE (CI) 와 같아야 함 ----
+{await pg.evaluate(([a,b])=>{files['ext/Net.jbx']=bytesToDataUrl('Net.jbx',new Uint8Array(a));files['ext/Server.jbx']=bytesToDataUrl('Server.jbx',new Uint8Array(b));},[[...fs.readFileSync(ROOT+'/tests/fixtures/dev-Net.jbx')],[...fs.readFileSync(ROOT+'/tests/fixtures/dev-Server.jbx')]]);
+ await pg.evaluate(async()=>{jbxTrustSet(await jbxHash(files['ext/Net.jbx']),{id:'Net',version:'0.1.0',files:0,net:0});jbxTrustSet(await jbxHash(files['ext/Server.jbx']),{id:'Server',version:'0.1.0',files:0,net:0});});
+ try{
+  L=await run(fs.readFileSync(ROOT+'/tests/fixtures/server-main.jb','utf8'),1500);console.log(L.map(x=>'    | '+x).join('\n'));
+  for(const e of ['info0=[0, 0, [], 1, 0, "한글"]','one=[5] empty=[]','server off'])ok(L.includes(e),'server/compound: '+e);
+  ok(L.some(x=>/서버 \(접속 받기\) 는 EXE 에서만 됩니다/.test(x)),'server: web says the server only works in EXE');
+  ok(L.some(x=>x.includes("라이브러리 'Server' 의 값 'bad' 에 { } (객체)가 있습니다")),'compound: { } value → error (same text as EXE)');
+ }finally{await pg.evaluate(()=>{delete files['ext/Net.jbx'];delete files['ext/Server.jbx'];});}
+}
 // ---- data 형식 (넣기 · 꺼내기 · 안 맞으면 건너뜀) — EXE (CI) 와 같은 줄 ----
 const DATA_EXPECT=['d=406fe00000000000','n=255','s=6869','t=hi','k=7','k2=0','bad=keep','fd=3fe0000000000000 b=1 f2=0.5','md=5b5b312c325d2c5b332c345d5d','m2=[1, 2 | 3, 4]','m3=[0 | 0 | 0]','ls=[1,"x",3] l2=[1, "x", 3]','c2=[1, "a", [2, 3]]','l3=[9]','e=[]','big=3031323334353637383930313233343536373839303132333435363738393031… (70 B)','d2=406fe00000000000 d=7a','three=0','lb=[1, 0, 2]'];
 L=await run(fs.readFileSync(ROOT+'/tests/fixtures/data-main.jb','utf8'),800);console.log(L.map(x=>'    | '+x).join('\n'));

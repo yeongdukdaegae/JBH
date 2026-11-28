@@ -25,7 +25,7 @@ static Info *info_new(const char *name, int ty, const int *dims) {
 #include "jdh_native.h"
 /* 사용자 라이브러리 (JDH): 실행기와 함께 컴파일된 것 */
 static const JdhLib *ext_find(const char *id) { for (int i = 0; i < JDH_NLIBS; i++) if (!strcmp(JDH_LIBS[i].id, id)) return &JDH_LIBS[i]; return NULL; }
-static int ext_ty(int t) { return t == JDH_T_INT ? TY_INT : t == JDH_T_FLOAT ? TY_FLOAT : t == JDH_T_BIT ? TY_BIT : t == JDH_T_COLOR ? TY_COLOR : t == JDH_T_MAT12 ? TY_MAT12 : t == JDH_T_LIST ? TY_LIST : t == JDH_T_MAT ? TY_MATRIX : TY_STRING; }
+static int ext_ty(int t) { return t == JDH_T_INT ? TY_INT : t == JDH_T_FLOAT ? TY_FLOAT : t == JDH_T_BIT ? TY_BIT : t == JDH_T_COLOR ? TY_COLOR : t == JDH_T_MAT12 ? TY_MAT12 : t == JDH_T_LIST ? TY_LIST : t == JDH_T_MAT ? TY_MATRIX : t == JDH_T_COMPOUND ? TY_COMPOUND : TY_STRING; }
 #define DIS_ID "DisPlayer"
 #define COL_ID "colliders"
 #define CAN_ID "Canvas"

@@ -1,0 +1,9 @@
+{"jdl":1,"id":"Server","version":"0.1.0","requires":{"engine":">=1.6"},
+ "permissions":["server"],
+ "commands":{
+  "listen":{"params":["int","int"]},
+  "stop":{"params":[]}
+ },
+ "values":{"port":"int","nreq":"int","last":"string","nws":"int","wsmsgs":"string","wspath":"string",
+  "info":"compound","one":"compound","empty":"compound","bad":"compound"},
+ "native":["native/server.c"]}

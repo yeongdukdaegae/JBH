@@ -191,6 +191,28 @@ jobs:
             foreach ($e in $expect) { if (-not (Select-String -Path net-out.txt -SimpleMatch $e -Quiet -Encoding utf8)) { Write-Host "✖ 없음: $e"; $bad++ } }
           } finally { Stop-Process -Id $srv.Id -Force }
           if ($bad) { exit 1 }
+      - name: 서버 시험 (server — HTTP · WebSocket 을 받아 답함 · compound 값 · Net 라이브러리로 자기 자신에 접속)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          dist\bin\jdh.exe lib build tests\libs\Net; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib build tests\libs\Server; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe new project SrvGame; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib add tests\libs\Net\Net-0.1.0.jbx SrvGame; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib add tests\libs\Server\Server-0.1.0.jbx SrvGame; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\server-main.jb SrvGame\main.jb -Force
+          dist\bin\jdh.exe build exe SrvGame -o Srv.exe; if ($LASTEXITCODE) { exit 1 }
+          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+          $p = Start-Process .\Srv.exe -ArgumentList '--no-box' -RedirectStandardOutput srv-out.txt -RedirectStandardError srv-err.txt -PassThru
+          $bad = 0
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); Write-Host '✖ 90초 안에 끝나지 않았습니다'; $bad++ }
+          Get-Content srv-out.txt -Encoding utf8; Get-Content srv-err.txt -Encoding utf8
+          $all = (Get-Content srv-out.txt -Encoding utf8) + (Get-Content srv-err.txt -Encoding utf8)
+          $expect = @('info0=[0, 0, [], 1, 0, "한글"]', 'one=[5] empty=[]', 'server port=8790', 'get status=200 body=hi GET', 'post status=200 body=tag7:한글 body last=POST /echo 11',
+            'missing status=404 body=nope', 'ws state=1 msgs=welcome path=/chat', 'ws n=3 msgs=welcome|echo:one|echo:둘', 'ws closed by server state=2 got=one|둘|bye',
+            'info=[1, 3, ["/hello", "/echo", "/missing?x=1"], 1, 0, "한글"]', 'after stop status=0', 'relisten port=8790', "라이브러리 'Server' 의 값 'bad' 에 { } (객체)가 있습니다")
+          foreach ($e in $expect) { if (-not ($all | Where-Object { $_.Contains($e) })) { Write-Host "✖ 없음: $e"; $bad++ } }
+          if ($bad) { exit 1 }
       - name: data 형식 시험 (넣기 · 꺼내기 · 안 맞으면 건너뜀 — 웹 시험과 같은 main.jb · 같은 줄)
         shell: pwsh
         run: |

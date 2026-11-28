@@ -1934,8 +1934,8 @@ class Env{
 //   파일: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…  →  jdl.json (선언) · lib.wasm (C 구현을 웹용으로 컴파일한 것) · native/… (C 소스) · doc/…
 //   라이브러리는 C 로 한 번만 씀: 웹(에디터 · HTML · APK)에서는 lib.wasm 을, EXE 에서는 C 소스를 실행기와 함께 컴파일해서 씀
 //   lib.wasm 은 권한을 뺀 프레임 안의 워커에서 실행 (에디터 페이지 · 저장 공간 · 프로젝트 파일에 닿지 못함) — 엔진과는 메시지로만
-const JBX_PT=new Set(['int','float','string','bit','color','mat12']),JBX_VT=new Set(['int','float','string','bit']);
-const JBX_PERMS=new Set(['draw','objects.read','objects.write','files.read','network']);
+const JBX_PT=new Set(['int','float','string','bit','color','mat12']),JBX_VT=new Set(['int','float','string','bit','compound']);
+const JBX_PERMS=new Set(['draw','objects.read','objects.write','files.read','network','server']);
 // 인자 형식 → {k, n, el, var, r, c} (못 쓰는 것이면 null) — jdh 의 ptParse 와 같은 규칙
 //   하나짜리 (int · float · string · bit · color · mat12) · 리스트 "[int, string]" (항목 수가 정해짐 · 8개까지) · "[int, ...]" (몇 개든 · 0개도)
 //   · 행렬 "matrix[2, 3]" (크기 자리에 ... 를 쓰면 아무 크기)
@@ -1978,7 +1978,7 @@ function jbxArg(cmd,i,t,v,err){
   }
   return v;
 }
-const JBX_ENGINE='1.5';   // 엔진 버전 (편집기의 JB_VER 와 같게)
+const JBX_ENGINE='1.6';   // 엔진 버전 (편집기의 JB_VER 와 같게)
 const JBX_CACHE=new Map();   // 경로 → {src, lib}
 function jbxRead(d,path){
   const bad=m=>new JBError(`${path}: ${m}`,1,path);
@@ -2118,7 +2118,10 @@ const HOST={
   ws_peek(id){const e=NET.get(id);return e&&e.k===2&&e.q.length?e.q[0].length:-1;},
   ws_recv(id,buf,n){const e=NET.get(id);if(!e||e.k!==2||!e.q.length)return -1;const d=e.q.shift();e.bytes-=d.length;if(buf&&n>0)mem().set(d.subarray(0,Math.min(n,d.length)),buf);return d.length;},
   ws_close(id){const e=NET.get(id);if(e&&e.k===2){try{if(e.ws)e.ws.close();}catch(x){}NET.delete(id);}},
-  file_read(p,b,n){const f=fileOf(p);if(!f)return -1;const k=Math.max(0,Math.min(n,f.length));if(k&&b)mem().set(f.subarray(0,k),b);return k;}
+  file_read(p,b,n){const f=fileOf(p);if(!f)return -1;const k=Math.max(0,Math.min(n,f.length));if(k&&b)mem().set(f.subarray(0,k),b);return k;},
+  // "server" — 브라우저 안에서는 포트를 열 수 없음: 늘 실패 (EXE 의 net.c 만 됨)
+  srv_listen(){return 0;},srv_port(){return 0;},srv_close(){},srv_next(){return 0;},srv_ws(){return 0;},
+  req_info(){return -1;},req_size(){return 0;},req_read(){return 0;},req_respond(){return 0;}
 };
 function flush(){if(ops.length){send({t:'ops',o:ops});ops=[];}}
 function sync(s){if(!s)return;if(s.all)O.clear();for(const id of s.rm||[])O.delete(id);for(const e of s.d||[])O.set(e[0],e.slice(1));}
@@ -2142,7 +2145,7 @@ function callCmd(name,args){
 }
 function pushVals(){
   if(!X)return;let ch=null;
-  for(const k in man.vals){const f=X['jdh_val_'+k];if(typeof f!=='function')continue;let v;try{v=f();if(man.vals[k]==='string')v=cstr(v);}catch(e){continue;}if(vals[k]!==v){vals[k]=v;(ch||(ch={}))[k]=v;}}
+  for(const k in man.vals){const f=X['jdh_val_'+k];if(typeof f!=='function')continue;let v;try{v=f();if(man.vals[k]==='string'||man.vals[k]==='compound')v=cstr(v);}catch(e){continue;}if(vals[k]!==v){vals[k]=v;(ch||(ch={}))[k]=v;}}
   if(ch)send({t:'val',v:ch});
 }
 function loop(){
@@ -2184,7 +2187,7 @@ self.onmessage=async e=>{
         if(imp.jdh[im.name])continue;
         const need=man.host[im.name];
         if(need===undefined||!HOST[im.name])throw new Error('jdh_'+im.name+' 은(는) 엔진이 주는 함수가 아닙니다');
-        if(!man.perms.includes(need))throw new Error('jdh_'+im.name+' 을(를) 쓰려면 선언의 "permissions" 에 "'+need+'" 가 있어야 합니다');
+        if(need&&!need.split('|').some(q=>man.perms.includes(q)))throw new Error('jdh_'+im.name+' 을(를) 쓰려면 선언의 "permissions" 에 "'+need.split('|').join('" 나 "')+'" 가 있어야 합니다');
         imp.jdh[im.name]=HOST[im.name];continue;
       }
       (imp[im.module]||(imp[im.module]={}))[im.name]=WASI[im.name]||(()=>52);
@@ -2207,7 +2210,8 @@ const JBX_HOST={log:'',error:'',draw_clear:'draw',draw_layer:'draw',draw_rect:'d
   obj_set_pos:'objects.write',obj_set_scale:'objects.write',obj_set_vel:'objects.write',obj_set_color:'objects.write',obj_set_text:'objects.write',
   file_size:'files.read',file_read:'files.read',
   http_request:'network',http_status:'network',http_size:'network',http_read:'network',http_close:'network',
-  ws_open:'network',ws_state:'network',ws_send:'network',ws_peek:'network',ws_recv:'network',ws_close:'network'};
+  ws_open:'network',ws_state:'network|server',ws_send:'network|server',ws_peek:'network|server',ws_recv:'network|server',ws_close:'network|server',
+  srv_listen:'server',srv_port:'server',srv_close:'server',srv_next:'server',srv_ws:'server',req_info:'server',req_size:'server',req_read:'server',req_respond:'server'};
 // "files.read": 이 프로젝트의 파일 → 바이트 (ext/ 는 빼고 · 그림 · 소리 · 글꼴은 data: 주소를 풂)
 function jbxFiles(files){
   const m=new Map(),bin=/\.(png|jpe?g|gif|webp|bmp|wav|mp3|ogg|m4a|ttf|otf)$/i,te=new TextEncoder();
@@ -2237,6 +2241,7 @@ const JBEXT={
       const man={cmds:{},vals:{},perms:lib.perms.slice(),host:JBX_HOST,net:lib.perms.includes('network')&&netGrant.has(lib.id)};for(const k in lib.cmds)man.cmds[k]=lib.cmds[k].spec;for(const k in lib.vals)man.vals[k]=lib.vals[k];
       if(lib.perms.includes('files.read')&&!grant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 파일 읽기를 허락하지 않아 파일이 없는 것처럼 실행합니다`);
       if(lib.perms.includes('network')&&!netGrant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 네트워크를 허락하지 않아 접속하지 않습니다`);
+      if(lib.perms.includes('server'))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 서버 (접속 받기) 는 EXE 에서만 됩니다 — 여기서는 포트를 열지 않습니다`);
       fr.onload=()=>{if(L.dead)return;try{
         const wb=lib.wasm.slice().buffer,init={port:ch.port2,wasm:wb,man},xfer=[ch.port2,wb];
         if(lib.perms.includes('files.read')&&grant.has(lib.id)){init.files=jbxFiles(prog.files);for(const u of init.files.values())xfer.push(u.buffer);}
@@ -2308,7 +2313,14 @@ const JBEXT={
     L.q.push([name,args,c.line,c.file]);
     if(!L.sched){L.sched=true;Promise.resolve().then(()=>{L.sched=false;if(L.dead||!L.q.length)return;const n=++L.n;L.pend.set(n,performance.now());L.port.postMessage({t:'call',n,q:L.q,s:L.read?this.diff(L):null});L.q=[];});}
   },
-  val(id,name,ty){const L=this.live.get(id);const v=L?L.vals[name]:undefined;return ty==='string'?(v==null?'':String(v)):ty==='bit'?(v?1:0):ty==='int'?(Number(v)|0):(Number(v)||0);},
+  val(id,name,ty,e){const L=this.live.get(id);const v=L?L.vals[name]:undefined;
+    if(ty==='compound'){   // JSON → compound (jaw.loadJson 과 같은 규칙 · 빈 글자 = []) — EXE 의 ext_value 와 같은 문구
+      const s=v==null?'':String(v);if(!s.trim())return {items:[],comp:true};
+      let j;try{j=JSON.parse(s);}catch(x){throw new JBError(`라이브러리 '${id}' 의 값 '${name}' 이(가) 올바른 JSON 이 아닙니다`,e.line,e.file);}
+      let r;try{r=jsonToJb(j);}catch(x){throw new JBError(`라이브러리 '${id}' 의 값 '${name}' 에 { } (객체)가 있습니다 — compound 값은 [ ] · 숫자 · 문자열 · true/false · null 만 씁니다`,e.line,e.file);}
+      return r&&r.items?r:{items:[r],comp:true};
+    }
+    return ty==='string'?(v==null?'':String(v)):ty==='bit'?(v?1:0):ty==='int'?(Number(v)|0):(Number(v)||0);},
   kill(L){L.dead=true;try{L.port.close();}catch(e){}try{L.fr.remove();}catch(e){}},
   stopAll(){
     if(this.timer){clearInterval(this.timer);this.timer=null;}
@@ -2999,7 +3011,7 @@ async function execProgram(prog,io,ctl){
       }
       case 'member':
         if(e.lnode)return ev(e.lnode,env).items.length;
-        /*DEV-START*/if(e.mod==='@ext')return JBEXT.val(e.ext,e.name,e.ty);/*DEV-END*/
+        /*DEV-START*/if(e.mod==='@ext')return JBEXT.val(e.ext,e.name,e.ty,e);/*DEV-END*/
         if(e.mod===CAN_ID){   // can.ScreenClicked · can.MouseX · can.MouseY · can.SceneName
           if(e.name==='SceneName')return sceneOn?sceneNameOf.get(curScene)||'':'';
           if(!io.dis)return 0;

@@ -1,0 +1,50 @@
+Use jawbreaker call jaw;
+Use Net call net;
+Use Server call srv;
+
+run{
+    jaw.wait(300);
+    var compound call c = srv.info;
+    print("info0=%c%");
+    var compound call one = srv.one;
+    var compound call e = srv.empty;
+    print("one=%one% empty=%e%");
+    srv.listen(8790, 1);
+    jaw.wait(100);
+    if [srv.port == 0]{
+        print("server off");
+    } else{
+        print("server port=%srv.port%");
+        net.get("http://127.0.0.1:8790/hello");
+        jaw.wait(800);
+        print("get status=%net.status% body=%net.body%");
+        net.post("http://127.0.0.1:8790/echo", "tag7", "한글 body");
+        jaw.wait(800);
+        print("post status=%net.status% body=%net.body% last=%srv.last%");
+        net.get("http://127.0.0.1:8790/missing?x=1");
+        jaw.wait(800);
+        print("missing status=%net.status% body=%net.body%");
+        net.wsopen("ws://127.0.0.1:8790/chat");
+        jaw.wait(800);
+        print("ws state=%net.ws% msgs=%net.msgs% path=%srv.wspath%");
+        net.wssend("one");
+        net.wssend("둘");
+        jaw.wait(800);
+        print("ws n=%net.nmsg% msgs=%net.msgs%");
+        net.wssend("bye");
+        jaw.wait(800);
+        print("ws closed by server state=%net.ws% got=%srv.wsmsgs%");
+        c = srv.info;
+        print("info=%c%");
+        srv.stop();
+        jaw.wait(300);
+        net.get("http://127.0.0.1:8790/hello");
+        jaw.wait(3000);
+        print("after stop status=%net.status%");
+        srv.listen(8790, 1);
+        jaw.wait(100);
+        print("relisten port=%srv.port%");
+    }
+    jaw.wait(100);
+    var compound call b = srv.bad;
+}

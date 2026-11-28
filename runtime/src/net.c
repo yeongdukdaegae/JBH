@@ -1,13 +1,18 @@
-/* 사용자 라이브러리 (JDH) 의 네트워크 — "network" (에디터의 JBX_BOOT 의 NET 과 같은 뜻)
+/* 사용자 라이브러리 (JDH) 의 네트워크 — "network" (에디터의 JBX_BOOT 의 NET 과 같은 뜻) · "server" (EXE 에서만)
  *   HTTP 요청 · WebSocket. 모두 기다리지 않음: 요청을 걸어 두고 다음 프레임 · 명령에서 상태를 물어봄.
  *   Windows: WinHTTP (http · https · ws · wss).  그 밖 (시험용 빌드): 소켓으로 http · ws 만.
  *   한도: 동시에 64개 · 응답 본문과 WebSocket 에 쌓인 메시지는 16MB 까지.
+ *   서버 (jdh_srv_*): 소켓 (Windows 는 Winsock) 으로 한 포트에서 HTTP 와 WebSocket 을 받음 · 접속마다 스레드 하나 · TLS 없음.
+ *     서버 8개 · 받은 접속 192개 · 요청은 답하면 연결을 닫음 (Connection: close) · 30초 안에 답하지 않으면 503.
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 #ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <winhttp.h>
 #else
@@ -15,11 +20,15 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <netinet/in.h>
 #endif
 
-#define NET_MAX 64
+#define NET_CLI 64    /* 클라이언트 (http_request · ws_open) */
+#define NET_ACC 192   /* 서버가 받은 접속 (요청 · WebSocket) */
+#define NET_SRV 8
+#define NET_MAX (NET_CLI + NET_ACC + NET_SRV)
 #define NET_CAP (16 << 20)
-enum { K_HTTP = 1, K_WS };
+enum { K_HTTP = 1, K_WS, K_SRV, K_REQ };
 typedef struct Msg { unsigned char *b; int n; struct Msg *next; } Msg;
 typedef struct {
     int kind, id, released, running;
@@ -28,6 +37,9 @@ typedef struct {
     char *method, *url, *headers; unsigned char *req; int reqn;
     /* ws */
     int wstate; Msg *head, *tail; int qbytes;
+    /* 서버: srv = 받은 서버 번호 (0 = 클라이언트) · sk = 소켓 · ready = 꺼낼 수 있음 · taken = 꺼냄 · seq = 받은 차례
+     *   K_SRV: port · K_REQ: method · url (경로) · headers · req (본문) · addr · 답 (done · rst · rhead · rbody) */
+    int srv, ready, taken, done, port, rst, rn; unsigned seq; long long sk; char addr[64]; char *rhead; unsigned char *rbody;
 #ifdef _WIN32
     HINTERNET h, hc;
 #else
@@ -39,9 +51,14 @@ static pthread_mutex_t MU = PTHREAD_MUTEX_INITIALIZER;
 static int GEN;
 
 static char *sdup(const char *s) { size_t n = strlen(s ? s : ""); char *r = malloc(n + 1); memcpy(r, s ? s : "", n); r[n] = 0; return r; }
+static int slotCount(int acc) {   /* MU 를 잡은 채로 — acc: 0 클라이언트 · 1 받은 접속 · 2 서버 */
+    int n = 0;
+    for (int i = 0; i < NET_MAX; i++) if (CN[i].kind) { int a = CN[i].kind == K_SRV ? 2 : CN[i].kind == K_REQ || CN[i].srv ? 1 : 0; n += a == acc; }
+    return n;
+}
 static Conn *slotNew(int kind) {   /* MU 를 잡은 채로 */
     for (int i = 0; i < NET_MAX; i++) if (!CN[i].kind) {
-        Conn *c = &CN[i]; memset(c, 0, sizeof *c); c->kind = kind; c->id = i + 1 + (++GEN % 30000) * NET_MAX; c->status = -1;
+        Conn *c = &CN[i]; memset(c, 0, sizeof *c); c->kind = kind; c->id = i + 1 + (++GEN % 30000) * NET_MAX; c->status = -1; c->sk = -1;
 #ifndef _WIN32
         c->fd = -1;
 #endif
@@ -51,7 +68,7 @@ static Conn *slotNew(int kind) {   /* MU 를 잡은 채로 */
 }
 static Conn *slotOf(int id, int kind) { if (id <= 0) return NULL; Conn *c = &CN[(id - 1) % NET_MAX]; return c->kind == kind && c->id == id && !c->released ? c : NULL; }
 static void slotFree(Conn *c) {   /* MU 를 잡은 채로 */
-    free(c->body); free(c->method); free(c->url); free(c->headers); free(c->req);
+    free(c->body); free(c->method); free(c->url); free(c->headers); free(c->req); free(c->rhead); free(c->rbody);
     for (Msg *m = c->head; m; ) { Msg *n = m->next; free(m->b); free(m); m = n; }
     memset(c, 0, sizeof *c);
 }
@@ -250,12 +267,292 @@ static int spawn(void *(*fn)(void *), Conn *c) {
     c->running = 1; int r = pthread_create(&t, &at, fn, c); pthread_attr_destroy(&at); return !r;
 }
 
+/* ================= 서버 (jdh_srv_* · 소켓 — Windows 와 그 밖이 같은 코드) ================= */
+#ifdef _WIN32
+typedef SOCKET sk_t;
+#define SK_BAD INVALID_SOCKET
+#define skClose closesocket
+#define SK_NOSIG 0
+typedef int sklen_t;
+static int skInit(void) { static int ok; if (!ok) { WSADATA w; ok = WSAStartup(MAKEWORD(2, 2), &w) == 0; } return ok; }
+static void skTimeout(sk_t s, int ms) { DWORD t = (DWORD)ms; setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char *)&t, sizeof t); }
+static void skSleep(int ms) { Sleep((DWORD)ms); }
+#else
+typedef int sk_t;
+#define SK_BAD (-1)
+#define skClose close
+#define SK_NOSIG MSG_NOSIGNAL
+typedef socklen_t sklen_t;
+static int skInit(void) { return 1; }
+static void skTimeout(sk_t s, int ms) { struct timeval t = {ms / 1000, (ms % 1000) * 1000}; setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof t); }
+static void skSleep(int ms) { struct timespec t = {ms / 1000, (long)(ms % 1000) * 1000000L}; nanosleep(&t, NULL); }
+#endif
+static pthread_cond_t CV = PTHREAD_COND_INITIALIZER;
+static unsigned SEQ;
+static int skSend(sk_t s, const void *b, size_t n) { const char *p = b; while (n) { int k = send(s, p, (int)(n > (1u << 30) ? (1u << 30) : n), SK_NOSIG); if (k <= 0) return 0; p += k; n -= (size_t)k; } return 1; }
+static int skRecvN(sk_t s, void *b, size_t n) { char *p = b; while (n) { int k = recv(s, p, (int)(n > (1u << 30) ? (1u << 30) : n), 0); if (k <= 0) return 0; p += k; n -= (size_t)k; } return 1; }
+static int lowEq(const char *a, const char *b, size_t n) { for (size_t i = 0; i < n; i++) { char x = a[i], y = b[i]; if (x >= 'A' && x <= 'Z') x += 32; if (y >= 'A' && y <= 'Z') y += 32; if (x != y) return 0; } return 1; }
+/* "이름: 값\n…" 에서 이름의 값 (대소문자 무시 · 앞뒤 빈칸 뺌) → out */
+static int hdrGet(const char *h, const char *name, char *out, size_t n) {
+    size_t L = strlen(name);
+    for (const char *p = h; p && *p; ) {
+        const char *e = strchr(p, '\n'); size_t ln = e ? (size_t)(e - p) : strlen(p);
+        if (ln > L && p[L] == ':' && lowEq(p, name, L)) {
+            const char *v = p + L + 1; while (*v == ' ' || *v == '\t') v++;
+            size_t vl = (size_t)(p + ln - v); while (vl && (v[vl - 1] == ' ' || v[vl - 1] == '\t')) vl--;
+            if (vl >= n) vl = n - 1;
+            memcpy(out, v, vl); out[vl] = 0; return 1;
+        }
+        p = e ? e + 1 : NULL;
+    }
+    return 0;
+}
+/* SHA-1 · base64 (WebSocket 악수의 Sec-WebSocket-Accept) */
+static void sha1(const unsigned char *m, size_t n, unsigned char out[20]) {
+    unsigned h[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
+    size_t tot = ((n + 8) / 64 + 1) * 64; unsigned char *b = calloc(1, tot);
+    memcpy(b, m, n); b[n] = 0x80; unsigned long long bits = (unsigned long long)n * 8; for (int i = 0; i < 8; i++) b[tot - 1 - i] = (unsigned char)(bits >> (8 * i));
+    for (size_t o = 0; o < tot; o += 64) {
+        unsigned w[80];
+        for (int i = 0; i < 16; i++) w[i] = (unsigned)b[o + 4 * i] << 24 | (unsigned)b[o + 4 * i + 1] << 16 | (unsigned)b[o + 4 * i + 2] << 8 | b[o + 4 * i + 3];
+        for (int i = 16; i < 80; i++) { unsigned x = w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]; w[i] = x << 1 | x >> 31; }
+        unsigned a = h[0], bb = h[1], c = h[2], d = h[3], e = h[4];
+        for (int i = 0; i < 80; i++) {
+            unsigned f, k;
+            if (i < 20) { f = (bb & c) | (~bb & d); k = 0x5A827999; } else if (i < 40) { f = bb ^ c ^ d; k = 0x6ED9EBA1; }
+            else if (i < 60) { f = (bb & c) | (bb & d) | (c & d); k = 0x8F1BBCDC; } else { f = bb ^ c ^ d; k = 0xCA62C1D6; }
+            unsigned t = (a << 5 | a >> 27) + f + e + k + w[i]; e = d; d = c; c = bb << 30 | bb >> 2; bb = a; a = t;
+        }
+        h[0] += a; h[1] += bb; h[2] += c; h[3] += d; h[4] += e;
+    }
+    free(b);
+    for (int i = 0; i < 5; i++) { out[4 * i] = (unsigned char)(h[i] >> 24); out[4 * i + 1] = (unsigned char)(h[i] >> 16); out[4 * i + 2] = (unsigned char)(h[i] >> 8); out[4 * i + 3] = (unsigned char)h[i]; }
+}
+static void b64(const unsigned char *s, int n, char *o) {
+    static const char T[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    int k = 0;
+    for (int i = 0; i < n; i += 3) {
+        unsigned v = (unsigned)s[i] << 16 | (i + 1 < n ? (unsigned)s[i + 1] << 8 : 0) | (i + 2 < n ? s[i + 2] : 0);
+        o[k++] = T[v >> 18 & 63]; o[k++] = T[v >> 12 & 63]; o[k++] = i + 1 < n ? T[v >> 6 & 63] : '='; o[k++] = i + 2 < n ? T[v & 63] : '=';
+    }
+    o[k] = 0;
+}
+static const char *reason(int st) {
+    switch (st) {
+    case 200: return "OK"; case 201: return "Created"; case 202: return "Accepted"; case 204: return "No Content";
+    case 301: return "Moved Permanently"; case 302: return "Found"; case 304: return "Not Modified";
+    case 400: return "Bad Request"; case 401: return "Unauthorized"; case 403: return "Forbidden"; case 404: return "Not Found";
+    case 405: return "Method Not Allowed"; case 411: return "Length Required"; case 413: return "Payload Too Large";
+    case 500: return "Internal Server Error"; case 501: return "Not Implemented"; case 503: return "Service Unavailable";
+    default: return st < 300 ? "OK" : st < 400 ? "Redirect" : st < 500 ? "Client Error" : "Server Error";
+    }
+}
+/* 답 보내기: 사용자가 준 머리에서 Content-Length · Connection 은 빼고 엔진이 붙임 */
+static void srvReply(sk_t s, int st, const char *uh, const unsigned char *body, int n) {
+    size_t hl = strlen(uh ? uh : ""); char *h = malloc(hl * 2 + 256), *w = h; char ct[8];
+    w += sprintf(w, "HTTP/1.1 %d %s\r\nContent-Length: %d\r\nConnection: close\r\n", st, reason(st), n);
+    if (!hdrGet(uh ? uh : "", "content-type", ct, sizeof ct)) w += sprintf(w, "Content-Type: text/plain; charset=utf-8\r\n");
+    for (const char *p = uh ? uh : ""; *p; ) {
+        const char *e = strchr(p, '\n'); size_t ln = e ? (size_t)(e - p) : strlen(p);
+        while (ln && p[ln - 1] == '\r') ln--;
+        int skip = !ln || !memchr(p, ':', ln) || (ln >= 15 && lowEq(p, "content-length:", 15)) || (ln >= 11 && lowEq(p, "connection:", 11));
+        if (!skip) { memcpy(w, p, ln); w += ln; *w++ = '\r'; *w++ = '\n'; }
+        p = e ? e + 1 : p + strlen(p);
+    }
+    *w++ = '\r'; *w++ = '\n';
+    if (skSend(s, h, (size_t)(w - h)) && n) skSend(s, body, (size_t)n);
+    free(h);
+}
+static void srvBye(sk_t s, int st, const char *msg) { srvReply(s, st, NULL, (const unsigned char *)msg, (int)strlen(msg)); shutdown(s, 2); skClose(s); }
+/* 서버 쪽 WebSocket 틀 (가리지 않음) */
+static int srvFrame(sk_t s, int op, const void *d, int n) {
+    unsigned char h[10]; int k = 0; h[k++] = (unsigned char)(0x80 | op);
+    if (n < 126) h[k++] = (unsigned char)n; else if (n < 65536) { h[k++] = 126; h[k++] = (unsigned char)(n >> 8); h[k++] = (unsigned char)n; }
+    else { h[k++] = 127; for (int i = 7; i >= 0; i--) h[k++] = (unsigned char)(((unsigned long long)n >> (8 * i)) & 255); }
+    return skSend(s, h, (size_t)k) && (!n || skSend(s, d, (size_t)n));
+}
+static void srvWsLoop(Conn *c, sk_t s) {
+    unsigned char *acc = NULL; int an = 0, cap = 0;
+    for (;;) {
+        unsigned char h[2]; if (!skRecvN(s, h, 2)) break;
+        int op = h[0] & 15, fin = h[0] & 0x80, masked = h[1] & 0x80; unsigned long long len = h[1] & 127;
+        if (len == 126) { unsigned char e[2]; if (!skRecvN(s, e, 2)) break; len = (unsigned long long)e[0] << 8 | e[1]; }
+        else if (len == 127) { unsigned char e[8]; if (!skRecvN(s, e, 8)) break; len = 0; for (int i = 0; i < 8; i++) len = len << 8 | e[i]; }
+        unsigned char mk[4] = {0, 0, 0, 0}; if (masked && !skRecvN(s, mk, 4)) break;
+        if (len > NET_CAP) break;
+        unsigned char *p = malloc(len ? (size_t)len : 1); if (len && !skRecvN(s, p, (size_t)len)) { free(p); break; }
+        if (masked) for (unsigned long long i = 0; i < len; i++) p[i] ^= mk[i & 3];
+        if (op == 8) { pthread_mutex_lock(&MU); if (c->sk != -1) srvFrame(s, 8, p, len >= 2 ? 2 : 0); pthread_mutex_unlock(&MU); free(p); break; }
+        if (op == 9) { pthread_mutex_lock(&MU); if (c->sk != -1) srvFrame(s, 10, p, (int)len); pthread_mutex_unlock(&MU); free(p); continue; }
+        if (op == 10) { free(p); continue; }
+        int okg = grow(&acc, &an, &cap, p, (int)len); free(p); if (!okg) break;
+        if (fin) { wsPush(c, acc ? acc : calloc(1, 1), an); acc = NULL; an = 0; cap = 0; }
+    }
+    free(acc);
+}
+typedef struct { sk_t s; int sid; char addr[64]; } Acc;
+static void *connThread(void *a) {
+    Acc x = *(Acc *)a; free(a); sk_t s = x.s;
+    skTimeout(s, 30000);
+    /* 머리 (64KB 까지) */
+    int cap = 65536 + 1, n = 0; char *buf = malloc((size_t)cap), *end = NULL;
+    while (!end && n < cap - 1) {
+        int k = recv(s, buf + n, cap - 1 - n, 0); if (k <= 0) break;
+        n += k; buf[n] = 0; end = strstr(buf, "\r\n\r\n");
+    }
+    if (!end) { if (n >= cap - 1) srvBye(s, 431, "request header too large"); else skClose(s); free(buf); return NULL; }
+    *end = 0; char *bodyAt = end + 4; int have = n - (int)(bodyAt - buf);
+    char method[16], target[4096];
+    char *nl = strstr(buf, "\r\n"); if (nl) *nl = 0;
+    if (sscanf(buf, "%15s %4095s HTTP/", method, target) != 2) { srvBye(s, 400, "bad request"); free(buf); return NULL; }
+    /* 머리 → "이름: 값\n…" */
+    char *hd = malloc(strlen(nl ? nl + 2 : "") + 2), *hw = hd;
+    for (const char *p = nl ? nl + 2 : ""; *p; p++) { if (*p == '\r') continue; *hw++ = *p; }
+    *hw = 0;
+    char up[32] = "", key[128] = "", cl[32] = "", te[64] = "";
+    hdrGet(hd, "upgrade", up, sizeof up); hdrGet(hd, "sec-websocket-key", key, sizeof key); hdrGet(hd, "content-length", cl, sizeof cl); hdrGet(hd, "transfer-encoding", te, sizeof te);
+    if (*up && lowEq(up, "websocket", 10) && *key) {
+        /* ---- WebSocket ---- */
+        pthread_mutex_lock(&MU);
+        Conn *sv = slotOf(x.sid, K_SRV); Conn *c = sv && slotCount(1) < NET_ACC ? slotNew(K_WS) : NULL;
+        if (c) { c->srv = x.sid; c->sk = (long long)s; c->running = 1; c->method = sdup("GET"); c->url = sdup(target); c->headers = hd; hd = NULL; snprintf(c->addr, sizeof c->addr, "%s", x.addr); c->seq = ++SEQ; }
+        pthread_mutex_unlock(&MU);
+        free(buf);
+        if (!c) { free(hd); srvBye(s, 503, "server busy"); return NULL; }
+        char cat[200], acc[64]; unsigned char dg[20];
+        snprintf(cat, sizeof cat, "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", key); sha1((const unsigned char *)cat, strlen(cat), dg); b64(dg, 20, acc);
+        char resp[256]; int rl = snprintf(resp, sizeof resp, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n", acc);
+        int ok = skSend(s, resp, (size_t)rl);
+        skTimeout(s, 0);   /* 메시지는 언제 올지 모름 */
+        pthread_mutex_lock(&MU); c->wstate = ok ? 1 : 2; c->ready = 1; pthread_mutex_unlock(&MU);
+        if (ok) srvWsLoop(c, s);
+        pthread_mutex_lock(&MU);
+        c->sk = -1; c->running = 0; if (c->wstate == 1) c->wstate = 2;
+        if (c->released) slotFree(c);
+        pthread_mutex_unlock(&MU);
+        shutdown(s, 2); skClose(s);
+        return NULL;
+    }
+    /* ---- HTTP ---- */
+    if (*te) { free(hd); free(buf); srvBye(s, 411, "Content-Length required (chunked is not supported)"); return NULL; }
+    long long want = *cl ? atoll(cl) : 0;
+    if (want < 0 || want > NET_CAP) { free(hd); free(buf); srvBye(s, 413, "body too large"); return NULL; }
+    unsigned char *body = malloc((size_t)want + 1); int got = have < want ? have : (int)want;
+    memcpy(body, bodyAt, (size_t)got);
+    if (got < want && !skRecvN(s, body + got, (size_t)(want - got))) { free(body); free(hd); free(buf); skClose(s); return NULL; }
+    body[want] = 0; free(buf);
+    pthread_mutex_lock(&MU);
+    Conn *sv = slotOf(x.sid, K_SRV); Conn *c = sv && slotCount(1) < NET_ACC ? slotNew(K_REQ) : NULL;
+    if (c) {
+        c->srv = x.sid; c->method = sdup(method); c->url = sdup(target); c->headers = hd; hd = NULL; c->req = body; body = NULL; c->reqn = (int)want;
+        snprintf(c->addr, sizeof c->addr, "%s", x.addr); c->seq = ++SEQ; c->ready = 1; c->running = 1;
+        struct timespec ts; ts.tv_sec = time(NULL) + 30; ts.tv_nsec = 0;
+        while (!c->done && time(NULL) < ts.tv_sec) pthread_cond_timedwait(&CV, &MU, &ts);
+    }
+    int had = c != NULL, done = c && c->done, st = done ? c->rst : 503, rn = done ? c->rn : 0;
+    char *rh = done ? c->rhead : NULL; unsigned char *rb = done ? c->rbody : NULL;
+    if (c) { c->rhead = NULL; c->rbody = NULL; c->running = 0; slotFree(c); }
+    pthread_mutex_unlock(&MU);
+    free(hd); free(body);
+    if (done) srvReply(s, st, rh, rb, rn);
+    else { const char *m = had ? "no response" : "server busy"; srvReply(s, 503, NULL, (const unsigned char *)m, (int)strlen(m)); }
+    free(rh); free(rb);
+    shutdown(s, 2); skClose(s);
+    return NULL;
+}
+static void *srvThread(void *a) {
+    Conn *sv = a; sk_t L = (sk_t)sv->sk; int sid = sv->id;
+    for (;;) {
+        struct sockaddr_in ad; sklen_t al = sizeof ad;
+        sk_t k = accept(L, (struct sockaddr *)&ad, &al);
+        pthread_mutex_lock(&MU); int stop = sv->released; pthread_mutex_unlock(&MU);
+        if (k == SK_BAD) { if (stop) break; skSleep(20); continue; }
+        if (stop) { skClose(k); break; }
+        Acc *x = malloc(sizeof *x); x->s = k; x->sid = sid;
+        const unsigned char *ip = (const unsigned char *)&ad.sin_addr; snprintf(x->addr, sizeof x->addr, "%u.%u.%u.%u:%u", ip[0], ip[1], ip[2], ip[3], (unsigned)ntohs(ad.sin_port));
+        pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED);
+        if (pthread_create(&t, &at, connThread, x)) { free(x); skClose(k); }
+        pthread_attr_destroy(&at);
+    }
+#ifndef _WIN32
+    skClose(L);
+#endif
+    pthread_mutex_lock(&MU); sv->running = 0; slotFree(sv); pthread_mutex_unlock(&MU);
+    return NULL;
+}
+int jdh_srv_listen(int port, int flags) {
+    if (port < 0 || port > 65535 || !skInit()) return 0;
+    sk_t L = socket(AF_INET, SOCK_STREAM, 0); if (L == SK_BAD) return 0;
+#ifndef _WIN32
+    { int one = 1; setsockopt(L, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one); }   /* 닫은 접속 (TIME_WAIT) 이 남아도 다시 열 수 있게 · Windows 는 기본이 그럼 */
+#endif
+    struct sockaddr_in ad; memset(&ad, 0, sizeof ad); ad.sin_family = AF_INET; ad.sin_port = htons((unsigned short)port);
+    ad.sin_addr.s_addr = htonl((flags & 1) ? INADDR_LOOPBACK : INADDR_ANY);
+    if (bind(L, (struct sockaddr *)&ad, sizeof ad) || listen(L, 64)) { skClose(L); return 0; }
+    sklen_t al = sizeof ad; getsockname(L, (struct sockaddr *)&ad, &al);
+    pthread_mutex_lock(&MU);
+    Conn *c = slotCount(2) < NET_SRV ? slotNew(K_SRV) : NULL; int id = 0;
+    if (c) { c->sk = (long long)L; c->port = ntohs(ad.sin_port); id = c->id; if (!spawn(srvThread, c)) { slotFree(c); id = 0; } }
+    pthread_mutex_unlock(&MU);
+    if (!id) skClose(L);
+    return id;
+}
+int jdh_srv_port(int sid) { pthread_mutex_lock(&MU); Conn *c = slotOf(sid, K_SRV); int r = c ? c->port : 0; pthread_mutex_unlock(&MU); return r; }
+void jdh_srv_close(int sid) {
+    pthread_mutex_lock(&MU); Conn *c = slotOf(sid, K_SRV);
+    if (c) {
+        c->released = 1;
+#ifdef _WIN32
+        closesocket((sk_t)c->sk);   /* accept 가 깨어남 */
+#else
+        shutdown((sk_t)c->sk, SHUT_RDWR);
+#endif
+    }
+    pthread_mutex_unlock(&MU);
+}
+static int srvTake(int sid, int kind) {
+    pthread_mutex_lock(&MU); Conn *best = NULL;
+    if (slotOf(sid, K_SRV)) for (int i = 0; i < NET_MAX; i++) { Conn *c = &CN[i]; if (c->kind == kind && c->srv == sid && c->ready && !c->taken && !c->released && (!best || c->seq < best->seq)) best = c; }
+    int r = 0; if (best) { best->taken = 1; r = best->id; }
+    pthread_mutex_unlock(&MU); return r;
+}
+int jdh_srv_next(int sid) { return srvTake(sid, K_REQ); }
+int jdh_srv_ws(int sid) { return srvTake(sid, K_WS); }
+static Conn *accOf(int id) {   /* MU 를 잡은 채로 — 꺼낸 요청 · 서버가 받은 WebSocket */
+    Conn *c = slotOf(id, K_REQ); if (c && c->taken && !c->done) return c;
+    c = slotOf(id, K_WS); return c && c->srv && c->taken ? c : NULL;
+}
+int jdh_req_info(int id, int what, char *out, int n) {
+    pthread_mutex_lock(&MU); Conn *c = accOf(id); int r = -1;
+    if (c) {
+        const char *v = what == 0 ? c->method : what == 1 ? c->url : what == 2 ? c->headers : what == 3 ? c->addr : NULL;
+        if (v) { r = (int)strlen(v); if (out && n > 0) snprintf(out, (size_t)n, "%s", v); }
+    }
+    pthread_mutex_unlock(&MU); return r;
+}
+int jdh_req_size(int rid) { pthread_mutex_lock(&MU); Conn *c = accOf(rid); int r = c && c->kind == K_REQ ? c->reqn : 0; pthread_mutex_unlock(&MU); return r; }
+int jdh_req_read(int rid, int offset, void *buf, int n) {
+    pthread_mutex_lock(&MU); Conn *c = accOf(rid); int k = 0;
+    if (c && c->kind == K_REQ && offset >= 0 && offset < c->reqn && n > 0 && buf) { k = c->reqn - offset < n ? c->reqn - offset : n; memcpy(buf, c->req + offset, (size_t)k); }
+    pthread_mutex_unlock(&MU); return k;
+}
+int jdh_req_respond(int rid, int status, const char *headers, const void *body, int n) {
+    if (status < 100 || status > 599 || n < 0 || n > NET_CAP || (n && !body)) return 0;
+    pthread_mutex_lock(&MU); Conn *c = accOf(rid); int r = 0;
+    if (c && c->kind == K_REQ) {
+        c->rst = status; c->rhead = headers ? sdup(headers) : NULL; c->rn = n;
+        if (n) { c->rbody = malloc((size_t)n); memcpy(c->rbody, body, (size_t)n); }
+        c->done = 1; r = 1; pthread_cond_broadcast(&CV);
+    }
+    pthread_mutex_unlock(&MU); return r;
+}
+
 /* ================= jdh.h 의 함수 ================= */
 int jdh_http_request(const char *method, const char *url, const char *headers, const void *body, int n) {
     if (!url || !(startsWith(url, "http://") || startsWith(url, "https://")) || strlen(url) > 3900 || n < 0 || n > NET_CAP) return 0;
     if (!method || !*method || strlen(method) > 12) return 0;
     pthread_mutex_lock(&MU);
-    Conn *c = slotNew(K_HTTP); int id = 0;
+    Conn *c = slotCount(0) < NET_CLI ? slotNew(K_HTTP) : NULL; int id = 0;
     if (c) {
         c->method = sdup(method); c->url = sdup(url); c->headers = sdup(headers); c->reqn = body ? n : 0;
         if (c->reqn) { c->req = malloc(c->reqn); memcpy(c->req, body, c->reqn); }
@@ -280,7 +577,7 @@ void jdh_http_close(int id) {
 int jdh_ws_open(const char *url) {
     if (!url || !(startsWith(url, "ws://") || startsWith(url, "wss://")) || strlen(url) > 3900) return 0;
     pthread_mutex_lock(&MU);
-    Conn *c = slotNew(K_WS); int id = 0;
+    Conn *c = slotCount(0) < NET_CLI ? slotNew(K_WS) : NULL; int id = 0;
     if (c) { c->url = sdup(url); id = c->id; if (!spawn(wsThread, c)) { slotFree(c); id = 0; } }
     pthread_mutex_unlock(&MU);
     return id;
@@ -288,7 +585,7 @@ int jdh_ws_open(const char *url) {
 int jdh_ws_state(int id) { pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS); int r = c ? c->wstate : -1; pthread_mutex_unlock(&MU); return r; }
 int jdh_ws_send(int id, const void *data, int n, int text) {
     if (n < 0 || n > NET_CAP || (n && !data)) return 0;
-    pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS); int r = c && c->wstate == 1 && wsSendRaw(c, data, n, text); pthread_mutex_unlock(&MU); return r;
+    pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS); int r = c && c->wstate == 1 && (c->srv ? (c->sk != -1 && srvFrame((sk_t)c->sk, text ? 1 : 2, data, n)) : wsSendRaw(c, data, n, text)); pthread_mutex_unlock(&MU); return r;
 }
 int jdh_ws_peek(int id) { pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS); int r = c && c->head ? c->head->n : -1; pthread_mutex_unlock(&MU); return r; }
 int jdh_ws_recv(int id, void *buf, int n) {
@@ -302,6 +599,7 @@ int jdh_ws_recv(int id, void *buf, int n) {
 }
 void jdh_ws_close(int id) {
     pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS);
-    if (c) { if (c->running) { c->released = 1; wsShut(c); } else slotFree(c); }
+    if (c && c->srv) { if (c->running) { c->released = 1; if (c->sk != -1) { srvFrame((sk_t)c->sk, 8, "\x03\xe8", 2); shutdown((sk_t)c->sk, 2); } } else slotFree(c); }
+    else if (c) { if (c->running) { c->released = 1; wsShut(c); } else slotFree(c); }
     pthread_mutex_unlock(&MU);
 }

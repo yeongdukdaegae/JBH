@@ -4,9 +4,9 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.7.0"
+#define JDH_VERSION "0.8.0"
 #define JDH_ENGINE_MAJOR 1
-#define JDH_ENGINE_MINOR 5   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
+#define JDH_ENGINE_MINOR 6   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -215,8 +215,8 @@ static char *ptProto(const PTy *t, char *b, size_t n) {
     else snprintf(b, n, "%s", ptCty(t->k));
     return b;
 }
-static const char *VT[] = { "int", "float", "string", "bit", NULL };
-static const char *PERMS[] = { "draw", "objects.read", "objects.write", "files.read", "network", NULL };
+static const char *VT[] = { "int", "float", "string", "bit", "compound", NULL };
+static const char *PERMS[] = { "draw", "objects.read", "objects.write", "files.read", "network", "server", NULL };
 static const char *BUILTIN[] = { "jawbreaker", "DisPlayer", "colliders", "Canvas", "Magellan", "soundMaster", "SeongBin", NULL };
 static const char *HOSTKEYS[] = { "values", NULL };
 /* 이름 규칙: 영문 · 숫자 · _ (첫 글자는 숫자 아님) · UTF-8 글자(한글 등)도 허용 */
@@ -275,7 +275,8 @@ static void libCheck(Lib *L) {
     if (pm) {
         if (pm->k != J_ARR) lerr(L, "\"permissions\" 는 [ ] 목록이어야 합니다");
         else for (int i = 0; i < pm->n; i++) {
-            if (pm->items[i]->k != J_STR || !inSet(pm->items[i]->str, PERMS)) lerr(L, "알 수 없는 권한입니다: %s (쓸 수 있는 것: draw · objects.read · objects.write · files.read · network)", pm->items[i]->k == J_STR ? pm->items[i]->str : "(문자열 아님)");
+            if (pm->items[i]->k == J_STR && !strcmp(pm->items[i]->str, "server") && L->needEng < 6) L->needEng = 6;
+            if (pm->items[i]->k != J_STR || !inSet(pm->items[i]->str, PERMS)) lerr(L, "알 수 없는 권한입니다: %s (쓸 수 있는 것: draw · objects.read · objects.write · files.read · network · server)", pm->items[i]->k == J_STR ? pm->items[i]->str : "(문자열 아님)");
         }
     }
     { const char *en = jgets(jget(j, "requires"), "engine");
@@ -333,7 +334,7 @@ static void libCheck(Lib *L) {
                 slots += ptSlots(&pt); if (pt.k == PK_LIST || pt.k == PK_MAT) coll = 1;
             }
             if (slots > 64) lerr(L, "명령어 '%s': 인자가 C 에서 너무 많습니다 (리스트 항목을 모두 합쳐 64칸까지 · 받은 것: %d칸)", name, slots);
-            if (coll) L->needEng = 3;
+            if (coll && L->needEng < 3) L->needEng = 3;
         }
         if (jget(c, "returns")) lerr(L, "명령어 '%s': \"returns\" 는 지원하지 않습니다 — 돌려줄 값은 \"values\" 에 선언하고 코드에서 별칭.값이름 으로 읽습니다", name);
     }
@@ -343,12 +344,13 @@ static void libCheck(Lib *L) {
     else if (vs) for (int i = 0; i < vs->n; i++) {
         const char *name = vs->keys[i]; nval++;
         if (!okName(name)) { lerr(L, "값 이름 '%s' 은(는) 쓸 수 없습니다", name); continue; }
-        if (vs->items[i]->k != J_STR || !inSet(vs->items[i]->str, VT)) lerr(L, "값 '%s' 의 형식은 int · float · string · bit 중 하나여야 합니다", name);
+        if (vs->items[i]->k != J_STR || !inSet(vs->items[i]->str, VT)) lerr(L, "값 '%s' 의 형식은 int · float · string · bit · compound 중 하나여야 합니다", name);
+        else if (!strcmp(vs->items[i]->str, "compound") && L->needEng < 6) L->needEng = 6;
         if (cm && cm->k == J_OBJ && jget(cm, name)) lerr(L, "'%s' 이(가) 명령어와 값 양쪽에 선언되었습니다", name);
     }
     if (!ncmd && !nval) lwarn(L, "명령어도 값도 선언하지 않았습니다");
     if (L->needEng && (L->reqMa < 1 || (L->reqMa == 1 && L->reqMi < L->needEng)))
-        lwarn(L, "리스트 · 행렬 인자는 엔진 1.%d 부터 씁니다 — \"requires\": { \"engine\": \">=1.%d\" } 로 적어 두면 예전 에디터가 알기 쉬운 오류를 냅니다", L->needEng, L->needEng);
+        lwarn(L, "%s 엔진 1.%d 부터 씁니다 — \"requires\": { \"engine\": \">=1.%d\" } 로 적어 두면 예전 에디터가 알기 쉬운 오류를 냅니다", L->needEng >= 6 ? "compound 값 · server 권한은" : "리스트 · 행렬 인자는", L->needEng, L->needEng);
 }
 
 /* ---------- C → WebAssembly 컴파일 · 결과 검사 ---------- */
@@ -415,7 +417,9 @@ static const char *HOSTFN[][2] = {
     {"obj_set_pos", "objects.write"}, {"obj_set_scale", "objects.write"}, {"obj_set_vel", "objects.write"}, {"obj_set_color", "objects.write"}, {"obj_set_text", "objects.write"},
     {"file_size", "files.read"}, {"file_read", "files.read"},
     {"http_request", "network"}, {"http_status", "network"}, {"http_size", "network"}, {"http_read", "network"}, {"http_close", "network"},
-    {"ws_open", "network"}, {"ws_state", "network"}, {"ws_send", "network"}, {"ws_peek", "network"}, {"ws_recv", "network"}, {"ws_close", "network"},
+    {"ws_open", "network"}, {"ws_state", "network|server"}, {"ws_send", "network|server"}, {"ws_peek", "network|server"}, {"ws_recv", "network|server"}, {"ws_close", "network|server"},   /* | = 둘 중 하나 (서버가 받은 WebSocket 도 같은 함수) */
+    {"srv_listen", "server"}, {"srv_port", "server"}, {"srv_close", "server"}, {"srv_next", "server"}, {"srv_ws", "server"},
+    {"req_info", "server"}, {"req_size", "server"}, {"req_read", "server"}, {"req_respond", "server"},
     {NULL, NULL}
 };
 /* 가져다 쓰는 host 함수가 모두 있는 것이고 그 권한이 선언에 있는지 — 문제마다 msg 를 부름 */
@@ -425,7 +429,10 @@ static int hostCheck(JV *perms, void (*msg)(void *, const char *, const char *),
         int k = 0; while (HOSTFN[k][0] && strcmp(HOSTFN[k][0], WIMP[i])) k++;
         if (!HOSTFN[k][0]) { msg(ud, WIMP[i], NULL); bad++; continue; }
         const char *need = HOSTFN[k][1]; if (!need) continue;
-        int has = 0; if (perms && perms->k == J_ARR) for (int q = 0; q < perms->n; q++) if (perms->items[q]->k == J_STR && !strcmp(perms->items[q]->str, need)) has = 1;
+        int has = 0; if (perms && perms->k == J_ARR) for (int q = 0; q < perms->n; q++) if (perms->items[q]->k == J_STR) {
+            const char *pn = perms->items[q]->str; size_t pl = strlen(pn);
+            for (const char *a = need; *a; ) { const char *b = strchr(a, '|'); size_t al = b ? (size_t)(b - a) : strlen(a); if (al == pl && !strncmp(a, pn, al)) has = 1; a += al + (b != NULL); }
+        }
         if (!has) { msg(ud, WIMP[i], need); bad++; }
     }
     return bad;
@@ -490,6 +497,7 @@ static const char *expSig(WExp *ex, int n, const char *prefix, const char *name)
 static void libHostMsg(void *ud, const char *fn, const char *perm) {
     Lib *L = ud;
     if (!perm) lerr(L, "jdh_%s 은(는) 엔진이 주는 함수가 아닙니다 (jdh.h 에 있는 것만 쓸 수 있습니다)", fn);
+    else if (strchr(perm, '|')) lerr(L, "jdh_%s 을(를) 쓰려면 선언의 \"permissions\" 에 \"network\" 나 \"server\" 가 있어야 합니다", fn);
     else lerr(L, "jdh_%s 을(를) 쓰려면 선언의 \"permissions\" 에 \"%s\" 가 있어야 합니다", fn, perm);
 }
 /* 컴파일된 것이 선언과 맞는지: 명령어 · 값이 모두 있고 인자 형식이 같은지 */
@@ -518,7 +526,7 @@ static void checkWasm(Lib *L, const unsigned char *b, size_t len) {
     }
     if (vs && vs->k == J_OBJ) for (int i = 0; i < vs->n; i++) {
         const char *name = vs->keys[i]; if (vs->items[i]->k != J_STR) continue;
-        const char *t = vs->items[i]->str, *want = !strcmp(t, "float") ? ">d" : ">i", *ct = !strcmp(t, "float") ? "double" : !strcmp(t, "string") ? "const char *" : "int";
+        const char *t = vs->items[i]->str, *want = !strcmp(t, "float") ? ">d" : ">i", *ct = !strcmp(t, "float") ? "double" : !strcmp(t, "string") || !strcmp(t, "compound") ? "const char *" : "int";
         const char *sig = expSig(ex, n, "jdh_val_", name);
         if (!sig) lerr(L, "값 '%s' 이(가) C 구현에 없습니다 — JDH_VALUE(%s, %s) { return …; } 가 필요합니다", name, ct, name);
         else if (strcmp(sig, want)) lerr(L, "값 '%s' 의 형식이 선언과 다릅니다 — 선언대로라면 JDH_VALUE(%s, %s)", name, ct, name);
@@ -615,14 +623,17 @@ static const char *TPL_C =
 "//\n"
 "// 선택: JDH_INIT() { }  실행을 시작할 때 · JDH_FRAME(dt) { }  프레임마다 (dt = 지난 시간 ms) · JDH_STOP() { }  끝날 때\n"
 "//\n"
-"// 엔진 기능 (그리기 · 오브젝트 읽기 · 쓰기 · 프로젝트 파일 읽기 · 네트워크) 은 jdh.h 에 있습니다.\n"
-"//   쓰려면 jdl.json 의 \"permissions\" 에 \"draw\" · \"objects.read\" · \"objects.write\" · \"files.read\" · \"network\" 중 필요한 것을 적습니다.\n";
+"// 값 형식: int · float · string · bit · compound (C 는 JSON 글자를 돌려줌 — 예: return \"[1, \\\"a\\\", [2, 3]]\";)\n"
+"//\n"
+"// 엔진 기능 (그리기 · 오브젝트 읽기 · 쓰기 · 프로젝트 파일 읽기 · 네트워크 · 서버) 은 jdh.h 에 있습니다.\n"
+"//   쓰려면 jdl.json 의 \"permissions\" 에 \"draw\" · \"objects.read\" · \"objects.write\" · \"files.read\" · \"network\" · \"server\" 중 필요한 것을 적습니다.\n"
+"//   server = 이 PC 의 포트를 열고 HTTP · WebSocket 을 받음 (EXE 에서만): jdh_srv_listen(포트, JDH_SRV_LOCAL) 로 열고 JDH_FRAME 에서 jdh_srv_next · jdh_srv_ws 로 꺼냄.\n";
 static const char *TPL_JDL =
 "{\n"
 "  \"jdl\": 1,\n"
 "  \"id\": \"%s\",\n"
 "  \"version\": \"0.1.0\",\n"
-"  \"requires\": { \"engine\": \">=1.5\", \"libs\": [] },\n"
+"  \"requires\": { \"engine\": \">=1.6\", \"libs\": [] },\n"
 "  \"permissions\": [],\n"
 "  \"commands\": {\n"
 "    \"hello\": { \"params\": [\"string\"], \"doc\": { \"ko\": \"이름을 받아 인사를 로그에 찍음\" } },\n"
@@ -770,8 +781,8 @@ static int run(const char *cmd) {
 #endif
     fflush(stdout); int r = system(full); free(full); return r;
 }
-static const char *ctyOf(const char *t) { return !strcmp(t, "float") ? "double" : !strcmp(t, "string") || !strcmp(t, "color") ? "const char *" : "int"; }
-static int tcode(const char *t) { return !strcmp(t, "int") ? 1 : !strcmp(t, "float") ? 2 : !strcmp(t, "string") ? 3 : !strcmp(t, "bit") ? 4 : !strcmp(t, "color") ? 5 : !strcmp(t, "mat12") ? 6 : 0; }
+static const char *ctyOf(const char *t) { return !strcmp(t, "float") ? "double" : !strcmp(t, "string") || !strcmp(t, "color") || !strcmp(t, "compound") ? "const char *" : "int"; }
+static int tcode(const char *t) { return !strcmp(t, "int") ? 1 : !strcmp(t, "float") ? 2 : !strcmp(t, "string") ? 3 : !strcmp(t, "bit") ? 4 : !strcmp(t, "color") ? 5 : !strcmp(t, "mat12") ? 6 : !strcmp(t, "compound") ? 9 : 0; }
 static const char *slotOf(int k) { return k == PK_FLOAT ? "d" : k == PK_STRING || k == PK_COLOR ? "s" : "i"; }
 static char *cstrLit(const char *s) {   /* C 문자열 상수 (따옴표 포함) */
     char *o = xalloc(strlen(s) * 4 + 3), *w = o; *w++ = '"';
@@ -827,7 +838,7 @@ static char *projName(const char *pd) {
 }
 static void exeHostMsg(void *ud, const char *fn, const char *perm) {
     if (!perm) fprintf(stderr, "  ✖ %s: jdh_%s 은(는) 엔진이 주는 함수가 아닙니다\n", (const char *)ud, fn);
-    else fprintf(stderr, "  ✖ %s: jdh_%s 은(는) \"%s\" 권한이 필요합니다\n", (const char *)ud, fn, perm);
+    else fprintf(stderr, "  ✖ %s: jdh_%s 은(는) \"%s\" 권한이 필요합니다\n", (const char *)ud, fn, strchr(perm, '|') ? "network\" 나 \"server" : perm);
 }
 /* console: 콘솔 창 프로그램으로 (print 가 그 창에 보임 · jdh run) · base: 실행기 (프로젝트를 붙이기 전) 를 여기에 두고
  *   다음에 같은 라이브러리 · 같은 SDK 면 다시 컴파일하지 않고 프로젝트만 붙임 (key 파일로 비교) */
@@ -919,7 +930,7 @@ static int cmdBuildExe(const char *projArg, const char *outArg, int console, con
         }
         for (int q = 0; q < nv; q++) {
             const char *t = vs->items[q]->k == J_STR ? vs->items[q]->str : "int"; int tc = tcode(t);
-            gen = catf(gen, "%s jdh_x%d_val_%s(void);\nstatic void v_%d_%d(JdhArg *o) { o->%s = jdh_x%d_val_%s(); }\n", ctyOf(t), li, vs->keys[q], li, q, tc == 2 ? "d" : tc == 3 ? "s" : "i", li, vs->keys[q]);
+            gen = catf(gen, "%s jdh_x%d_val_%s(void);\nstatic void v_%d_%d(JdhArg *o) { o->%s = jdh_x%d_val_%s(); }\n", ctyOf(t), li, vs->keys[q], li, q, tc == 2 ? "d" : tc == 3 || tc == 9 ? "s" : "i", li, vs->keys[q]);
             char *nm = cstrLit(vs->keys[q]);
             vt = catf(vt, "    {%s, %d, v_%d_%d},\n", nm, tc, li, q); free(nm);
         }
@@ -970,7 +981,7 @@ static int cmdBuildExe(const char *projArg, const char *outArg, int console, con
     const char *cout = base ? base : out;   /* 실행기를 둘 곳 (base 면 나중에 다시 씀) */
     if (base) remove(base);
     printf("  실행기를 컴파일합니다 (처음에는 1분쯤 걸릴 수 있습니다)…\n");
-    char *cmd = fmtdup("%s cc %s -O2 -s %s -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32 -lwinhttp",
+    char *cmd = fmtdup("%s cc %s -O2 -s %s -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32 -lwinhttp -lws2_32",
         zig, tg, console ? "-mconsole" : "-mwindows", rt, sdl, rtsrc, sdk, cout, srcs, genp, objs, rcarg, sdla);
     if (run(cmd) || !isFile(cout)) die("실행 파일을 만들지 못했습니다 (위 메시지를 확인하세요)");
     if (base) { char *kp = fmtdup("%s.key", base); writeAll(kp, key, strlen(key)); free(kp); copyFile(base, out); }

@@ -36,6 +36,13 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - 웹은 워커 안에서 `fetch` · `WebSocket` 을 쓴다 (`JBX_BOOT` 의 `HOST`). 그래서 브라우저 규칙을 따른다: HTTP 는 서버가 CORS 를 허용해야 응답을 읽고, https 페이지에서는 http · ws 에 접속하지 못한다. EXE (`runtime/src/net.c` · WinHTTP · 스레드) 에는 이 제한이 없다 — 차이로 남아 있음.
   - 한도: 동시에 64개 · 응답 본문과 WebSocket 에 쌓인 메시지는 16MB.
   - 시험: `tests/libs/Net` · `tests/fixtures/net-main.jb` · `tests/net_server.py` (HTTP + WebSocket) 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌린다. Windows 가 아닌 빌드의 `net.c` 는 소켓으로 http · ws 만 한다 (시험용).
+- 서버 (`server` 권한 · 엔진 1.6 · EXE 에서만): 라이브러리 C 코드에서 `jdh_srv_listen(포트, JDH_SRV_LOCAL 또는 0)` 으로 포트를 열고, 한 포트에서 HTTP 와 WebSocket 을 같이 받는다. `JDH_FRAME` (또는 명령) 에서 `jdh_srv_next` (HTTP 요청) · `jdh_srv_ws` (새 WebSocket) 로 꺼낸다 — 기다리지 않음.
+  - HTTP: `jdh_req_info` (방법 · 경로 · 머리 · 보낸 곳) · `jdh_req_size` · `jdh_req_read` → `jdh_req_respond(번호, 상태, 머리, 본문, n)`. 요청마다 연결을 닫는다 (Connection: close) · 30초 안에 답하지 않으면 엔진이 503 · Content-Length 없는 chunked 본문은 411.
+  - WebSocket: 받은 번호는 클라이언트와 같은 `jdh_ws_state · send · peek · recv · close` 로 쓴다 (이 다섯은 `network` 나 `server` 어느 쪽 권한으로도 씀 — 표에 `"network|server"`).
+  - 구현: `runtime/src/net.c` 의 "서버" 부분 (소켓 · Windows 는 Winsock `-lws2_32` · 접속마다 스레드 · SHA-1 은 직접). 한도: 서버 8개 · 받은 접속 192개 (클라이언트 64개와 따로) · 머리 64KB · 본문 16MB. TLS (https · wss 로 받기) 는 없다.
+  - 웹은 브라우저 안이라 포트를 열 수 없다: `jdh_srv_listen` 이 늘 0 이고 로그에 "EXE 에서만" 을 알린다.
+  - 시험: `tests/libs/Server` · `tests/fixtures/server-main.jb` (Net 라이브러리로 자기 자신에 접속 · 웹은 "server off" 와 compound 줄만) — EXE 는 CI 의 서버 시험 단계.
+- 라이브러리 값 형식 `compound` (엔진 1.6): C 는 `JDH_VALUE(const char *, 이름)` 으로 JSON 글자를 돌려주고 엔진이 compound 로 바꾼다. 규칙은 `jaw.loadJson` 과 같다 (`[ ]` · 숫자 · 문자열 · true/false → 1/0 · null → 0 · 맨 바깥이 배열이 아니면 `[값]` · 빈 글자 = `[]` · `{ }` 나 틀린 JSON 은 그 값을 읽는 줄에서 오류). 웹 (`JBEXT.val`) 과 EXE (`run.c` 의 `ext_value`) 가 같은 문구.
 - `data` 형식 (변수 형식 · Lite 와 Dev. 모두): 무엇이든 넣고 무엇에든 넣을 수 있는 바이트 묶음. 규칙은 에디터 (`toData` · `fromData` · `dco`) 와 C (`value.c` 의 `to_data` · `from_data` · `run.c` 의 `dco`) 를 같게 둔다.
   - 바이트는 복사하지 않고 나눠 쓴다: EXE 는 `Data.rc` (참조 수 · `v_copy` 는 rc 만 올림), 웹은 나눠 준 `Uint8Array` 에 `__sh` 표시. setPart 는 혼자 쓰는 바이트면 그 자리에서 (웹은 같은 길이일 때), 나눠 쓰는 중이면 새로 만든다. 프로젝트 파일 ↔ 바이트 · UTF-8 판정 · 쓰기 금지 경로는 core 의 `fileBytes` · `bytesFile` · `utf8Of` · `noWritePath` (EXE 는 `run.c` 의 `noWritePath`) 한 곳에만 둔다.
   - 넣을 때: 숫자 → 8바이트 실수 (big-endian) · 문자열 → UTF-8 · 행렬 · 리스트 · compound → JSON 글자 · data → 나눠 씀 (복사 없음).
@@ -46,7 +53,7 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - 시험: `tests/fixtures/data-main.jb` 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌려 같은 줄이 나오는지 본다.
 - 프로젝트 폴더의 `run.bat` (`jdh new project` 가 만듦): 두 번 누르면 `jdh run .` 으로 main 을 실행한다 — 서버처럼 계속 도는 프로그램을 띄우기 쉽게. `jdh run` 은 콘솔 판 실행기 (`-mconsole` · print 가 그 창에 보임) 를 `build/jdh/run-base.exe` 에 두고 (JDH 버전 · SDK · `ext/*.jbx` 의 이름 · 크기 · 고친 때가 같으면 다시 컴파일하지 않음 · `run-base.exe.key`) 프로젝트 파일만 붙여 `build/jdh/run/<이름>.exe` 로 실행한다. 종료 코드를 그대로 돌려준다 (0 이 아니면 run.bat 이 창을 멈춰 둠). 시험: CI 의 run.bat 단계.
 - `jdh_log` 는 `print` 와 같은 디버그 출력이다. 에디터에서는 로그 패널에, EXE 에서는 표준 출력에 나온다 (창 프로그램이라 화면에는 안 보임).
-- 엔진 버전은 1.5 (에디터의 `JB_VER` · `JBX_ENGINE` · `src/jdh.c` 의 `JDH_ENGINE_*` 를 같이 올린다). 라이브러리 선언의 `requires.engine` (">=1.2" 꼴) 을 `jdh lib check` 와 에디터가 검사한다.
+- 엔진 버전은 1.6 (에디터의 `JB_VER` · `JBX_ENGINE` · `src/jdh.c` 의 `JDH_ENGINE_*` 를 같이 올린다). 라이브러리 선언의 `requires.engine` (">=1.2" 꼴) 을 `jdh lib check` 와 에디터가 검사한다.
 - 신뢰 확인 (Dev.): `.jbx` 내용의 SHA-256 마다 한 번 묻고 `localStorage` 의 `jawbreaker.jbx.trust` 에 기억한다 (다시 구우면 다시 물음). 창에는 버전 · 명령어 · 값 개수 · 쓰는 권한 · "EXE 에서는 격리 없음" 을 보여 주고, files.read 가 있으면 허락 여부도 고른다. 묻는 때: 「라이브러리 불러오기 (.jbx)」 메뉴 · 파일로 넣을 때 (불러오기 · 끌어 놓기) · 프로젝트 zip 등으로 들어온 것은 처음 실행할 때. 신뢰하지 않은 라이브러리를 쓰는 프로그램은 실행하지 않는다. 코드는 에디터 쪽 DEV 구간 (`jbxTrustRun` · `jbxImport` · `jbxDocText` · `jbxAcMembers`) — 내보낸 게임에는 없다.
 - `ext/*.jbx` 를 열면 설명서 (선언 · 권한 · `doc/` 파일) 를 읽기 전용으로 보여 준다. 자동완성은 `Use ` · `별칭.` · 문자열 안 `%별칭.값%` 에서 라이브러리의 명령어 · 값을 낸다.
 - 엔진 기능 (host 함수) 은 `sdk/jdh.h` 에 선언하고 웹 (`JBX_BOOT` 의 `HOST` · `JBEXT`) 과 EXE (`runtime/src/gfx.c` · `render.c` · `run.c` 의 `jdh_*`) 에 같은 뜻으로 구현한다. 함수 → 권한 표는 `src/jdh.c` 의 `HOSTFN` 과 에디터의 `JBX_HOST` 를 같게 둔다.
@@ -98,5 +105,6 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 - 번역 (ja · zh-CN · zh-TW) 은 원어민 검수를 받지 않았다.
 - data 형식: 에디터의 "EXE 로 내보내기" 에 든 미리 만든 실행기 (`jbrt-win`) 는 다시 만들지 않아 이 기능이 없다 (`jdh build exe` 는 됨).
 - `run.bat`: 실제 PC 에서 두 번 눌러 본 적은 없다 (CI 에서 cmd 로 실행 · 콘솔 프로그램만).
+- 서버 (`server`): 실제 PC 의 방화벽 창 (모든 주소로 열 때) · 다른 PC 에서의 접속은 확인하지 못했다 (CI 는 같은 PC 의 127.0.0.1).
 - 네트워크: https · wss (실제 인터넷의 서버) 는 확인하지 못했다 (시험은 로컬의 http · ws 서버). APK 에서의 네트워크 (INTERNET 권한) 도 미확인.
 - 업데이트: 실제 GitHub 릴리스에서 받는 것 · `jbdev.exe` 의 "업데이트하시겠습니까?" 창은 확인하지 못했다 (CI 는 로컬 HTTP 서버로 `jdh update` 만 시험 · 릴리스를 게시한 적이 없음).

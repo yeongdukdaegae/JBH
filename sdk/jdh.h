@@ -24,6 +24,9 @@
  *     배열 · 글자는 그 명령이 끝날 때까지만 유효합니다 (바꾸지 말고 읽기만 · 남겨 두려면 복사).
  *     정해진 항목 수와 다르거나 항목 형식이 틀리면 엔진이 그 줄에서 오류를 냅니다 (int 는 소수점 아래를 버림).
  *   값의 형식:  int · bit → int      float → double      string → const char *
+ *               compound → const char * (JSON 글자 — 엔진 1.6 부터):  "[1, \"a\", [2, 3]]" → compound
+ *                 jaw.loadJson 과 같은 규칙: [ ] · 숫자 · 문자열 · true/false (1/0) · null (0) · 맨 바깥이 배열이 아니면 [값] · 빈 글자 = []
+ *                 { } (객체) 나 올바르지 않은 JSON 은 그 값을 읽는 줄에서 오류
  */
 #ifndef JDH_H
 #define JDH_H
@@ -105,6 +108,30 @@ JDH__IMPORT(ws_send) int jdh_ws_send(int id, const void *data, int n, int text);
 JDH__IMPORT(ws_peek) int jdh_ws_peek(int id);             /* 다음 메시지의 바이트 수 · 없으면 -1 */
 JDH__IMPORT(ws_recv) int jdh_ws_recv(int id, void *buf, int n);   /* 다음 메시지를 꺼냄 (n 바이트까지 복사 · 넘는 부분은 버림) — 메시지의 바이트 수 · 없으면 -1 */
 JDH__IMPORT(ws_close) void jdh_ws_close(int id);          /* 닫고 잊음 (닫힌 뒤에도 남은 메시지는 close 전까지 읽을 수 있음) */
+
+/* "server" — 이 PC 의 포트를 열고 접속을 받는 서버 (엔진 1.6 부터 · EXE 에서만)
+ *   웹 (Dev. · HTML · APK) 은 브라우저 안이라 포트를 열 수 없습니다: jdh_srv_listen 이 늘 0 (실패).
+ *   한 포트에서 HTTP 요청과 WebSocket 접속을 같이 받습니다 (Upgrade: websocket 이면 WebSocket).  https · wss (TLS) 는 받지 않습니다.
+ *   모두 기다리지 않습니다: 받은 것은 쌓아 두고, 명령이나 JDH_FRAME 에서 jdh_srv_next · jdh_srv_ws 로 꺼냅니다.
+ *   HTTP: 요청 하나 = 번호 하나. jdh_req_respond 로 답하면 그 번호는 끝 (30초 안에 답하지 않으면 엔진이 503 으로 답함 · 연결은 요청마다 닫힘).
+ *   WebSocket: jdh_srv_ws 가 준 번호는 jdh_ws_state · send · peek · recv · close 로 씁니다 (클라이언트로 연 것과 같음).
+ *   한도: 서버 8개 · 받은 접속 (요청 + WebSocket) 동시에 192개 · 요청 머리 64KB · 본문 16MB (Content-Length 가 있는 것만 · chunked 는 411). */
+#define JDH_SRV_LOCAL 1      /* flags: 이 PC 안 (127.0.0.1) 에서 오는 접속만 받음 · 0 = 모든 주소 (방화벽이 물을 수 있음) */
+JDH__IMPORT(srv_listen) int jdh_srv_listen(int port, int flags);   /* 포트를 열고 서버 번호 (0 = 실패: 포트를 쓰는 중 · 막힘 · 웹) · port 0 = 비어 있는 아무 포트 */
+JDH__IMPORT(srv_port) int jdh_srv_port(int sid);           /* 실제로 연 포트 (port 0 으로 연 경우) · 없으면 0 */
+JDH__IMPORT(srv_close) void jdh_srv_close(int sid);        /* 더는 받지 않음 (이미 받은 요청 · WebSocket 은 그대로 씀) */
+JDH__IMPORT(srv_next) int jdh_srv_next(int sid);           /* 다음 HTTP 요청 번호 · 없으면 0 */
+JDH__IMPORT(srv_ws) int jdh_srv_ws(int sid);               /* 새로 들어온 WebSocket 번호 · 없으면 0 (꺼내기 전에 온 메시지도 쌓여 있음) */
+#define JDH_REQ_METHOD 0     /* "GET" · "POST" … */
+#define JDH_REQ_PATH 1       /* "/a/b?x=1" (주소의 경로 · 물음표 뒤까지) */
+#define JDH_REQ_HEADERS 2    /* "이름: 값\n이름: 값" */
+#define JDH_REQ_ADDR 3       /* 보낸 쪽 "1.2.3.4:5678" */
+/* 요청 (또는 서버가 받은 WebSocket) 의 정보를 글자로 — snprintf 처럼 (돌려주는 값 = 전체 길이 · 없는 번호면 -1) */
+JDH__IMPORT(req_info) int jdh_req_info(int id, int what, char *out, int n);
+JDH__IMPORT(req_size) int jdh_req_size(int rid);           /* 요청 본문의 바이트 수 */
+JDH__IMPORT(req_read) int jdh_req_read(int rid, int offset, void *buf, int n);   /* 본문의 offset 부터 n 바이트까지 · 복사한 바이트 수 */
+/* 답함: status (200 · 404 …) · headers 는 "이름: 값\n…" (없으면 NULL · Content-Type 이 없으면 text/plain; charset=utf-8) · body n 바이트 — 1 = 보냄 */
+JDH__IMPORT(req_respond) int jdh_req_respond(int rid, int status, const char *headers, const void *body, int n);
 
 #ifdef __wasm__
 #define JDH_COMMAND(name, ...) JDH__EXPORT(jdh_cmd_##name) void jdh_cmd_##name(__VA_ARGS__)

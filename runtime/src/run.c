@@ -271,6 +271,15 @@ static Value ext_value(Node *e) {
     xv->get(&o);
     EXT_NODE = NULL;
     if (xv->ty == JDH_T_STRING) return v_str(o.s ? o.s : "");
+    if (xv->ty == JDH_T_COMPOUND) {   /* JSON → compound (jaw.loadJson 과 같은 규칙 · 빈 글자 = []) — 에디터의 JBEXT.val 과 같은 문구 */
+        const char *s = o.s ? o.s : ""; const char *p = s; while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+        if (!*p) return v_list(1);
+        Value v; int ok = json_parse(s, &v);
+        if (ok == 0) RT(e, "라이브러리 '%s' 의 값 '%s' 이(가) 올바른 JSON 이 아닙니다", e->extLib, xv->name);
+        if (ok < 0) RT(e, "라이브러리 '%s' 의 값 '%s' 에 { } (객체)가 있습니다 — compound 값은 [ ] · 숫자 · 문자열 · true/false · null 만 씁니다", e->extLib, xv->name);
+        if (v.k != V_LIST) { Value l = v_list(1); list_push(l.u.l, v); v = l; }
+        return v;
+    }
     if (xv->ty == JDH_T_FLOAT) return v_num(o.d);
     return v_num(xv->ty == JDH_T_BIT ? (o.i != 0) : o.i);
 }
