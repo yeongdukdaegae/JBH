@@ -99,30 +99,30 @@ static Cfg CFG = {-1, 0, 1, 0};   /* mono = 1 고정 (화면은 흑백 판만) *
 enum { S_NEWP, S_OPEN, S_SAVE, S_CHECK, S_RUN, S_STOP, S_EXE, S_HTML, S_NOPROJ, S_NOTPROJ, S_ASKSAVE, S_BINARY, S_RUNNING, S_DONE, S_FAILRUN, S_PICKDIR,
        S_NEWNAME, S_SAVED, S_STOPPED, S_BUSY, S_NOJDH, S_EXISTS, S_TITLE_NONE, S_DOCS, S_NEWFILE, S_NEWDIR, S_RENAME, S_DELETE, S_EXPLORE,
        S_ASKDEL, S_NAME, S_OKB, S_CANCELB, S_NOTFOUND, S_REPLACED, S_READONLY, S_BADNAME, S_FAILFILE,
-       S_M_HTML, S_M_EXE, S_M_APK, S_RUNASK, S_SETTINGS, S_SET_TITLE, S_SET_LANG, S_SET_RAM, S_RAM_AUTO, S_RAM_UNL, S_RAM_HINT, S_SET_UI, S_UI_COLOR, S_UI_MONO, S_CLOSE, S_APK_TITLE, S_APK_DESC, S_APK_LABEL, S_APK_PKG, S_APK_VCODE, S_APK_VNAME, S_APK_ORI, S_ORI_AUTO, S_ORI_LAND, S_ORI_PORT, S_APK_ICON, S_ICON_DEF, S_KEY_HAVE, S_KEY_NONE, S_KEY_EXPORT, S_KEY_IMPORT, S_APK_BUILD, S_APK_BADPKG, S_APK_BADVC, S_KEY_DONE, S_KEY_FAIL, S_KEY_SAVED, S_LOG, S_CLEAR, S_PROJECT, S_ADDFILE, S_ADDDIR, S_UNDO, S_REDO, S_SAVETIP, S_FILESTIP, S_MENUTIP, S_ASKRUN, S_VERSION, S_N };
+       S_M_HTML, S_M_EXE, S_M_APK, S_RUNASK, S_SETTINGS, S_SET_TITLE, S_SET_LANG, S_SET_RAM, S_RAM_AUTO, S_RAM_UNL, S_RAM_HINT, S_SET_UI, S_UI_COLOR, S_UI_MONO, S_CLOSE, S_APK_TITLE, S_APK_DESC, S_APK_LABEL, S_APK_PKG, S_APK_VCODE, S_APK_VNAME, S_APK_ORI, S_ORI_AUTO, S_ORI_LAND, S_ORI_PORT, S_APK_ICON, S_ICON_DEF, S_KEY_HAVE, S_KEY_NONE, S_KEY_EXPORT, S_KEY_IMPORT, S_APK_BUILD, S_APK_BADPKG, S_APK_BADVC, S_KEY_DONE, S_KEY_FAIL, S_KEY_SAVED, S_LOG, S_CLEAR, S_PROJECT, S_ADDFILE, S_ADDDIR, S_UNDO, S_REDO, S_SAVETIP, S_FILESTIP, S_MENUTIP, S_ASKRUN, S_VERSION, S_RECENT_NONE, S_PROJECTS, S_OPENBTN, S_FORGET, S_LNCOL, S_HIDE, S_OKAPK, S_CLOSEPROJ, S_N };
 static const wchar_t *TR[S_N][5] = {
     {L"새 프로젝트", L"New project", L"新規プロジェクト", L"新建项目", L"新建專案"},
     {L"폴더 열기", L"Open folder", L"フォルダを開く", L"打开文件夹", L"開啟資料夾"},
     {L"저장", L"Save", L"保存", L"保存", L"儲存"},
     {L"검사", L"Check", L"検査", L"检查", L"檢查"},
-    {L"▶ 실행", L"▶ Run", L"▶ 実行", L"▶ 运行", L"▶ 執行"},
-    {L"■ 정지", L"■ Stop", L"■ 停止", L"■ 停止", L"■ 停止"},
+    {L"실행", L"Run", L"実行", L"运行", L"執行"},
+    {L"정지", L"Stop", L"停止", L"停止", L"停止"},
     {L"EXE 만들기", L"Build EXE", L"EXE を作成", L"生成 EXE", L"產生 EXE"},
     {L"HTML 만들기", L"Build HTML", L"HTML を作成", L"生成 HTML", L"產生 HTML"},
-    {L"프로젝트를 열거나 새로 만드세요.", L"Open a project or create a new one.", L"プロジェクトを開くか新しく作成してください。", L"请打开或新建一个项目。", L"請開啟或新建一個專案。"},
-    {L"이 폴더에는 project.jbs 가 없습니다 — Jawbreaker 프로젝트 폴더를 고르세요.", L"This folder has no project.jbs — choose a Jawbreaker project folder.", L"このフォルダーには project.jbs がありません — Jawbreaker のプロジェクトフォルダーを選んでください。", L"此文件夹中没有 project.jbs — 请选择 Jawbreaker 项目文件夹。", L"此資料夾中沒有 project.jbs — 請選擇 Jawbreaker 專案資料夾。"},
-    {L"'%ls' 을(를) 저장할까요?", L"Save '%ls'?", L"'%ls' を保存しますか?", L"要保存 '%ls' 吗?", L"要儲存 '%ls' 嗎?"},
-    {L"글자 파일이 아니라 여기서는 열 수 없습니다: %ls", L"Not a text file, so it cannot be opened here: %ls", L"テキストファイルではないので、ここでは開けません: %ls", L"不是文本文件，无法在此打开: %ls", L"不是文字檔案，無法在此開啟: %ls"},
+    {L"프로젝트를 열거나 새로 만들 것.", L"Open a project or create a new one.", L"プロジェクトを開くか新しく作成してください。", L"请打开或新建一个项目。", L"請開啟或新建一個專案。"},
+    {L"이 폴더에 project.jbs 없음 — Jawbreaker 프로젝트 폴더를 고를 것.", L"This folder has no project.jbs — choose a Jawbreaker project folder.", L"このフォルダーには project.jbs がありません — Jawbreaker のプロジェクトフォルダーを選んでください。", L"此文件夹中没有 project.jbs — 请选择 Jawbreaker 项目文件夹。", L"此資料夾中沒有 project.jbs — 請選擇 Jawbreaker 專案資料夾。"},
+    {L"'%ls' 저장?", L"Save '%ls'?", L"'%ls' を保存しますか?", L"要保存 '%ls' 吗?", L"要儲存 '%ls' 嗎?"},
+    {L"글자 파일이 아니라 여기서 열 수 없음: %ls", L"Not a text file, so it cannot be opened here: %ls", L"テキストファイルではないので、ここでは開けません: %ls", L"不是文本文件，无法在此打开: %ls", L"不是文字檔案，無法在此開啟: %ls"},
     {L"▶ 실행: %ls", L"▶ Run: %ls", L"▶ 実行: %ls", L"▶ 运行: %ls", L"▶ 執行: %ls"},
     {L"■ 끝남 (종료 코드 %lu · %.1f초)", L"■ Finished (exit code %lu · %.1fs)", L"■ 終了 (終了コード %lu · %.1f 秒)", L"■ 结束 (退出代码 %lu · %.1f 秒)", L"■ 結束 (結束代碼 %lu · %.1f 秒)"},
-    {L"실행하지 못했습니다: %ls", L"Could not start: %ls", L"起動できませんでした: %ls", L"无法启动: %ls", L"無法啟動: %ls"},
-    {L"Jawbreaker 프로젝트 폴더를 고르세요 (project.jbs 가 있는 곳)", L"Choose a Jawbreaker project folder (where project.jbs is)", L"Jawbreaker のプロジェクトフォルダーを選んでください (project.jbs がある場所)", L"请选择 Jawbreaker 项目文件夹 (project.jbs 所在处)", L"請選擇 Jawbreaker 專案資料夾 (project.jbs 所在處)"},
-    {L"새 프로젝트 폴더 (이름을 적으세요)", L"New project folder (type a name)", L"新しいプロジェクトフォルダー (名前を入力)", L"新项目文件夹 (输入名称)", L"新專案資料夾 (輸入名稱)"},
-    {L"저장했습니다: %ls", L"Saved: %ls", L"保存しました: %ls", L"已保存: %ls", L"已儲存: %ls"},
-    {L"■ 정지했습니다", L"■ Stopped", L"■ 停止しました", L"■ 已停止", L"■ 已停止"},
-    {L"이미 실행 중입니다 — 먼저 ■ 정지하세요.", L"Already running — press ■ Stop first.", L"すでに実行中です — 先に ■ 停止してください。", L"正在运行 — 请先按 ■ 停止。", L"正在執行 — 請先按 ■ 停止。"},
-    {L"jdh.exe 를 찾을 수 없습니다 — JDH 를 다시 설치해 주세요.", L"jdh.exe not found — please reinstall JDH.", L"jdh.exe が見つかりません — JDH を再インストールしてください。", L"找不到 jdh.exe — 请重新安装 JDH。", L"找不到 jdh.exe — 請重新安裝 JDH。"},
-    {L"이미 있는 이름입니다: %ls", L"That name already exists: %ls", L"すでにある名前です: %ls", L"该名称已存在: %ls", L"該名稱已存在: %ls"},
+    {L"실행하지 못함: %ls", L"Could not start: %ls", L"起動できませんでした: %ls", L"无法启动: %ls", L"無法啟動: %ls"},
+    {L"Jawbreaker 프로젝트 폴더를 고를 것 (project.jbs 가 있는 곳)", L"Choose a Jawbreaker project folder (where project.jbs is)", L"Jawbreaker のプロジェクトフォルダーを選んでください (project.jbs がある場所)", L"请选择 Jawbreaker 项目文件夹 (project.jbs 所在处)", L"請選擇 Jawbreaker 專案資料夾 (project.jbs 所在處)"},
+    {L"새 프로젝트 폴더 (이름을 적을 것)", L"New project folder (type a name)", L"新しいプロジェクトフォルダー (名前を入力)", L"新项目文件夹 (输入名称)", L"新專案資料夾 (輸入名稱)"},
+    {L"저장함: %ls", L"Saved: %ls", L"保存しました: %ls", L"已保存: %ls", L"已儲存: %ls"},
+    {L"■ 정지함", L"■ Stopped", L"■ 停止しました", L"■ 已停止", L"■ 已停止"},
+    {L"이미 실행 중 — 먼저 정지할 것.", L"Already running — press ■ Stop first.", L"すでに実行中です — 先に ■ 停止してください。", L"正在运行 — 请先按 ■ 停止。", L"正在執行 — 請先按 ■ 停止。"},
+    {L"jdh.exe 를 찾을 수 없음 — JDH 를 다시 설치할 것.", L"jdh.exe not found — please reinstall JDH.", L"jdh.exe が見つかりません — JDH を再インストールしてください。", L"找不到 jdh.exe — 请重新安装 JDH。", L"找不到 jdh.exe — 請重新安裝 JDH。"},
+    {L"이미 있는 이름: %ls", L"That name already exists: %ls", L"すでにある名前です: %ls", L"该名称已存在: %ls", L"該名稱已存在: %ls"},
     {L"(프로젝트 없음)", L"(no project)", L"(プロジェクトなし)", L"(无项目)", L"(無專案)"},
     {L"내장 설명서", L"Built-in reference", L"組み込みリファレンス", L"内置参考文档", L"內建參考文件"},
     {L"새 파일", L"New file", L"新規ファイル", L"新建文件", L"新建檔案"},
@@ -130,31 +130,32 @@ static const wchar_t *TR[S_N][5] = {
     {L"이름 바꾸기", L"Rename", L"名前の変更", L"重命名", L"重新命名"},
     {L"지우기 (휴지통)", L"Delete (Recycle Bin)", L"削除 (ごみ箱)", L"删除 (回收站)", L"刪除 (資源回收筒)"},
     {L"탐색기에서 열기", L"Open in Explorer", L"エクスプローラーで開く", L"在资源管理器中打开", L"在檔案總管中開啟"},
-    {L"'%ls' 을(를) 휴지통으로 보낼까요?", L"Send '%ls' to the Recycle Bin?", L"'%ls' をごみ箱に移動しますか?", L"要把 '%ls' 移到回收站吗?", L"要把 '%ls' 移到資源回收筒嗎?"},
+    {L"'%ls' 을(를) 휴지통으로 보냄?", L"Send '%ls' to the Recycle Bin?", L"'%ls' をごみ箱に移動しますか?", L"要把 '%ls' 移到回收站吗?", L"要把 '%ls' 移到資源回收筒嗎?"},
     {L"이름:", L"Name:", L"名前:", L"名称:", L"名稱:"},
     {L"확인", L"OK", L"OK", L"确定", L"確定"},
     {L"취소", L"Cancel", L"キャンセル", L"取消", L"取消"},
-    {L"찾지 못했습니다: %ls", L"Not found: %ls", L"見つかりません: %ls", L"未找到: %ls", L"找不到: %ls"},
-    {L"%d개를 바꿨습니다", L"Replaced %d", L"%d 件置き換えました", L"已替换 %d 处", L"已取代 %d 處"},
+    {L"찾지 못함: %ls", L"Not found: %ls", L"見つかりません: %ls", L"未找到: %ls", L"找不到: %ls"},
+    {L"%d개 바꿈", L"Replaced %d", L"%d 件置き換えました", L"已替换 %d 处", L"已取代 %d 處"},
     {L"읽기 전용 (내장 설명서)", L"Read-only (built-in reference)", L"読み取り専用 (組み込みリファレンス)", L"只读 (内置参考文档)", L"唯讀 (內建參考文件)"},
-    {L"쓸 수 없는 이름입니다: %ls", L"That name cannot be used: %ls", L"使えない名前です: %ls", L"无法使用该名称: %ls", L"無法使用該名稱: %ls"},
-    {L"파일 작업에 실패했습니다: %ls", L"File operation failed: %ls", L"ファイル操作に失敗しました: %ls", L"文件操作失败: %ls", L"檔案操作失敗: %ls"},    {L"HTML로 내보내기 (실행 파일)", L"Export as HTML (runnable)", L"HTML でエクスポート (実行ファイル)", L"导出为 HTML (可运行文件)", L"匯出為 HTML (可執行檔案)"},
+    {L"쓸 수 없는 이름: %ls", L"That name cannot be used: %ls", L"使えない名前です: %ls", L"无法使用该名称: %ls", L"無法使用該名稱: %ls"},
+    {L"파일 작업 실패: %ls", L"File operation failed: %ls", L"ファイル操作に失敗しました: %ls", L"文件操作失败: %ls", L"檔案操作失敗: %ls"},
+    {L"HTML로 내보내기 (실행 파일)", L"Export as HTML (runnable)", L"HTML でエクスポート (実行ファイル)", L"导出为 HTML (可运行文件)", L"匯出為 HTML (可執行檔案)"},
     {L"EXE로 변환 (Windows)", L"Convert to EXE (Windows)", L"EXE に変換 (Windows)", L"转为 EXE (Windows)", L"轉為 EXE (Windows)"},
     {L"APK로 변환 (Android)", L"Convert to APK (Android)", L"APK に変換 (Android)", L"转为 APK (Android)", L"轉為 APK (Android)"},
     {L"실행 전 저장 묻기", L"Ask to save before run", L"実行前に保存を確認", L"运行前询问是否保存", L"執行前詢問是否儲存"},
     {L"설정 / Settings", L"Settings / 설정", L"設定 / Settings", L"设置 / Settings", L"設定 / Settings"},
-    {L"⚙ 설정", L"⚙ Settings", L"⚙ 設定", L"⚙ 设置", L"⚙ 設定"},
+    {L"설정", L"Settings", L"設定", L"设置", L"設定"},
     {L"언어", L"Language", L"言語", L"语言", L"語言"},
     {L"램 한도", L"RAM limit", L"RAM 上限", L"内存上限", L"記憶體上限"},
     {L"자동 (기기에 맞춤)", L"Auto (fits this device)", L"自動 (端末に合わせる)", L"自动 (按设备调整)", L"自動 (按裝置調整)"},
     {L"무제한", L"Unlimited", L"無制限", L"无限制", L"無限制"},
-    {L"게임 실행 중 풀어 둔 이미지 · 소리 · 글자 그림이 쓰는 램의 상한입니다. 넘으면 오래 안 쓴 것부터 비우고, 다시 쓰일 때 다시 읽습니다. HTML · APK 로 내보낸 게임에도 들어갑니다 (EXE 제외).", L"Caps the RAM used by decoded images · sounds · text bitmaps while a game runs. When it is exceeded, the least recently used ones are cleared and reloaded when needed. It is also built into games exported as HTML · APK (not EXE).", L"ゲーム実行中に展開した画像 · サウンド · 文字画像が使う RAM の上限です。超えると長く使っていないものから解放し、再び使うときに読み込み直します。HTML · APK でエクスポートしたゲームにも適用されます (EXE は除く)。", L"游戏运行时已解码的图片 · 声音 · 文本位图所占内存的上限。超过后会先释放最久未使用的内容，再次用到时重新读取。导出为 HTML · APK 的游戏也会带上此设置 (EXE 除外)。", L"遊戲執行時已解碼的圖片 · 聲音 · 文字點陣圖所佔記憶體的上限。超過後會先釋放最久未使用的內容，再次用到時重新讀取。匯出為 HTML · APK 的遊戲也會帶上此設定 (EXE 除外)。"},
+    {L"게임 실행 중 풀어 둔 이미지 · 소리 · 글자 그림이 쓰는 램의 상한. 넘으면 오래 안 쓴 것부터 비우고, 다시 쓰일 때 다시 읽음. HTML · APK 로 내보낸 게임에도 들어감 (EXE 제외).", L"Caps the RAM used by decoded images · sounds · text bitmaps while a game runs. When it is exceeded, the least recently used ones are cleared and reloaded when needed. It is also built into games exported as HTML · APK (not EXE).", L"ゲーム実行中に展開した画像 · サウンド · 文字画像が使う RAM の上限です。超えると長く使っていないものから解放し、再び使うときに読み込み直します。HTML · APK でエクスポートしたゲームにも適用されます (EXE は除く)。", L"游戏运行时已解码的图片 · 声音 · 文本位图所占内存的上限。超过后会先释放最久未使用的内容，再次用到时重新读取。导出为 HTML · APK 的游戏也会带上此设置 (EXE 除外)。", L"遊戲執行時已解碼的圖片 · 聲音 · 文字點陣圖所佔記憶體的上限。超過後會先釋放最久未使用的內容，再次用到時重新讀取。匯出為 HTML · APK 的遊戲也會帶上此設定 (EXE 除外)。"},
     {L"UI", L"UI", L"UI", L"UI", L"UI"},
     {L"컬러", L"Color", L"カラー", L"彩色", L"彩色"},
     {L"흑백", L"Black & white", L"白黒", L"黑白", L"黑白"},
     {L"닫기", L"Close", L"閉じる", L"关闭", L"關閉"},
-    {L"🤖 APK로 변환 (Android)", L"🤖 Convert to APK (Android)", L"🤖 APK に変換 (Android)", L"🤖 转为 APK (Android)", L"🤖 轉為 APK (Android)"},
-    {L"Android 7.0 이상 · 설치할 때 \"출처를 알 수 없는 앱\" 허용이 필요합니다.\n같은 앱을 업데이트하려면 같은 패키지 이름 · 같은 서명 키 · 더 큰 버전 번호로 만드세요.", L"Android 7.0+ · installing needs \"unknown apps\" allowed.\nTo update an installed app, build with the same package name, the same signing key and a larger version code.", L"Android 7.0 以上 · インストール時に「提供元不明のアプリ」の許可が必要です。\n同じアプリをアップデートするには、同じパッケージ名 · 同じ署名鍵 · より大きいバージョンコードでビルドしてください。", L"Android 7.0 及以上 · 安装时需要允许“未知来源的应用”。\n要更新同一个应用，请使用相同的包名 · 相同的签名密钥 · 更大的版本号来构建。", L"Android 7.0 及以上 · 安裝時需要允許“未知來源的應用”。\n要更新同一個應用，請使用相同的套件名稱 · 相同的簽名金鑰 · 更大的版本號來建置。"},
+    {L"APK로 변환 (Android)", L"Convert to APK (Android)", L"APK に変換 (Android)", L"转为 APK (Android)", L"轉為 APK (Android)"},
+    {L"Android 7.0 이상 · 설치할 때 \"출처를 알 수 없는 앱\" 허용이 필요함.\n같은 앱을 업데이트하려면 같은 패키지 이름 · 같은 서명 키 · 더 큰 버전 번호로 만들 것.", L"Android 7.0+ · installing needs \"unknown apps\" allowed.\nTo update an installed app, build with the same package name, the same signing key and a larger version code.", L"Android 7.0 以上 · インストール時に「提供元不明のアプリ」の許可が必要です。\n同じアプリをアップデートするには、同じパッケージ名 · 同じ署名鍵 · より大きいバージョンコードでビルドしてください。", L"Android 7.0 及以上 · 安装时需要允许“未知来源的应用”。\n要更新同一个应用，请使用相同的包名 · 相同的签名密钥 · 更大的版本号来构建。", L"Android 7.0 及以上 · 安裝時需要允許“未知來源的應用”。\n要更新同一個應用，請使用相同的套件名稱 · 相同的簽名金鑰 · 更大的版本號來建置。"},
     {L"앱 이름", L"App name", L"アプリ名", L"应用名称", L"應用名稱"},
     {L"패키지 이름", L"Package name", L"パッケージ名", L"包名", L"套件名稱"},
     {L"버전 번호 (업데이트마다 더 큰 수)", L"Version code (larger for every update)", L"バージョンコード (アップデートのたびに大きい数)", L"版本号 (每次更新都要更大)", L"版本號 (每次更新都要更大)"},
@@ -172,12 +173,12 @@ static const wchar_t *TR[S_N][5] = {
     {L"APK 만들기", L"Build APK", L"APK をビルド", L"构建 APK", L"建置 APK"},
     {L"✖ 패키지 이름은 영문 · 숫자 · _ 로 된 두 마디 이상 (예: com.example.game)", L"✖ The package name needs two or more parts of letters · digits · _ (e.g. com.example.game)", L"✖ パッケージ名は英字 · 数字 · _ からなる 2 つ以上の部分が必要です (例: com.example.game)", L"✖ 包名需由英文字母 · 数字 · _ 组成，且至少两段 (例: com.example.game)", L"✖ 套件名稱需由英文字母 · 數字 · _ 組成，且至少兩段 (例: com.example.game)"},
     {L"✖ 버전 번호는 1 이상의 정수", L"✖ The version code must be an integer ≥ 1", L"✖ バージョンコードは 1 以上の整数", L"✖ 版本号必须是 1 以上的整数", L"✖ 版本號必須是 1 以上的整數"},
-    {L"🔑 서명 키를 가져왔습니다", L"🔑 Signing key imported", L"🔑 署名鍵をインポートしました", L"🔑 已导入签名密钥", L"🔑 已匯入簽名金鑰"},
-    {L"키를 가져오지 못했습니다 (키 파일이 아님)", L"Couldn't import the key (not a key file)", L"鍵をインポートできませんでした (鍵ファイルではありません)", L"无法导入密钥 (不是密钥文件)", L"無法匯入金鑰 (不是金鑰檔案)"},
-    {L"서명 키를 내보냈습니다: %ls", L"Signing key exported: %ls", L"署名鍵をエクスポートしました: %ls", L"已导出签名密钥: %ls", L"已匯出簽名金鑰: %ls"},
+    {L"🔑 서명 키를 가져옴", L"🔑 Signing key imported", L"🔑 署名鍵をインポートしました", L"🔑 已导入签名密钥", L"🔑 已匯入簽名金鑰"},
+    {L"키를 가져오지 못함 (키 파일이 아님)", L"Couldn't import the key (not a key file)", L"鍵をインポートできませんでした (鍵ファイルではありません)", L"无法导入密钥 (不是密钥文件)", L"無法匯入金鑰 (不是金鑰檔案)"},
+    {L"서명 키를 내보냄: %ls", L"Signing key exported: %ls", L"署名鍵をエクスポートしました: %ls", L"已导出签名密钥: %ls", L"已匯出簽名金鑰: %ls"},
     {L"디버그 로그", L"Debug log", L"デバッグログ", L"调试日志", L"除錯日誌"},
     {L"지우기", L"Clear", L"クリア", L"清空", L"清空"},
-    {L"📦 프로젝트", L"📦 Project", L"📦 プロジェクト", L"📦 项目", L"📦 專案"},
+    {L"프로젝트", L"Project", L"プロジェクト", L"项目", L"專案"},
     {L"＋ 파일", L"＋ File", L"＋ ファイル", L"＋ 文件", L"＋ 檔案"},
     {L"＋ 폴더", L"＋ Folder", L"＋ フォルダ", L"＋ 文件夹", L"＋ 資料夾"},
     {L"되돌리기 (Ctrl+Z)", L"Undo (Ctrl+Z)", L"元に戻す (Ctrl+Z)", L"撤销 (Ctrl+Z)", L"撤銷 (Ctrl+Z)"},
@@ -185,8 +186,16 @@ static const wchar_t *TR[S_N][5] = {
     {L"저장 (Ctrl+S)", L"Save (Ctrl+S)", L"保存 (Ctrl+S)", L"保存 (Ctrl+S)", L"儲存 (Ctrl+S)"},
     {L"파일 · 폴더 관리", L"Files & folders", L"ファイル · フォルダ管理", L"文件 · 文件夹管理", L"檔案 · 資料夾管理"},
     {L"프로젝트 메뉴", L"Project menu", L"プロジェクトメニュー", L"项目菜单", L"專案選單"},
-    {L"고친 파일을 저장하고 실행할까요?", L"Save the changed files and run?", L"変更したファイルを保存して実行しますか?", L"要保存修改的文件并运行吗?", L"要儲存修改的檔案並執行嗎?"},
+    {L"고친 파일을 저장하고 실행?", L"Save the changed files and run?", L"変更したファイルを保存して実行しますか?", L"要保存修改的文件并运行吗?", L"要儲存修改的檔案並執行嗎?"},
     {L"JawBreaker Dev. v%ls · JDH %ls", L"JawBreaker Dev. v%ls · JDH %ls", L"JawBreaker Dev. v%ls · JDH %ls", L"JawBreaker Dev. v%ls · JDH %ls", L"JawBreaker Dev. v%ls · JDH %ls"},
+    {L"최근 프로젝트 없음 — 새 프로젝트를 만들거나 폴더를 열 것.", L"No recent projects — create a new project or open a folder.", L"最近のプロジェクトなし — 新しいプロジェクトを作成するかフォルダーを開く。", L"无最近项目 — 新建项目或打开文件夹。", L"無最近專案 — 新建專案或開啟資料夾。"},
+    {L"프로젝트", L"Projects", L"プロジェクト", L"项目", L"專案"},
+    {L"열기", L"Open", L"開く", L"打开", L"開啟"},
+    {L"목록에서 지우기", L"Remove from list", L"リストから削除", L"从列表中移除", L"從清單中移除"},
+    {L"줄 %d, 열 %d", L"Ln %d, Col %d", L"行 %d, 列 %d", L"行 %d，列 %d", L"行 %d，列 %d"},
+    {L"숨기기", L"Hide", L"隠す", L"隐藏", L"隱藏"},
+    {L"만들기", L"Build", L"ビルド", L"构建", L"建置"},
+    {L"프로젝트 닫기", L"Close project", L"プロジェクトを閉じる", L"关闭项目", L"關閉專案"},
 };
 #define T(k) TR[k][LANG]
 static void pickLang(void) {
@@ -199,18 +208,20 @@ static void pickLang(void) {
 
 /* ================= 상태 ================= */
 /* 단추: 머리 줄 (▶ 실행 · ■ · 검사 · ☰) · 탐색기 (＋ 파일 · ＋ 폴더) · 로그 (지우기) — 나머지는 ☰ 메뉴 */
-enum { B_RUN, B_STOP, B_CHECK, B_MENU, B_ADDFILE, B_ADDDIR, B_CLEAR, B_N };
+/* 도구 막대 (☰ · 프로젝트 · ▶ · ✓ · ■ · ⚙) · 프로젝트 도구 창 (새 파일 · 새 폴더) · 실행 창 (지우기 · 숨기기) · 시작 창 (새 프로젝트 · 열기) */
+enum { B_RUN, B_STOP, B_CHECK, B_MENU, B_ADDFILE, B_ADDDIR, B_CLEAR, B_PROJ, B_SET, B_HIDE, B_WNEW, B_WOPEN, B_N };
 enum { ID_BTN = 100, ID_TREE = 200, ID_EDIT, ID_LOG, ID_STATUS, ID_TAB, ID_AC, ID_PATH, ID_GUT,
        ID_M_NEWFILE = 300, ID_M_NEWDIR, ID_M_RENAME, ID_M_DELETE, ID_M_EXPLORE, ID_IN_EDIT = 400,
-       ID_C_NEWFILE = 500, ID_C_NEWP, ID_C_OPEN, ID_C_SAVE, ID_C_CHECK, ID_C_HTML, ID_C_EXE, ID_C_APK, ID_C_RUNASK, ID_C_SETTINGS, ID_C_EXPLORE,
+       ID_C_NEWFILE = 500, ID_C_NEWP, ID_C_OPEN, ID_C_SAVE, ID_C_CHECK, ID_C_HTML, ID_C_EXE, ID_C_APK, ID_C_RUNASK, ID_C_SETTINGS, ID_C_EXPLORE, ID_C_CLOSEP, ID_C_FORGET,
+       ID_R_FIRST = 700,
        ID_D_FIRST = 600 };
 #define WM_APP_OUT (WM_APP + 1)   /* 자식의 출력 (lParam = wchar_t* · 받은 쪽이 free) */
 #define WM_APP_END (WM_APP + 2)   /* 자식이 끝남 (wParam = 종료 코드) */
 #define TIMER_COLOR 1
 static HWND hMain, hTree, hEdit, hLog, hTabs, hPath, hGut, hAc, hFind, hBtn[B_N];
-static HFONT hFontUI, hFontCode, hFontBold, hFontBrand, hFontSmall, hFontLog, hFontPath, hFontEmoji;
+static HFONT hFontUI, hFontCode, hFontBold, hFontBrand, hFontSmall, hFontLog, hFontPath, hFontEmoji, hFontIcon, hFontTitle;
 static wchar_t STATUS[512];                          /* 경로 줄 오른쪽의 알림 */
-static int EXPL = 1, LOGH = 220;                     /* 탐색기 보임 · 로그 칸 높이 (화면 배율 전) */
+static int EXPL = 1, LOGV = 1, LOGH = 220;           /* 프로젝트 도구 창 · 실행 창 보임 · 실행 창 높이 (화면 배율 전) */
 static int DPI = 96;
 #define SC(x) MulDiv((x), DPI, 96)   /* 화면 배율 (125% · 150% …) 에 맞춘 크기 */
 static wchar_t BINDIR[MAX_PATH], NATDIR[MAX_PATH];   /* jbdev.exe · jdh.exe 가 있는 곳 · 설명서 · 자동완성 목록이 있는 곳 */
@@ -222,20 +233,22 @@ static wchar_t **TPATHS; static int NTP;
 static wchar_t DOCP[16][MAX_PATH]; static int NDOC;
 static HANDLE childProc, childJob;
 static DWORD childStart;
-static int SELFTEST; static wchar_t SELFOUT[MAX_PATH];
+static int SELFTEST, SHOTSONLY; static wchar_t SELFOUT[MAX_PATH];   /* SHOTSONLY = --shots: jdh 없이 창 그림만 */
 static UINT WM_FINDMSG;
 
 /* 열린 파일 (탭) */
 typedef struct { wchar_t path[MAX_PATH]; wchar_t *text; int dirty, ro; CHARRANGE sel; POINT scroll; } Doc;
 #define MAXDOC 48
 static Doc DOCS[MAXDOC]; static int NDOCS, CURD = -1;
+static void recentAdd(const wchar_t *dir); static void btnTexts(void); static void showWelcome(int on); static void layout(void);
 
 /* ================= 모양 — 웹 판 에디터와 같은 색 (컬러 · 흑백) ================= */
 typedef struct { COLORREF bg, panel, panel2, line, text, dim, accent, deep, accent2; } Theme;
 #if 0
 static const Theme TH_COLOR_UNUSED = {RGB(0, 0, 12), RGB(1, 1, 20), RGB(3, 3, 30), RGB(11, 11, 56), RGB(233, 230, 245), RGB(140, 135, 166), RGB(92, 104, 255), RGB(0, 0, 159), RGB(42, 52, 224)};
 #endif
-static const Theme TH_MONO = {RGB(0, 0, 0), RGB(11, 11, 11), RGB(23, 23, 23), RGB(46, 46, 46), RGB(233, 230, 245), RGB(140, 135, 166), RGB(255, 255, 255), RGB(42, 42, 42), RGB(90, 90, 90)};
+/* IntelliJ IDEA (New UI · Dark) 의 회색 계열 — bg = 편집기 · panel = 도구 창 · 막대 · panel2 = 칸 · 강조 · line = 나눔 줄 · deep = 테두리 · 주 단추 · accent2 = 고른 줄 */
+static const Theme TH_MONO = {RGB(30, 31, 34), RGB(43, 45, 48), RGB(57, 59, 64), RGB(30, 31, 34), RGB(223, 225, 229), RGB(134, 138, 145), RGB(206, 208, 214), RGB(78, 81, 87), RGB(67, 69, 74)};
 static Theme TH;
 #define CR_MINT RGB(77, 226, 180)
 #define CR_RED RGB(255, 107, 107)
@@ -317,11 +330,11 @@ static void logPut(const wchar_t *t, int n, COLORREF c) {
 }
 static COLORREF logKind(const wchar_t *t) {
     while (*t == L' ') t++;
-    if (*t == L'✖') return CR_RED;
-    if (*t == L'⚠') return CR_ORANGE;
+    if (*t == L'✖') return RGB(247, 84, 100);
+    if (*t == L'⚠') return RGB(230, 180, 80);
     static const wchar_t *SYS[] = {L"▶", L"■", L"✔", L"⧉", L"🔑", L"🤖", L"🪟", L"🌐", L"[selftest]", L"  ", NULL};
-    for (int i = 0; SYS[i]; i++) if (!wcsncmp(t, SYS[i], wcslen(SYS[i])) && i < 9) return CR_MINT;
-    return TH.text;
+    for (int i = 0; SYS[i]; i++) if (!wcsncmp(t, SYS[i], wcslen(SYS[i])) && i < 9) return TH.dim;
+    return RGB(188, 190, 196);
 }
 static void logAppend(const wchar_t *t) {
     int n = GetWindowTextLengthW(hLog);
@@ -330,7 +343,7 @@ static void logAppend(const wchar_t *t) {
         const wchar_t *e = t; while (*e && *e != L'\r' && *e != L'\n') e++;
         if (LOGBOL && (e > t || *e)) {
             SYSTEMTIME st; GetLocalTime(&st); wchar_t ts[16]; _snwprintf(ts, 16, L"%02d:%02d:%02d  ", st.wHour, st.wMinute, st.wSecond); ts[15] = 0;
-            logPut(ts, (int)wcslen(ts), CR_TS); LOGCOL = logKind(t); LOGBOL = 0;
+            logPut(ts, (int)wcslen(ts), RGB(90, 93, 99)); LOGCOL = logKind(t); LOGBOL = 0;
         }
         logPut(t, (int)(e - t), LOGCOL);
         if (*e) { int k = (e[0] == L'\r' && e[1] == L'\n') ? 2 : 1; logPut(L"\r", 1, LOGCOL); LOGBOL = 1; e += k; }
@@ -383,10 +396,11 @@ static const wchar_t *KW[] = {L"Use", L"use", L"Lib", L"call", L"var", L"public"
 static const wchar_t *TY[] = {L"int", L"float", L"string", L"bit", L"matrix", L"list", L"compound", L"data", NULL};
 enum { C_TEXT, C_KW, C_TYPE, C_STR, C_NUM, C_COM, C_N };
 /* 웹 판 #hl 의 색: 키워드 분홍 (굵게) · 형식 민트 · 문자열 노랑 · 숫자 보라 · 주석 흐린 보라 (기울임) */
-static COLORREF colOf(int c) { return c == C_KW ? CR_PINK : c == C_TYPE ? CR_MINT : c == C_STR ? CR_YELLOW : c == C_NUM ? CR_VIOLET : c == C_COM ? CR_COM : TH.text; }
+/* IntelliJ Dark 편집기 색: 키워드 · 형식 주황 · 문자열 초록 · 숫자 청록 · 주석 회색 (기울임) · 글자 연회색 */
+static COLORREF colOf(int c) { return c == C_KW || c == C_TYPE ? RGB(207, 142, 109) : c == C_STR ? RGB(106, 171, 115) : c == C_NUM ? RGB(42, 172, 184) : c == C_COM ? RGB(122, 126, 133) : RGB(188, 190, 196); }
 static int inList(const wchar_t *w, int n, const wchar_t **L) { for (int i = 0; L[i]; i++) if ((int)wcslen(L[i]) == n && !wcsncmp(L[i], w, n)) return 1; return 0; }
 static void paintRange(int a, int b, int c) {
-    CHARFORMAT2W cf; ZeroMemory(&cf, sizeof cf); cf.cbSize = sizeof cf; cf.dwMask = CFM_COLOR | CFM_ITALIC | CFM_BOLD; cf.crTextColor = colOf(c); cf.dwEffects = (c == C_COM ? CFE_ITALIC : 0) | (c == C_KW ? CFE_BOLD : 0);
+    CHARFORMAT2W cf; ZeroMemory(&cf, sizeof cf); cf.cbSize = sizeof cf; cf.dwMask = CFM_COLOR | CFM_ITALIC | CFM_BOLD; cf.crTextColor = colOf(c); cf.dwEffects = c == C_COM ? CFE_ITALIC : 0;
     CHARRANGE cr = {a, b}; SendMessageW(hEdit, EM_EXSETSEL, 0, (LPARAM)&cr); SendMessageW(hEdit, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf);
 }
 static wchar_t *editTextRE(int *len) {   /* RichEdit 위치와 같은 글자 (\r 하나가 한 칸) */
@@ -565,7 +579,7 @@ static int openProject(const wchar_t *dir) {
     if (!fileExists(jbs)) { msgf(MB_ICONWARNING, L"%ls", T(S_NOTPROJ)); return 0; }
     if (!askSaveAll()) return 0;
     closeAll();
-    wcscpy(PROJ, full); treeReload(); rememberProj();
+    wcscpy(PROJ, full); treeReload(); rememberProj(); recentAdd(PROJ); btnTexts(); showWelcome(0); layout();
     /* main 파일: project.jbs 의 "main = …" (없으면 main.jb) */
     wchar_t mainp[MAX_PATH]; _snwprintf(mainp, MAX_PATH, L"%ls\\main.jb", PROJ); mainp[MAX_PATH - 1] = 0;
     DWORD n; char *b = readFileA(jbs, &n);
@@ -584,6 +598,10 @@ static int openProject(const wchar_t *dir) {
     setTitle(); enableButtons();
     return 1;
 }
+static void closeProject(void) {
+    if (!PROJ[0] || !askSaveAll()) return;
+    closeAll(); PROJ[0] = 0; treeReload(); btnTexts(); setTitle(); enableButtons(); showWelcome(1);
+}
 static void cmdOpen(void) {
     BROWSEINFOW bi; ZeroMemory(&bi, sizeof bi); bi.hwndOwner = hMain; bi.lpszTitle = T(S_PICKDIR); bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
     PIDLIST_ABSOLUTE pl = SHBrowseForFolderW(&bi); if (!pl) return;
@@ -593,21 +611,30 @@ static void cmdOpen(void) {
 
 /* ================= 단추 · 메뉴 · 창 (어두운 모양 · 직접 그림) ================= */
 /* 단추 모양 (GWLP_USERDATA): 0 보통 · 1 주 (그라데이션) · 2 글자만 · 3 고르기 (꺼짐) · 4 고르기 (켜짐) */
-enum { BS_J_PLAIN, BS_J_PRIMARY, BS_J_GHOST, BS_J_SEGOFF, BS_J_SEGON };
+enum { BS_J_PLAIN, BS_J_PRIMARY, BS_J_GHOST, BS_J_SEGOFF, BS_J_SEGON, BS_J_ICON, BS_J_WIDGET };
+#define BS_J_ONBG 0x100   /* 편집기 색 바탕 위 (시작 창 오른쪽) */
 static void drawBtn(DRAWITEMSTRUCT *d) {
     HDC dc = d->hDC; RECT r = d->rcItem; int w = r.right - r.left, h = r.bottom - r.top;
-    int st = (int)GetWindowLongPtrW(d->hwndItem, GWLP_USERDATA), dis = (d->itemState & ODS_DISABLED) != 0, dn = (d->itemState & ODS_SELECTED) != 0;
-    fillRect(dc, 0, 0, w, h, TH.panel);
-    int rad = SC(9), oy = dn ? 1 : 0;
-    if (st == BS_J_PRIMARY) {
-        roundRect(dc, 0, oy, w, h - 1, rad, dis ? TH.panel2 : TH.deep, dis ? TH.line : mix(TH.accent, TH.panel, 110));   /* 평평하게 (그라데이션 없음) */
-    } else if (st == BS_J_GHOST) { if (dn) roundRect(dc, 0, 0, w, h, rad, TH.panel2, TH.panel2); }
-    else roundRect(dc, 0, oy, w, h - 1, rad, TH.panel2, st == BS_J_SEGON ? TH.accent : TH.line);
-    if (st == BS_J_SEGON) { HBRUSH nb = (HBRUSH)GetStockObject(NULL_BRUSH); HPEN pn = CreatePen(PS_SOLID, 1, TH.accent); HGDIOBJ ob = SelectObject(dc, nb), op = SelectObject(dc, pn); RoundRect(dc, 1, oy + 1, w - 1, h - 2 + oy, rad, rad); SelectObject(dc, ob); SelectObject(dc, op); DeleteObject(pn); }
-    wchar_t t[128]; GetWindowTextW(d->hwndItem, t, 128);
-    COLORREF tc = st == BS_J_PRIMARY ? RGB(255, 255, 255) : st == BS_J_GHOST || st == BS_J_SEGOFF ? TH.dim : TH.text;
-    if (dis) tc = mix(tc, TH.panel, 150);
-    textAt(dc, st == BS_J_GHOST ? hFontUI : hFontBold, tc, 0, oy, w, h, t, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    int sv = (int)GetWindowLongPtrW(d->hwndItem, GWLP_USERDATA), st = sv & 0xff, dis = (d->itemState & ODS_DISABLED) != 0, dn = (d->itemState & ODS_SELECTED) != 0;
+    COLORREF under = (sv & BS_J_ONBG) ? TH.bg : TH.panel;
+    fillRect(dc, 0, 0, w, h, under);
+    int rad = SC(6);
+    if (st == BS_J_PRIMARY) roundRect(dc, 0, 0, w, h, rad, dn ? TH.accent2 : TH.deep, dn ? TH.accent2 : TH.deep);
+    else if (st == BS_J_PLAIN || st == BS_J_SEGOFF) roundRect(dc, 0, 0, w, h, rad, dn ? TH.accent2 : under, TH.deep);
+    else if (st == BS_J_SEGON) roundRect(dc, 0, 0, w, h, rad, TH.accent2, TH.accent);
+    else if (dn) roundRect(dc, 0, 0, w, h, rad, TH.accent2, TH.accent2);
+    wchar_t t[160]; GetWindowTextW(d->hwndItem, t, 160);
+    COLORREF tc = st == BS_J_GHOST ? TH.dim : TH.text; if (st == BS_J_PRIMARY) tc = RGB(255, 255, 255);
+    if (dis) tc = RGB(90, 93, 99);
+    if (st == BS_J_ICON) textAt(dc, hFontIcon, tc, 0, 0, w, h, t, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    else if (st == BS_J_WIDGET) {   /* 프로젝트 위젯: 머리글자 네모 · 이름 · ⌄ */
+        int sq = SC(20), y0 = (h - sq) / 2; roundRect(dc, SC(6), y0, sq, sq, SC(5), TH.accent2, TH.accent2);
+        wchar_t ini[3] = {t[0] ? (wchar_t)towupper(t[0]) : L'?', t[0] && t[1] ? (wchar_t)towupper(t[1]) : 0, 0};
+        textAt(dc, hFontSmall, TH.text, SC(6), y0, sq, sq, ini, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        textAt(dc, hFontBold, tc, SC(6) + sq + SC(8), 0, w - sq - SC(34), h, t, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        textAt(dc, hFontSmall, TH.dim, 0, 0, w - SC(8), h, L"⌄", DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+    }
+    else textAt(dc, hFontUI, tc, 0, 0, w, h, t, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 }
 static HWND mkBtn(HWND parent, int id, const wchar_t *text, int style) {
     HWND b = CreateWindowExW(0, L"BUTTON", text, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 10, 10, parent, (HMENU)(INT_PTR)id, GetModuleHandleW(NULL), NULL);
@@ -622,20 +649,21 @@ static void menuAdd(HMENU m, int id, const wchar_t *icon, const wchar_t *text, c
     AppendMenuW(m, MF_OWNERDRAW, id, (LPCWSTR)it);
 }
 static void menuSep(HMENU m) { if (NMIT >= 40) return; MItem *it = &MIT[NMIT++]; ZeroMemory(it, sizeof *it); it->sep = 1; AppendMenuW(m, MF_OWNERDRAW | MF_DISABLED, 0, (LPCWSTR)it); }
-static HMENU menuNew(void) { NMIT = 0; HMENU m = CreatePopupMenu(); MENUINFO mi; ZeroMemory(&mi, sizeof mi); mi.cbSize = sizeof mi; mi.fMask = MIM_BACKGROUND; mi.hbrBack = brPanel2; SetMenuInfo(m, &mi); return m; }
+static HMENU menuNew(void) { NMIT = 0; HMENU m = CreatePopupMenu(); MENUINFO mi; ZeroMemory(&mi, sizeof mi); mi.cbSize = sizeof mi; mi.fMask = MIM_BACKGROUND; mi.hbrBack = brPanel; SetMenuInfo(m, &mi); return m; }
 static void menuMeasure(MEASUREITEMSTRUCT *m) {
     MItem *it = (MItem *)m->itemData; if (!it) return;
     if (it->sep) { m->itemWidth = SC(10); m->itemHeight = SC(11); return; }
     HDC dc = GetDC(hMain); int w = textW(dc, hFontUI, it->text) + (it->hint[0] ? textW(dc, hFontSmall, it->hint) + SC(24) : 0); ReleaseDC(hMain, dc);
-    m->itemWidth = SC(44) + w + SC(16); if ((int)m->itemWidth < SC(210)) m->itemWidth = SC(210); m->itemHeight = SC(34);
+    m->itemWidth = SC(40) + w + SC(20); if ((int)m->itemWidth < SC(220)) m->itemWidth = SC(220); m->itemHeight = SC(28);
 }
 static void menuDraw(DRAWITEMSTRUCT *d) {
     MItem *it = (MItem *)d->itemData; HDC dc = d->hDC; RECT r = d->rcItem; int w = r.right - r.left, h = r.bottom - r.top;
-    fillRect(dc, r.left, r.top, w, h, TH.panel2); if (!it) return;
-    if (it->sep) { fillRect(dc, r.left + SC(6), r.top + h / 2, w - SC(12), 1, TH.line); return; }
-    if (d->itemState & ODS_SELECTED) roundRect(dc, r.left + SC(4), r.top + SC(2), w - SC(8), h - SC(4), SC(8), TH.line, TH.line);
-    textAt(dc, hFontEmoji, TH.text, r.left + SC(10), r.top, SC(26), h, it->icon, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    textAt(dc, hFontUI, TH.text, r.left + SC(44), r.top, w - SC(56), h, it->text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    fillRect(dc, r.left, r.top, w, h, TH.panel); if (!it) return;
+    if (it->sep) { fillRect(dc, r.left + SC(8), r.top + h / 2, w - SC(16), 1, TH.panel2); return; }
+    if (d->itemState & ODS_SELECTED) roundRect(dc, r.left + SC(4), r.top + SC(1), w - SC(8), h - SC(2), SC(6), TH.accent2, TH.accent2);
+    int dis = (d->itemState & (ODS_GRAYED | ODS_DISABLED)) != 0;
+    textAt(dc, hFontIcon, dis ? RGB(90, 93, 99) : TH.dim, r.left + SC(8), r.top, SC(24), h, it->icon, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    textAt(dc, hFontUI, dis ? RGB(90, 93, 99) : TH.text, r.left + SC(40), r.top, w - SC(52), h, it->text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     if (it->hint[0]) textAt(dc, hFontSmall, TH.dim, r.left, r.top, w - SC(12), h, it->hint, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
     if (it->check) textAt(dc, hFontBold, TH.accent, r.left, r.top, w - SC(12), h, L"✓", DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 }
@@ -644,8 +672,8 @@ typedef struct { int done, result; int (*onCmd)(HWND d, int id, int code); } Dlg
 static LRESULT CALLBACK DlgProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     DlgCtx *c = (DlgCtx *)GetWindowLongPtrW(h, GWLP_USERDATA);
     switch (msg) {
-    case WM_CTLCOLORSTATIC: { HDC dc = (HDC)wp; LONG_PTR k = GetWindowLongPtrW((HWND)lp, GWLP_USERDATA); SetBkColor(dc, TH.panel); SetTextColor(dc, k == 1 ? TH.dim : k == 2 ? CR_RED : k == 3 ? CR_MINT : TH.text); return (LRESULT)brPanel; }
-    case WM_CTLCOLOREDIT: case WM_CTLCOLORLISTBOX: { HDC dc = (HDC)wp; SetBkColor(dc, TH.panel2); SetTextColor(dc, TH.text); return (LRESULT)brPanel2; }
+    case WM_CTLCOLORSTATIC: { HDC dc = (HDC)wp; LONG_PTR k = GetWindowLongPtrW((HWND)lp, GWLP_USERDATA); SetBkColor(dc, TH.panel); SetTextColor(dc, k == 1 ? TH.dim : k == 2 ? RGB(247, 84, 100) : k == 3 ? RGB(95, 184, 101) : TH.text); return (LRESULT)brPanel; }
+    case WM_CTLCOLOREDIT: case WM_CTLCOLORLISTBOX: { HDC dc = (HDC)wp; SetBkColor(dc, TH.bg); SetTextColor(dc, TH.text); return (LRESULT)brBg; }
     case WM_DRAWITEM: if (((DRAWITEMSTRUCT *)lp)->CtlType == ODT_BUTTON) { drawBtn((DRAWITEMSTRUCT *)lp); return TRUE; } break;
     case WM_ERASEBKGND: { RECT r; GetClientRect(h, &r); FillRect((HDC)wp, &r, brPanel); return 1; }
     case WM_COMMAND:
@@ -699,12 +727,13 @@ static int dlgRun(HWND d, DlgCtx *c, HWND focus) {
 static wchar_t *inBuf;
 static int inCmd(HWND d, int id, int code) { (void)code; if (id == IDOK) { GetDlgItemTextW(d, ID_IN_EDIT, inBuf, MAX_PATH); return 1; } return 0; }
 static int inputBox(const wchar_t *title, const wchar_t *init, wchar_t *out) {
-    DlgCtx c = {0, 0, inCmd}; int W = SC(400), M = SC(20);
-    HWND d = dlgNew(title, W, SC(150), &c);
-    dlgLabel(d, M, SC(16), W - 2 * M, SC(20), T(S_NAME), 1);
-    HWND ed = dlgEdit(d, ID_IN_EDIT, M, SC(40), W - 2 * M, init);
-    dlgButton(d, IDOK, W - M - SC(200), SC(92), SC(96), SC(36), T(S_OKB), BS_J_PRIMARY);
-    dlgButton(d, IDCANCEL, W - M - SC(96), SC(92), SC(96), SC(36), T(S_CANCELB), BS_J_PLAIN);
+    DlgCtx c = {0, 0, inCmd}; int W = SC(440), M = SC(20), LW = SC(64);
+    HWND d = dlgNew(title, W, SC(120), &c);
+    dlgLabel(d, M, SC(24), LW, SC(20), T(S_NAME), 0);
+    HWND ed = dlgEdit(d, ID_IN_EDIT, M + LW, SC(18), W - 2 * M - LW, init);
+    dlgButton(d, IDCANCEL, W - M - SC(88) * 2 - SC(8), SC(66), SC(88), SC(30), T(S_CANCELB), BS_J_PLAIN);
+    dlgButton(d, IDOK, W - M - SC(88), SC(66), SC(88), SC(30), T(S_OKB), BS_J_PRIMARY);
+    dlgFit(d, SC(66) + SC(30) + SC(16));
     SendMessageW(ed, EM_SETSEL, 0, -1); const wchar_t *dot = wcsrchr(init, L'.'); if (dot && dot != init) SendMessageW(ed, EM_SETSEL, 0, dot - init);
     inBuf = out; out[0] = 0;
     return dlgRun(d, &c, ed) == IDOK && out[0];
@@ -925,62 +954,57 @@ static void acAfterChar(wchar_t ch) {
     if (ok) acShow(lib, cr.cpMax);
 }
 
-/* ================= 탭 줄 (직접 그림 · 웹 판 .tabbar) · 경로 줄 · 줄 번호 ================= */
+/* ================= 탭 (IntelliJ: 편집기 색 바탕 · 고른 탭은 밑줄) · 상태 줄 · 줄 번호 ================= */
 static int TX[MAXDOC], TWD[MAXDOC], TSCROLL;
-enum { TI_UNDO, TI_REDO, TI_SAVE, TI_FILES, TI_N };
-static int tabIconX(int i, int W) { return W - SC(40) * (TI_N - i); }
 static void tabsMeasure(HDC dc) {
     int x = 0;
-    for (int i = 0; i < NDOCS; i++) { TX[i] = x; TWD[i] = SC(14) + textW(dc, hFontPath, baseName(DOCS[i].path)) + SC(8) + SC(14) + SC(12); x += TWD[i]; }
+    for (int i = 0; i < NDOCS; i++) { TX[i] = x; TWD[i] = SC(12) + SC(16) + textW(dc, hFontUI, baseName(DOCS[i].path)) + SC(10) + SC(16) + SC(8); x += TWD[i]; }
 }
-static void tabsEnsure(int W) {   /* 지금 탭이 보이게 */
+static void tabsEnsure(int W) {
     if (CURD < 0) { TSCROLL = 0; return; }
-    int area = W - SC(40) * TI_N;
     if (TX[CURD] - TSCROLL < 0) TSCROLL = TX[CURD];
-    if (TX[CURD] + TWD[CURD] - TSCROLL > area) TSCROLL = TX[CURD] + TWD[CURD] - area;
+    if (TX[CURD] + TWD[CURD] - TSCROLL > W) TSCROLL = TX[CURD] + TWD[CURD] - W;
     if (TSCROLL < 0) TSCROLL = 0;
 }
-static int anyDirty(void) { for (int i = 0; i < NDOCS; i++) if (DOCS[i].dirty) return 1; return 0; }
+static COLORREF fileColor(const wchar_t *p) {   /* 파일 종류 표시 색 (IntelliJ 의 파일 아이콘 색과 비슷하게) */
+    const wchar_t *x = wcsrchr(p, L'.');
+    if (x && !_wcsicmp(x, L".jb")) return RGB(207, 142, 109);
+    if (x && !_wcsicmp(x, L".jbl")) return RGB(84, 138, 247);
+    if (x && !_wcsicmp(x, L".jbs")) return RGB(230, 180, 80);
+    if (x && !_wcsicmp(x, L".jbx")) return RGB(181, 132, 224);
+    if (x && (!_wcsicmp(x, L".png") || !_wcsicmp(x, L".jpg") || !_wcsicmp(x, L".wav") || !_wcsicmp(x, L".ogg") || !_wcsicmp(x, L".mp3"))) return RGB(95, 184, 101);
+    return TH.dim;
+}
+static void fileBadge(HDC dc, int x, int y, int sz, const wchar_t *p) {   /* 작은 파일 표시: 색 네모 + 첫 글자 */
+    const wchar_t *x2 = wcsrchr(p, L'.'); wchar_t ch[2] = {x2 && x2[1] ? (wchar_t)towupper(x2[1]) : L'·', 0};
+    roundRect(dc, x, y, sz, sz, SC(4), fileColor(p), fileColor(p));
+    textAt(dc, hFontSmall, TH.bg, x, y, sz, sz, ch, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+}
 static LRESULT CALLBACK TabsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_PAINT: {
         PAINTSTRUCT ps; HDC wdc = BeginPaint(h, &ps); RECT r; GetClientRect(h, &r); int W = r.right, H = r.bottom;
         HDC dc = CreateCompatibleDC(wdc); HBITMAP bm = CreateCompatibleBitmap(wdc, W, H); HGDIOBJ ob = SelectObject(dc, bm);
-        fillRect(dc, 0, 0, W, H, TH.panel);
+        fillRect(dc, 0, 0, W, H, TH.bg);
         tabsMeasure(dc); tabsEnsure(W);
-        int area = W - SC(40) * TI_N;
-        HRGN clip = CreateRectRgn(0, 0, area, H); SelectClipRgn(dc, clip);
         for (int i = 0; i < NDOCS; i++) {
-            int x = TX[i] - TSCROLL, w = TWD[i]; if (x + w < 0 || x > area) continue;
+            int x = TX[i] - TSCROLL, w = TWD[i]; if (x + w < 0 || x > W) continue;
             int on = i == CURD;
-            if (on) { fillRect(dc, x, 0, w, H, TH.bg); fillRect(dc, x, H - SC(2), w, SC(2), TH.accent); }
-            textAt(dc, hFontPath, on ? TH.text : TH.dim, x + SC(14), 0, w, H - 1, baseName(DOCS[i].path), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            if (on) fillRect(dc, x, H - SC(3), w, SC(3), TH.accent);
+            fileBadge(dc, x + SC(12), (H - SC(14)) / 2, SC(14), DOCS[i].path);
+            textAt(dc, hFontUI, on ? TH.text : TH.dim, x + SC(12) + SC(20), 0, w, H, baseName(DOCS[i].path), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             int xx = x + w - SC(26);
-            if (DOCS[i].dirty) textAt(dc, hFontSmall, TH.accent, xx - SC(10), 0, SC(10), H - 1, L"●", DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            textAt(dc, hFontSmall, TH.dim, xx, 0, SC(14), H - 1, DOCS[i].ro ? L"🔒" : L"✕", DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            textAt(dc, hFontSmall, DOCS[i].dirty ? TH.text : TH.dim, xx, 0, SC(16), H, DOCS[i].ro ? L"🔒" : DOCS[i].dirty ? L"●" : L"✕", DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         }
-        SelectClipRgn(dc, NULL); DeleteObject(clip);
-        static const wchar_t *IC[TI_N] = {L"↶", L"↷", L"💾", L"📁"};
-        for (int i = 0; i < TI_N; i++) {
-            int x = tabIconX(i, W), dis = (i == TI_UNDO && !(CURD >= 0 && SendMessageW(hEdit, EM_CANUNDO, 0, 0))) || (i == TI_REDO && !(CURD >= 0 && SendMessageW(hEdit, EM_CANREDO, 0, 0)));
-            textAt(dc, i < 2 ? hFontBrand : hFontEmoji, dis ? mix(TH.dim, TH.panel, 140) : (i == TI_FILES && EXPL ? TH.text : TH.dim), x, 0, SC(40), H - 1, IC[i], DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            if (i == TI_SAVE && anyDirty()) { HBRUSH b = CreateSolidBrush(TH.accent); HGDIOBJ o2 = SelectObject(dc, b); HGDIOBJ op = SelectObject(dc, GetStockObject(NULL_PEN)); Ellipse(dc, x + SC(26), SC(8), x + SC(33), SC(15)); SelectObject(dc, op); SelectObject(dc, o2); DeleteObject(b); }
-        }
-        fillRect(dc, 0, H - 1, W, 1, TH.line);
+        fillRect(dc, 0, H - 1, W, 1, TH.panel2);
         BitBlt(wdc, 0, 0, W, H, dc, 0, 0, SRCCOPY); SelectObject(dc, ob); DeleteObject(bm); DeleteDC(dc);
         EndPaint(h, &ps); return 0;
     }
     case WM_LBUTTONDOWN: case WM_MBUTTONUP: {
-        RECT r; GetClientRect(h, &r); int x = GET_X_LPARAM(lp), W = r.right;
-        if (msg == WM_LBUTTONDOWN && x >= tabIconX(0, W)) {
-            int i = (x - tabIconX(0, W)) / SC(40);
-            if (i == TI_UNDO) SendMessageW(hEdit, EM_UNDO, 0, 0); else if (i == TI_REDO) SendMessageW(hEdit, EM_REDO, 0, 0);
-            else if (i == TI_SAVE) saveAll(); else if (i == TI_FILES) { EXPL = !EXPL; SendMessageW(hMain, WM_SIZE, 0, 0); InvalidateRect(hMain, NULL, TRUE); }
-            InvalidateRect(h, NULL, FALSE); return 0;
-        }
+        int x = GET_X_LPARAM(lp);
         for (int i = 0; i < NDOCS; i++) {
             int tx = TX[i] - TSCROLL; if (x < tx || x >= tx + TWD[i]) continue;
-            if (msg == WM_MBUTTONUP || x >= tx + TWD[i] - SC(28)) closeDoc(i); else if (i != CURD) { docStash(); docShow(i); }
+            if (msg == WM_MBUTTONUP || x >= tx + TWD[i] - SC(30)) closeDoc(i); else if (i != CURD) { docStash(); docShow(i); }
             return 0;
         }
         return 0;
@@ -990,49 +1014,53 @@ static LRESULT CALLBACK TabsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     }
     return DefWindowProcW(h, msg, wp, lp);
 }
-/* 경로 줄 (웹 판 .pathbar): 폴더는 흐리게 · 파일 이름은 굵게 · 오른쪽에 알림 · 읽기 전용 표시 — 누르면 탐색기 보이기 · 숨기기 */
+/* 상태 줄 (IntelliJ: 왼쪽 = 경로 (프로젝트 › 폴더 › 파일) · 알림 · 오른쪽 = 줄 · 열 · UTF-8 · LF) */
 static LRESULT CALLBACK PathProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_PAINT: {
         PAINTSTRUCT ps; HDC dc = BeginPaint(h, &ps); RECT r; GetClientRect(h, &r); int W = r.right, H = r.bottom;
-        fillRect(dc, 0, 0, W, H, TH.bg); fillRect(dc, 0, H - 1, W, 1, TH.line);
+        fillRect(dc, 0, 0, W, H, TH.panel); fillRect(dc, 0, 0, W, 1, TH.line);
         int x = SC(12);
-        if (CURD >= 0) {
-            const wchar_t *p = DOCS[CURD].path; size_t pl = wcslen(PROJ);
-            const wchar_t *rel = DOCS[CURD].ro ? baseName(p) : (!_wcsnicmp(p, PROJ, pl) && p[pl] == L'\\' ? p + pl + 1 : p);
-            const wchar_t *bn = baseName(rel);
-            wchar_t dir[MAX_PATH]; int dn = (int)(bn - rel); wcsncpy(dir, rel, dn); dir[dn] = 0; for (wchar_t *q = dir; *q; q++) if (*q == L'\\') *q = L'/';
-            if (dn) { textAt(dc, hFontPath, TH.dim, x, 0, W, H - 1, dir, DT_LEFT | DT_VCENTER | DT_SINGLELINE); x += textW(dc, hFontPath, dir); }
-            HFONT bf = hFontPath; LOGFONTW lf; GetObjectW(hFontPath, sizeof lf, &lf); lf.lfWeight = FW_SEMIBOLD; bf = CreateFontIndirectW(&lf);
-            textAt(dc, bf, TH.text, x, 0, W, H - 1, bn, DT_LEFT | DT_VCENTER | DT_SINGLELINE); x += textW(dc, bf, bn) + SC(12); DeleteObject(bf);
-        } else textAt(dc, hFontPath, TH.dim, x, 0, W, H - 1, PROJ[0] ? baseName(PROJ) : T(S_TITLE_NONE), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-        int rx = W - SC(12);
-        if (CURD >= 0 && DOCS[CURD].ro) { int bw = textW(dc, hFontSmall, T(S_READONLY)) + SC(12); roundRect(dc, rx - bw, SC(4), bw, H - SC(9), SC(8), TH.bg, TH.line); textAt(dc, hFontSmall, TH.dim, rx - bw, SC(4), bw, H - SC(9), T(S_READONLY), DT_CENTER | DT_VCENTER | DT_SINGLELINE); rx -= bw + SC(10); }
-        if (STATUS[0] && rx > x) textAt(dc, hFontSmall, TH.dim, x, 0, rx - x, H - 1, STATUS, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        wchar_t crumb[MAX_PATH * 2] = L"";
+        if (PROJ[0]) {
+            wcscpy(crumb, baseName(PROJ));
+            if (CURD >= 0) {
+                const wchar_t *p = DOCS[CURD].path; size_t pl = wcslen(PROJ);
+                const wchar_t *rel = DOCS[CURD].ro ? baseName(p) : (!_wcsnicmp(p, PROJ, pl) && p[pl] == L'\\' ? p + pl + 1 : p);
+                for (const wchar_t *q = rel; *q; ) { const wchar_t *e = wcschr(q, L'\\'); size_t L = e ? (size_t)(e - q) : wcslen(q); wcscat(crumb, L"  ›  "); wcsncat(crumb, q, L); q = e ? e + 1 : q + L; }
+            }
+        }
+        textAt(dc, hFontUI, TH.dim, x, 0, W, H, crumb, DT_LEFT | DT_VCENTER | DT_SINGLELINE); x += textW(dc, hFontUI, crumb) + SC(24);
+        wchar_t right[96] = L"";
+        if (CURD >= 0) { CHARRANGE cr; SendMessageW(hEdit, EM_EXGETSEL, 0, (LPARAM)&cr); int ln = (int)SendMessageW(hEdit, EM_EXLINEFROMCHAR, 0, cr.cpMax), col = cr.cpMax - (int)SendMessageW(hEdit, EM_LINEINDEX, ln, 0);
+            wchar_t lc[48]; _snwprintf(lc, 48, T(S_LNCOL), ln + 1, col + 1); lc[47] = 0; _snwprintf(right, 96, L"%ls     UTF-8     LF%ls", lc, DOCS[CURD].ro ? L"     🔒" : L""); right[95] = 0; }
+        int rw = textW(dc, hFontUI, right);
+        textAt(dc, hFontUI, TH.dim, W - SC(14) - rw, 0, rw, H, right, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        if (STATUS[0] && W - SC(40) - rw > x) textAt(dc, hFontUI, TH.dim, x, 0, W - SC(40) - rw - x, H, STATUS, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
         EndPaint(h, &ps); return 0;
     }
-    case WM_LBUTTONDOWN: EXPL = !EXPL; SendMessageW(hMain, WM_SIZE, 0, 0); InvalidateRect(hMain, NULL, TRUE); if (hTabs) InvalidateRect(hTabs, NULL, FALSE); return 0;
     case WM_ERASEBKGND: return 1;
     }
     return DefWindowProcW(h, msg, wp, lp);
 }
-/* 줄 번호 (웹 판 .gutter) — 오류 줄은 빨강 바탕 */
+/* 줄 번호 (IntelliJ: 편집기 색 바탕 · 흐린 번호 · 커서 줄 번호는 밝게 · 오류 줄은 빨강) */
 static wchar_t ERRPATH[MAX_PATH]; static int ERRLINE;
 static LRESULT CALLBACK GutProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_PAINT: {
         PAINTSTRUCT ps; HDC wdc = BeginPaint(h, &ps); RECT r; GetClientRect(h, &r); int W = r.right, H = r.bottom;
         HDC dc = CreateCompatibleDC(wdc); HBITMAP bm = CreateCompatibleBitmap(wdc, W, H); HGDIOBJ ob = SelectObject(dc, bm);
-        fillRect(dc, 0, 0, W, H, TH.panel); fillRect(dc, W - 1, 0, 1, H, TH.line);
+        fillRect(dc, 0, 0, W, H, TH.bg);
         if (CURD >= 0) {
             int first = (int)SendMessageW(hEdit, EM_GETFIRSTVISIBLELINE, 0, 0), n = (int)SendMessageW(hEdit, EM_GETLINECOUNT, 0, 0), lh = SC(22);
+            CHARRANGE cr; SendMessageW(hEdit, EM_EXGETSEL, 0, (LPARAM)&cr); int cur = (int)SendMessageW(hEdit, EM_EXLINEFROMCHAR, 0, cr.cpMax);
             int err = ERRLINE > 0 && !_wcsicmp(ERRPATH, DOCS[CURD].path) ? ERRLINE - 1 : -1;
             for (int i = first; i < n; i++) {
                 int ci = (int)SendMessageW(hEdit, EM_LINEINDEX, i, 0); if (ci < 0) break;
                 POINTL pt; SendMessageW(hEdit, EM_POSFROMCHAR, (WPARAM)&pt, ci); if (pt.y > H) break;
                 wchar_t t[16]; _snwprintf(t, 16, L"%d", i + 1); t[15] = 0;
-                if (i == err) { RECT er = {0, pt.y, W - SC(1), pt.y + lh}; HBRUSH b = CreateSolidBrush(CR_RED); FillRect(dc, &er, b); DeleteObject(b); }
-                textAt(dc, hFontCode, i == err ? RGB(255, 255, 255) : TH.dim, 0, pt.y, W - SC(8), lh, t, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+                if (i == err) fillRect(dc, 0, pt.y, W, lh, RGB(94, 56, 56));
+                textAt(dc, hFontCode, i == err ? RGB(247, 84, 100) : i == cur ? RGB(161, 163, 171) : RGB(75, 80, 89), 0, pt.y, W - SC(12), lh, t, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
             }
         }
         BitBlt(wdc, 0, 0, W, H, dc, 0, 0, SRCCOPY); SelectObject(dc, ob); DeleteObject(bm); DeleteDC(dc);
@@ -1129,20 +1157,19 @@ static int setCmd(HWND d, int id, int code) {
     }
     return id == IDOK;
 }
-static HWND buildSettings(DlgCtx *c) {
-    int W = SC(420), M = SC(22), y = SC(18), cw = W - 2 * M;
-    HWND d = dlgNew(T(S_SET_TITLE), W, SC(376), c);
-    dlgLabel(d, M, y, cw, SC(18), T(S_SET_LANG), 1); y += SC(22);
-    sLang = dlgCombo(d, ID_D_FIRST, M, y, cw); for (int i = 0; i < 5; i++) SendMessageW(sLang, CB_ADDSTRING, 0, (LPARAM)LANGNAME[i]); SendMessageW(sLang, CB_SETCURSEL, LANG, 0); y += SC(46);
-    dlgLabel(d, M, y, cw, SC(18), T(S_SET_RAM), 1); y += SC(22);
-    sRam = dlgCombo(d, ID_D_FIRST + 1, M, y, cw);
+static HWND buildSettings(DlgCtx *c) {   /* IntelliJ 식: 이름은 왼쪽 · 칸은 오른쪽 · 단추는 오른쪽 아래 */
+    int W = SC(500), M = SC(20), LW = SC(110), y = SC(20), fw = W - 2 * M - LW;
+    HWND d = dlgNew(T(S_SET_TITLE), W, SC(300), c);
+    dlgLabel(d, M, y + SC(6), LW, SC(20), T(S_SET_LANG), 0);
+    sLang = dlgCombo(d, ID_D_FIRST, M + LW, y, fw); for (int i = 0; i < 5; i++) SendMessageW(sLang, CB_ADDSTRING, 0, (LPARAM)LANGNAME[i]); SendMessageW(sLang, CB_SETCURSEL, LANG, 0); y += SC(42);
+    dlgLabel(d, M, y + SC(6), LW, SC(20), T(S_SET_RAM), 0);
+    sRam = dlgCombo(d, ID_D_FIRST + 1, M + LW, y, fw);
     const wchar_t *rl[6] = {T(S_RAM_AUTO), L"256 MB", L"512 MB", L"1 GB", L"2 GB", T(S_RAM_UNL)};
-    for (int i = 0; i < 6; i++) SendMessageW(sRam, CB_ADDSTRING, 0, (LPARAM)rl[i]); SendMessageW(sRam, CB_SETCURSEL, CFG.ram, 0); y += SC(40);
-    dlgLabel(d, M, y, cw, SC(80), T(S_RAM_HINT), 1); y += SC(90);
-
+    for (int i = 0; i < 6; i++) SendMessageW(sRam, CB_ADDSTRING, 0, (LPARAM)rl[i]); SendMessageW(sRam, CB_SETCURSEL, CFG.ram, 0); y += SC(36);
+    dlgLabel(d, M + LW, y, fw, SC(66), T(S_RAM_HINT), 1); y += SC(84);
     wchar_t v[96]; _snwprintf(v, 96, T(S_VERSION), L"1.6", JDH_VER_W); v[95] = 0;
-    HWND vs = dlgLabel(d, M, y, cw, SC(18), v, 1); SetWindowLongPtrW(vs, GWL_STYLE, GetWindowLongPtrW(vs, GWL_STYLE) | SS_CENTER); y += SC(30);
-    dlgButton(d, IDOK, M, y, cw, SC(40), T(S_CLOSE), BS_J_PRIMARY); y += SC(40) + SC(20);
+    dlgLabel(d, M, y + SC(8), W - 2 * M - SC(100), SC(18), v, 1);
+    dlgButton(d, IDOK, W - M - SC(88), y, SC(88), SC(30), T(S_CLOSE), BS_J_PRIMARY); y += SC(30) + SC(16);
     dlgFit(d, y); return d;
 }
 static void cmdSettings(void) {
@@ -1247,27 +1274,29 @@ static int apkCmd(HWND d, int id, int code) {
     if (!(n.vcode >= 1 && n.vcode <= 2100000000)) { SetWindowLongPtrW(aErr, GWLP_USERDATA, 2); SetWindowTextW(aErr, T(S_APK_BADVC)); InvalidateRect(aErr, NULL, TRUE); return 0; }
     AC = n; return 1;
 }
-static HWND buildApk(DlgCtx *c) {
+static HWND buildApk(DlgCtx *c) {   /* IntelliJ 식 양식 */
     apkCfgLoad(); NICON = 0; findPngs(PROJ, L"", 0);
-    int W = SC(460), M = SC(22), y = SC(16), cw = W - 2 * M;
-    HWND d = dlgNew(T(S_APK_TITLE), W, SC(640), c);
-    dlgLabel(d, M, y, cw, SC(48), T(S_APK_DESC), 1); y += SC(56);
-    dlgLabel(d, M, y, cw, SC(18), T(S_APK_LABEL), 1); y += SC(20); aLabel = dlgEdit(d, ID_D_FIRST + 1, M, y, cw, AC.label); y += SC(40);
-    dlgLabel(d, M, y, cw, SC(18), T(S_APK_PKG), 1); y += SC(20); aPkg = dlgEdit(d, ID_D_FIRST + 2, M, y, cw, AC.pkg); y += SC(40);
-    int hw = (cw - SC(10)) / 2; wchar_t vc[24]; _snwprintf(vc, 24, L"%ld", AC.vcode + 1); vc[23] = 0;
-    dlgLabel(d, M, y, hw, SC(18), T(S_APK_VCODE), 1); dlgLabel(d, M + hw + SC(10), y, hw, SC(18), T(S_APK_VNAME), 1); y += SC(20);
-    aCode = dlgEdit(d, ID_D_FIRST + 3, M, y, hw, vc); aVer = dlgEdit(d, ID_D_FIRST + 4, M + hw + SC(10), y, hw, AC.vname); y += SC(40);
-    dlgLabel(d, M, y, hw, SC(18), T(S_APK_ORI), 1); dlgLabel(d, M + hw + SC(10), y, hw, SC(18), T(S_APK_ICON), 1); y += SC(20);
-    aOri = dlgCombo(d, ID_D_FIRST + 5, M, y, hw); SendMessageW(aOri, CB_ADDSTRING, 0, (LPARAM)T(S_ORI_AUTO)); SendMessageW(aOri, CB_ADDSTRING, 0, (LPARAM)T(S_ORI_LAND)); SendMessageW(aOri, CB_ADDSTRING, 0, (LPARAM)T(S_ORI_PORT));
-    SendMessageW(aOri, CB_SETCURSEL, !wcscmp(AC.ori, L"landscape") ? 1 : !wcscmp(AC.ori, L"portrait") ? 2 : 0, 0);
-    aIcon = dlgCombo(d, ID_D_FIRST + 6, M + hw + SC(10), y, hw); SendMessageW(aIcon, CB_ADDSTRING, 0, (LPARAM)T(S_ICON_DEF));
+    int W = SC(560), M = SC(20), LW = SC(170), y = SC(16), fw = W - 2 * M - LW;
+    HWND d = dlgNew(T(S_APK_TITLE), W, SC(520), c);
+    dlgLabel(d, M, y, W - 2 * M, SC(40), T(S_APK_DESC), 1); y += SC(52);
+#define ROWL(txt) dlgLabel(d, M, y + SC(6), LW - SC(8), SC(20), txt, 0)
+    ROWL(T(S_APK_LABEL)); aLabel = dlgEdit(d, ID_D_FIRST + 1, M + LW, y, fw, AC.label); y += SC(38);
+    ROWL(T(S_APK_PKG)); aPkg = dlgEdit(d, ID_D_FIRST + 2, M + LW, y, fw, AC.pkg); y += SC(38);
+    wchar_t vc[24]; _snwprintf(vc, 24, L"%ld", AC.vcode + 1); vc[23] = 0;
+    ROWL(T(S_APK_VCODE)); aCode = dlgEdit(d, ID_D_FIRST + 3, M + LW, y, SC(120), vc); y += SC(38);
+    ROWL(T(S_APK_VNAME)); aVer = dlgEdit(d, ID_D_FIRST + 4, M + LW, y, SC(120), AC.vname); y += SC(38);
+    ROWL(T(S_APK_ORI)); aOri = dlgCombo(d, ID_D_FIRST + 5, M + LW, y, SC(200));
+    SendMessageW(aOri, CB_ADDSTRING, 0, (LPARAM)T(S_ORI_AUTO)); SendMessageW(aOri, CB_ADDSTRING, 0, (LPARAM)T(S_ORI_LAND)); SendMessageW(aOri, CB_ADDSTRING, 0, (LPARAM)T(S_ORI_PORT));
+    SendMessageW(aOri, CB_SETCURSEL, !wcscmp(AC.ori, L"landscape") ? 1 : !wcscmp(AC.ori, L"portrait") ? 2 : 0, 0); y += SC(38);
+    ROWL(T(S_APK_ICON)); aIcon = dlgCombo(d, ID_D_FIRST + 6, M + LW, y, fw); SendMessageW(aIcon, CB_ADDSTRING, 0, (LPARAM)T(S_ICON_DEF));
     int sel = 0; for (int i = 0; i < NICON; i++) { SendMessageW(aIcon, CB_ADDSTRING, 0, (LPARAM)ICONS[i]); if (!_wcsicmp(ICONS[i], AC.icon) || (!AC.icon[0] && !sel && !_wcsicmp(baseName(ICONS[i]), L"icon.png"))) sel = i + 1; }
-    SendMessageW(aIcon, CB_SETCURSEL, sel, 0); y += SC(46);
-    wchar_t ki[160]; keyInfo(ki, 160); aKey = dlgLabel(d, M, y, cw, SC(20), ki, 1); y += SC(24);
-    dlgButton(d, ID_D_FIRST + 10, M, y, SC(130), SC(32), T(S_KEY_EXPORT), BS_J_PLAIN); dlgButton(d, ID_D_FIRST + 11, M + SC(138), y, SC(130), SC(32), T(S_KEY_IMPORT), BS_J_PLAIN); y += SC(42);
-    aErr = dlgLabel(d, M, y, cw, SC(36), L"", 2); y += SC(38);
-    dlgButton(d, IDOK, M, y, cw, SC(40), T(S_APK_BUILD), BS_J_PRIMARY); y += SC(46);
-    dlgButton(d, IDCANCEL, M, y, cw, SC(36), T(S_CANCELB), BS_J_PLAIN); y += SC(36) + SC(20);
+    SendMessageW(aIcon, CB_SETCURSEL, sel, 0); y += SC(44);
+#undef ROWL
+    wchar_t ki[160]; keyInfo(ki, 160); aKey = dlgLabel(d, M, y + SC(6), W - 2 * M - SC(260), SC(20), ki, 1);
+    dlgButton(d, ID_D_FIRST + 10, W - M - SC(252), y, SC(122), SC(30), T(S_KEY_EXPORT), BS_J_PLAIN); dlgButton(d, ID_D_FIRST + 11, W - M - SC(122), y, SC(122), SC(30), T(S_KEY_IMPORT), BS_J_PLAIN); y += SC(42);
+    aErr = dlgLabel(d, M, y, W - 2 * M, SC(34), L"", 2); y += SC(38);
+    dlgButton(d, IDCANCEL, W - M - SC(88) * 2 - SC(8), y, SC(88), SC(30), T(S_CANCELB), BS_J_PLAIN);
+    dlgButton(d, IDOK, W - M - SC(88), y, SC(88), SC(30), T(S_OKAPK), BS_J_PRIMARY); y += SC(30) + SC(16);
     dlgFit(d, y); return d;
 }
 static void cmdApk(void) {
@@ -1303,104 +1332,205 @@ static int logJump(int line) {
     gotoLine(ln); return 1;
 }
 
-/* ================= 창 — 웹 판과 같은 배치 ================= */
-/*   머리 줄 (로고 · JawBreaker Dev. · ▶ 실행 · ■ · 검사 · ☰) · [탐색기] · 탭 줄 · 경로 줄 · 줄 번호 + 코드 칸 · 로그 머리 · 로그 칸 */
-#define HDR SC(46)
+/* ================= 창 — IntelliJ IDEA 식 배치 ================= */
+/*   도구 막대 (☰ · 프로젝트 위젯 ⌄ · … · ▶ ✓ ■ · ⚙) · 왼쪽 도구 창 줄 (프로젝트 · 실행) · 프로젝트 도구 창 · 탭 · 줄 번호 + 코드 칸 · 실행 창 · 상태 줄
+ *   프로젝트가 없으면 시작 창 (최근 프로젝트 · 새 프로젝트 · 열기) */
+#define TBH SC(40)
+#define SBH SC(26)
+#define STW SC(40)
 #define TABH SC(36)
-#define PATHH SC(26)
 #define PHEAD SC(32)
-#define EXW (EXPL ? SC(260) : 0)
-static int logH(int H) { int lh = SC(LOGH); int mx = H - HDR - TABH - PATHH - PHEAD - SC(80); if (lh > mx) lh = mx; if (lh < SC(60)) lh = SC(60); return lh; }
-static void editMargins(void) { RECT r; GetClientRect(hEdit, &r); r.left += SC(12); r.top += SC(8); SendMessageW(hEdit, EM_SETRECT, 0, (LPARAM)&r); RECT q; GetClientRect(hLog, &q); q.left += SC(10); q.top += SC(6); SendMessageW(hLog, EM_SETRECT, 0, (LPARAM)&q); }
-static void layout(void) {
-    RECT r; GetClientRect(hMain, &r); int W = r.right, H = r.bottom, ex = EXW, lh = logH(H);
-    int bx = W - SC(10), by = (HDR - SC(32)) / 2;
-    const int bw[4] = {SC(88), SC(40), SC(64), SC(40)};   /* ▶ 실행 · ■ · 검사 · ☰ */
-    for (int i = 3; i >= 0; i--) { bx -= bw[i]; MoveWindow(hBtn[i], bx, by, bw[i], SC(32), TRUE); bx -= SC(6); }
-    ShowWindow(hTree, EXPL ? SW_SHOW : SW_HIDE); ShowWindow(hBtn[B_ADDFILE], EXPL ? SW_SHOW : SW_HIDE); ShowWindow(hBtn[B_ADDDIR], EXPL ? SW_SHOW : SW_HIDE);
-    if (EXPL) {
-        MoveWindow(hBtn[B_ADDFILE], SC(10), HDR + SC(40), SC(96), SC(30), TRUE); MoveWindow(hBtn[B_ADDDIR], SC(112), HDR + SC(40), SC(104), SC(30), TRUE);
-        MoveWindow(hTree, 0, HDR + SC(80), ex - 1, H - HDR - SC(80), TRUE);
+#define PWID (EXPL ? SC(260) : 0)
+static HWND hWel;
+static int logH(int H) { if (!LOGV) return 0; int lh = SC(LOGH); int mx = H - TBH - SBH - TABH - PHEAD - SC(80); if (lh > mx) lh = mx; if (lh < SC(60)) lh = SC(60); return lh; }
+static int runTop(int H) { return LOGV ? H - SBH - logH(H) - PHEAD : H - SBH; }
+static void editMargins(void) { RECT r; GetClientRect(hEdit, &r); r.left += SC(8); r.top += SC(4); SendMessageW(hEdit, EM_SETRECT, 0, (LPARAM)&r); RECT q; GetClientRect(hLog, &q); q.left += SC(10); q.top += SC(4); SendMessageW(hLog, EM_SETRECT, 0, (LPARAM)&q); }
+/* ----- 최근 프로젝트 (%APPDATA%\JDH\dev-recent.txt · 12개) ----- */
+static wchar_t RECENT[12][MAX_PATH]; static int NRECENT;
+static void recentLoad(void) {
+    NRECENT = 0; wchar_t p[MAX_PATH]; if (!appPath(L"dev-recent.txt", p)) return;
+    DWORD n; char *b = readFileA(p, &n); if (!b) return;
+    for (char *ln = strtok(b, "\r\n"); ln && NRECENT < 12; ln = strtok(NULL, "\r\n")) { if (!*ln) continue; MultiByteToWideChar(CP_UTF8, 0, ln, -1, RECENT[NRECENT], MAX_PATH); if (dirExists(RECENT[NRECENT])) NRECENT++; }
+    free(b);
+}
+static void recentSave(void) {
+    wchar_t p[MAX_PATH]; if (!appPath(L"dev-recent.txt", p)) return;
+    wchar_t *t = calloc(12 * (MAX_PATH + 2) + 1, sizeof(wchar_t)); for (int i = 0; i < NRECENT; i++) { wcscat(t, RECENT[i]); wcscat(t, L"\r\n"); }
+    DWORD n; char *b = wideToUtf8(t, &n); writeFileA(p, b, n); free(b); free(t);
+}
+static void recentAdd(const wchar_t *dir) {
+    recentLoad(); int k = 0; for (; k < NRECENT; k++) if (!_wcsicmp(RECENT[k], dir)) break;
+    if (k == NRECENT && NRECENT < 12) NRECENT++; if (k >= NRECENT) k = NRECENT - 1;
+    for (int i = k; i > 0; i--) wcscpy(RECENT[i], RECENT[i - 1]); wcsncpy(RECENT[0], dir, MAX_PATH - 1); recentSave();
+}
+static void recentForget(int k) { if (k < 0 || k >= NRECENT) return; for (int i = k; i < NRECENT - 1; i++) wcscpy(RECENT[i], RECENT[i + 1]); NRECENT--; recentSave(); }
+/* ----- 시작 창 (IntelliJ Welcome) ----- */
+static int WHOVER = -1;
+#define WSIDE SC(230)
+static int welRow(int y) { int top = SC(76); if (y < top) return -1; int k = (y - top) / SC(56); return k < NRECENT ? k : -1; }
+static void showWelcome(int on);
+static LRESULT CALLBACK WelProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
+    switch (msg) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps; HDC wdc = BeginPaint(h, &ps); RECT r; GetClientRect(h, &r); int W = r.right, H = r.bottom;
+        HDC dc = CreateCompatibleDC(wdc); HBITMAP bm = CreateCompatibleBitmap(wdc, W, H); HGDIOBJ ob = SelectObject(dc, bm);
+        fillRect(dc, 0, 0, WSIDE, H, TH.panel); fillRect(dc, WSIDE, 0, W - WSIDE, H, TH.bg); fillRect(dc, WSIDE, 0, 1, H, TH.line);
+        /* 왼쪽: 로고 · 이름 · 버전 · 「프로젝트」 */
+        { int cx = SC(20) + SC(16), cy = SC(36), rr = SC(14); HPEN p1 = CreatePen(PS_SOLID, SC(3), TH.deep); HGDIOBJ op = SelectObject(dc, p1), obr = SelectObject(dc, GetStockObject(NULL_BRUSH));
+          Ellipse(dc, cx - rr, cy - rr, cx + rr, cy + rr); SelectObject(dc, op); DeleteObject(p1);
+          HPEN p2 = CreatePen(PS_SOLID, SC(2), TH.accent); op = SelectObject(dc, p2); Arc(dc, cx - rr, cy - rr, cx + rr, cy + rr, cx + rr, cy - rr / 2, cx, cy - rr); SelectObject(dc, op); SelectObject(dc, obr); DeleteObject(p2); }
+        textAt(dc, hFontBold, TH.text, SC(64), SC(20), WSIDE, SC(18), L"JawBreaker Dev.", DT_LEFT | DT_SINGLELINE);
+        wchar_t v[48]; _snwprintf(v, 48, L"1.6 · JDH %ls", JDH_VER_W); v[47] = 0; textAt(dc, hFontSmall, TH.dim, SC(64), SC(40), WSIDE, SC(16), v, DT_LEFT | DT_SINGLELINE);
+        roundRect(dc, SC(10), SC(80), WSIDE - SC(20), SC(30), SC(6), TH.accent2, TH.accent2);
+        textAt(dc, hFontUI, TH.text, SC(22), SC(80), WSIDE, SC(30), T(S_PROJECTS), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        textAt(dc, hFontIcon, TH.dim, SC(14), H - SC(44), SC(28), SC(28), L"⚙", DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        textAt(dc, hFontUI, TH.dim, SC(44), H - SC(44), WSIDE, SC(28), T(S_SET_TITLE), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        /* 오른쪽: 최근 프로젝트 */
+        int x0 = WSIDE + SC(24), top = SC(76), rw = W - x0 - SC(24);
+        if (!NRECENT) textAt(dc, hFontUI, TH.dim, x0, top + SC(8), rw, SC(22), T(S_RECENT_NONE), DT_LEFT | DT_SINGLELINE);
+        for (int i = 0; i < NRECENT; i++) {
+            int y = top + i * SC(56);
+            if (i == WHOVER) roundRect(dc, x0 - SC(8), y, rw + SC(16), SC(52), SC(6), TH.accent2, TH.accent2);
+            const wchar_t *nm = baseName(RECENT[i]); wchar_t ini[3] = {(wchar_t)towupper(nm[0]), nm[0] && nm[1] ? (wchar_t)towupper(nm[1]) : 0, 0};
+            roundRect(dc, x0, y + SC(10), SC(32), SC(32), SC(6), TH.deep, TH.deep);
+            textAt(dc, hFontBold, TH.text, x0, y + SC(10), SC(32), SC(32), ini, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+            textAt(dc, hFontBold, TH.text, x0 + SC(44), y + SC(8), rw - SC(52), SC(20), nm, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS);
+            textAt(dc, hFontSmall, TH.dim, x0 + SC(44), y + SC(28), rw - SC(52), SC(18), RECENT[i], DT_LEFT | DT_SINGLELINE | DT_PATH_ELLIPSIS);
+        }
+        BitBlt(wdc, 0, 0, W, H, dc, 0, 0, SRCCOPY); SelectObject(dc, ob); DeleteObject(bm); DeleteDC(dc);
+        EndPaint(h, &ps); return 0;
     }
-    MoveWindow(hTabs, ex, HDR, W - ex, TABH, TRUE);
-    MoveWindow(hPath, ex, HDR + TABH, W - ex, PATHH, TRUE);
-    int ey = HDR + TABH + PATHH, eh = H - ey - lh - PHEAD;
-    MoveWindow(hGut, ex, ey, SC(48), eh, TRUE);
-    MoveWindow(hEdit, ex + SC(48), ey, W - ex - SC(48), eh, TRUE);
-    MoveWindow(hBtn[B_CLEAR], W - SC(10) - SC(64), H - lh - PHEAD + SC(4), SC(64), SC(26), TRUE);
-    MoveWindow(hLog, ex, H - lh, W - ex, lh, TRUE);
+    case WM_SIZE: { RECT r; GetClientRect(h, &r); MoveWindow(hBtn[B_WOPEN], r.right - SC(24) - SC(96), SC(24), SC(96), SC(30), TRUE); MoveWindow(hBtn[B_WNEW], r.right - SC(24) - SC(96) * 2 - SC(8) - SC(40), SC(24), SC(136), SC(30), TRUE); return 0; }
+    case WM_MOUSEMOVE: { int k = GET_X_LPARAM(lp) > WSIDE ? welRow(GET_Y_LPARAM(lp)) : -1; if (k != WHOVER) { WHOVER = k; InvalidateRect(h, NULL, FALSE); }
+        TRACKMOUSEEVENT te = {sizeof te, TME_LEAVE, h, 0}; TrackMouseEvent(&te); return 0; }
+    case WM_MOUSELEAVE: if (WHOVER >= 0) { WHOVER = -1; InvalidateRect(h, NULL, FALSE); } return 0;
+    case WM_LBUTTONUP: {
+        int x = GET_X_LPARAM(lp), y = GET_Y_LPARAM(lp); RECT r; GetClientRect(h, &r);
+        if (x < WSIDE && y > r.bottom - SC(48)) { SendMessageW(hMain, WM_COMMAND, ID_C_SETTINGS, 0); return 0; }
+        int k = x > WSIDE ? welRow(y) : -1; if (k >= 0) { wchar_t d[MAX_PATH]; wcscpy(d, RECENT[k]); SendMessageW(hMain, WM_COMMAND, ID_R_FIRST + k, 0); }
+        return 0;
+    }
+    case WM_RBUTTONUP: { int k = GET_X_LPARAM(lp) > WSIDE ? welRow(GET_Y_LPARAM(lp)) : -1; if (k < 0) return 0;
+        HMENU m = menuNew(); menuAdd(m, ID_C_FORGET, L"✕", T(S_FORGET), NULL, 0); POINT pt; GetCursorPos(&pt);
+        if (TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.x, pt.y, 0, hMain, NULL) == ID_C_FORGET) { recentForget(k); InvalidateRect(h, NULL, FALSE); }
+        DestroyMenu(m); return 0; }
+    case WM_COMMAND: SendMessageW(hMain, WM_COMMAND, wp, lp); return 0;
+    case WM_DRAWITEM: drawBtn((DRAWITEMSTRUCT *)lp); return TRUE;
+    case WM_ERASEBKGND: return 1;
+    }
+    return DefWindowProcW(h, msg, wp, lp);
+}
+static void layout(void);
+static void showWelcome(int on) {
+    recentLoad(); WHOVER = -1;
+    if (on) { RECT r; GetClientRect(hMain, &r); MoveWindow(hWel, 0, 0, r.right, r.bottom, TRUE); SetWindowPos(hWel, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW); InvalidateRect(hWel, NULL, TRUE); }
+    else ShowWindow(hWel, SW_HIDE);
+}
+static void layout(void) {
+    RECT r; GetClientRect(hMain, &r); int W = r.right, H = r.bottom, lh = logH(H), pw = PWID, rt = runTop(H);
+    if (hWel && IsWindowVisible(hWel)) MoveWindow(hWel, 0, 0, W, H, TRUE);
+    int by = (TBH - SC(30)) / 2;
+    MoveWindow(hBtn[B_MENU], SC(6), by, SC(32), SC(30), TRUE);
+    { HDC dc = GetDC(hMain); wchar_t t[128]; GetWindowTextW(hBtn[B_PROJ], t, 128); int pw2 = SC(20) + SC(14) + textW(dc, hFontBold, t) + SC(30); ReleaseDC(hMain, dc); if (pw2 > SC(320)) pw2 = SC(320);
+      MoveWindow(hBtn[B_PROJ], SC(44), by, pw2, SC(30), TRUE); }
+    int bx = W - SC(8);
+    const int ord[4] = {B_SET, B_STOP, B_CHECK, B_RUN};
+    for (int i = 0; i < 4; i++) { bx -= SC(32); MoveWindow(hBtn[ord[i]], bx, by, SC(32), SC(30), TRUE); bx -= i == 0 ? SC(14) : SC(2); }
+    ShowWindow(hTree, EXPL ? SW_SHOW : SW_HIDE); ShowWindow(hBtn[B_ADDFILE], EXPL ? SW_SHOW : SW_HIDE); ShowWindow(hBtn[B_ADDDIR], EXPL ? SW_SHOW : SW_HIDE);
+    int pbot = rt;   /* 프로젝트 창은 실행 창 위까지 */
+    if (EXPL) {
+        MoveWindow(hBtn[B_ADDDIR], STW + pw - SC(34), TBH + SC(4), SC(28), SC(28), TRUE); MoveWindow(hBtn[B_ADDFILE], STW + pw - SC(64), TBH + SC(4), SC(28), SC(28), TRUE);
+        MoveWindow(hTree, STW, TBH + SC(36), pw - 1, pbot - TBH - SC(36), TRUE);
+    }
+    int ex = STW + pw;
+    MoveWindow(hTabs, ex, TBH, W - ex, TABH, TRUE);
+    int ey = TBH + TABH, eh = rt - ey;
+    MoveWindow(hGut, ex, ey, SC(52), eh, TRUE);
+    MoveWindow(hEdit, ex + SC(52), ey, W - ex - SC(52), eh, TRUE);
+    ShowWindow(hLog, LOGV ? SW_SHOW : SW_HIDE); ShowWindow(hBtn[B_CLEAR], LOGV ? SW_SHOW : SW_HIDE); ShowWindow(hBtn[B_HIDE], LOGV ? SW_SHOW : SW_HIDE);
+    if (LOGV) {
+        MoveWindow(hBtn[B_HIDE], W - SC(8) - SC(28), rt + SC(2), SC(28), SC(28), TRUE);
+        MoveWindow(hBtn[B_CLEAR], W - SC(8) - SC(28) - SC(30), rt + SC(2), SC(28), SC(28), TRUE);
+        MoveWindow(hLog, STW, H - SBH - lh, W - STW, lh, TRUE);
+    }
+    MoveWindow(hPath, 0, H - SBH, W, SBH, TRUE);
     editMargins();
     InvalidateRect(hMain, NULL, FALSE);
 }
+/* 왼쪽 도구 창 줄의 아이콘 자리 */
+static RECT stripeIcon(int which, int H) { RECT r; r.left = SC(4); r.right = STW - SC(4); if (which == 0) { r.top = TBH + SC(6); } else { r.top = H - SBH - SC(38); } r.bottom = r.top + SC(32); return r; }
 static void paintMain(HDC dc) {
-    RECT r; GetClientRect(hMain, &r); int W = r.right, H = r.bottom, ex = EXW, lh = logH(H);
-    /* 머리 줄 */
-    fillRect(dc, 0, 0, W, HDR, TH.panel); fillRect(dc, 0, HDR - 1, W, 1, TH.line);
-    { int cx = SC(10) + SC(13), cy = HDR / 2, rr = SC(11);
-      HPEN p1 = CreatePen(PS_SOLID, SC(3), CFG.mono ? RGB(138, 138, 138) : TH.deep); HGDIOBJ op = SelectObject(dc, p1), ob = SelectObject(dc, GetStockObject(NULL_BRUSH));
-      Ellipse(dc, cx - rr, cy - rr, cx + rr, cy + rr); SelectObject(dc, op); DeleteObject(p1);
-      HPEN p2 = CreatePen(PS_SOLID, SC(2), CFG.mono ? RGB(255, 255, 255) : RGB(180, 186, 255)); op = SelectObject(dc, p2);
-      Arc(dc, cx - rr, cy - rr, cx + rr, cy + rr, cx + rr, cy - rr / 2, cx, cy - rr); SelectObject(dc, op); SelectObject(dc, ob); DeleteObject(p2); }
-    int tx = SC(10) + SC(26) + SC(8);
-    textAt(dc, hFontBrand, TH.text, tx, 0, W, HDR, L"JawBreaker Dev.", DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-    tx += textW(dc, hFontBrand, L"JawBreaker Dev.") + SC(8);
-    textAt(dc, hFontSmall, TH.dim, tx, SC(3), W, HDR, L"v1.6", DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-    /* 탐색기 머리 */
+    RECT r; GetClientRect(hMain, &r); int W = r.right, H = r.bottom, pw = PWID, rt = runTop(H);
+    /* 도구 막대 */
+    fillRect(dc, 0, 0, W, TBH, TH.panel); fillRect(dc, 0, TBH - 1, W, 1, TH.line);
+    /* 도구 창 줄 */
+    fillRect(dc, 0, TBH, STW, H - TBH - SBH, TH.panel); fillRect(dc, STW - 1, TBH, 1, H - TBH - SBH, TH.line);
+    for (int k = 0; k < 2; k++) { RECT ic = stripeIcon(k, H); int on = k == 0 ? EXPL : LOGV;
+        if (on) roundRect(dc, ic.left, ic.top, ic.right - ic.left, ic.bottom - ic.top, SC(6), TH.accent2, TH.accent2);
+        textAt(dc, k == 0 ? hFontEmoji : hFontIcon, on ? TH.text : TH.dim, ic.left, ic.top, ic.right - ic.left, ic.bottom - ic.top, k == 0 ? L"🗀" : L"▶", DT_CENTER | DT_VCENTER | DT_SINGLELINE); }
+    /* 프로젝트 도구 창 머리 */
     if (EXPL) {
-        fillRect(dc, 0, HDR, ex, H - HDR, TH.panel); fillRect(dc, ex - 1, HDR, 1, H - HDR, TH.line);
-        textAt(dc, hFontBold, TH.text, SC(12), HDR, ex, SC(38), T(S_PROJECT), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-        int nx = SC(12) + textW(dc, hFontBold, T(S_PROJECT)) + SC(8);
-        textAt(dc, hFontSmall, TH.dim, nx, HDR + SC(1), ex - nx - SC(8), SC(38), PROJ[0] ? baseName(PROJ) : L"", DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-        fillRect(dc, 0, HDR + SC(38) - 1, ex - 1, 1, TH.line); fillRect(dc, 0, HDR + SC(80) - 1, ex - 1, 1, TH.line);
-        fillRect(dc, 0, HDR + SC(38), ex - 1, SC(42) - 1, TH.panel);
+        fillRect(dc, STW, TBH, pw, rt - TBH, TH.panel); fillRect(dc, STW + pw - 1, TBH, 1, rt - TBH, TH.line);
+        textAt(dc, hFontBold, TH.text, STW + SC(12), TBH, pw, SC(36), T(S_PROJECT), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     }
-    /* 로그 머리 (웹 판 .phead · 위쪽 끝을 끌면 높이가 바뀜) */
-    int py = H - lh - PHEAD;
-    fillRect(dc, ex, py, W - ex, PHEAD, TH.panel); fillRect(dc, ex, py, W - ex, 1, TH.line);
-    fillRect(dc, ex + (W - ex) / 2 - SC(22), py + SC(5), SC(44), SC(3), TH.line);   /* 잡는 곳 */
-    int pw = textW(dc, hFontBold, T(S_LOG)) + SC(20);
-    roundRect(dc, ex + SC(6), py + SC(6), pw, PHEAD - SC(10), SC(8), TH.panel2, TH.panel2);
-    textAt(dc, hFontBold, TH.text, ex + SC(6), py + SC(6), pw, PHEAD - SC(10), T(S_LOG), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    fillRect(dc, ex, H - lh - 1, W - ex, 1, TH.line);
+    /* 실행 창 머리 */
+    if (LOGV) {
+        fillRect(dc, STW, rt, W - STW, PHEAD, TH.panel); fillRect(dc, STW, rt, W - STW, 1, TH.line);
+        textAt(dc, hFontBold, TH.text, STW + SC(12), rt, W, PHEAD, T(S_LOG), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    }
 }
 static void editColors(void) {
     SendMessageW(hEdit, EM_SETBKGNDCOLOR, 0, TH.bg); SendMessageW(hLog, EM_SETBKGNDCOLOR, 0, TH.bg);
-    CHARFORMAT2W cf; ZeroMemory(&cf, sizeof cf); cf.cbSize = sizeof cf; cf.dwMask = CFM_COLOR; cf.crTextColor = TH.text;
+    CHARFORMAT2W cf; ZeroMemory(&cf, sizeof cf); cf.cbSize = sizeof cf; cf.dwMask = CFM_COLOR; cf.crTextColor = RGB(188, 190, 196);
     SendMessageW(hEdit, EM_SETCHARFORMAT, SCF_DEFAULT, (LPARAM)&cf); SendMessageW(hLog, EM_SETCHARFORMAT, SCF_DEFAULT, (LPARAM)&cf);
-    SendMessageW(hTree, TVM_SETBKCOLOR, 0, TH.panel); SendMessageW(hTree, TVM_SETTEXTCOLOR, 0, TH.text); SendMessageW(hTree, TVM_SETLINECOLOR, 0, TH.line);
+    SendMessageW(hTree, TVM_SETBKCOLOR, 0, TH.panel); SendMessageW(hTree, TVM_SETTEXTCOLOR, 0, TH.text); SendMessageW(hTree, TVM_SETLINECOLOR, 0, TH.panel2);
 }
 static void applyTheme(void) {
     themeSet(CFG.mono); editColors(); recolor();
     RedrawWindow(hMain, NULL, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
 }
 static void btnTexts(void) {
-    SetWindowTextW(hBtn[B_RUN], T(S_RUN)); SetWindowTextW(hBtn[B_STOP], L"■"); SetWindowTextW(hBtn[B_CHECK], T(S_CHECK)); SetWindowTextW(hBtn[B_MENU], L"☰");
-    SetWindowTextW(hBtn[B_ADDFILE], T(S_ADDFILE)); SetWindowTextW(hBtn[B_ADDDIR], T(S_ADDDIR)); SetWindowTextW(hBtn[B_CLEAR], T(S_CLEAR));
+    SetWindowTextW(hBtn[B_RUN], L"▶"); SetWindowTextW(hBtn[B_STOP], L"■"); SetWindowTextW(hBtn[B_CHECK], L"✓"); SetWindowTextW(hBtn[B_MENU], L"☰"); SetWindowTextW(hBtn[B_SET], L"⚙");
+    SetWindowTextW(hBtn[B_ADDFILE], L"+"); SetWindowTextW(hBtn[B_ADDDIR], L"🗀"); SetWindowTextW(hBtn[B_CLEAR], L"⌫"); SetWindowTextW(hBtn[B_HIDE], L"—");
+    SetWindowTextW(hBtn[B_PROJ], PROJ[0] ? baseName(PROJ) : T(S_TITLE_NONE));
+    SetWindowTextW(hBtn[B_WNEW], T(S_NEWP)); SetWindowTextW(hBtn[B_WOPEN], T(S_OPENBTN));
 }
 static void applyLang(void) {
     if (CFG.lang >= 0) LANG = CFG.lang;
-    btnTexts(); findDocs(); NACI = 0; acLoad(); treeReload(); setTitle();
+    btnTexts(); findDocs(); NACI = 0; acLoad(); treeReload(); setTitle(); layout();
     RedrawWindow(hMain, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN);
 }
-/* ☰ 메뉴 (웹 판의 프로젝트 메뉴와 같은 차례) */
+/* ☰ 메뉴 */
 static void mainMenu(void) {
     RECT br; GetWindowRect(hBtn[B_MENU], &br);
     HMENU m = menuNew(); int p = PROJ[0] != 0, run = childProc != NULL;
-    menuAdd(m, ID_C_NEWFILE, L"📄", T(S_NEWFILE), NULL, 0);
-    menuAdd(m, ID_C_NEWP, L"🗂", T(S_NEWP), NULL, 0);
-    menuAdd(m, ID_C_OPEN, L"📂", T(S_OPEN), L"Ctrl+O", 0);
-    menuAdd(m, ID_C_SAVE, L"💾", T(S_SAVE), L"Ctrl+S", 0);
-    menuAdd(m, ID_C_CHECK, L"✔", T(S_CHECK), L"F7", 0);
-    menuAdd(m, ID_C_HTML, L"🌐", T(S_M_HTML), NULL, 0);
-    menuAdd(m, ID_C_EXE, L"🪟", T(S_M_EXE), NULL, 0);
-    menuAdd(m, ID_C_APK, L"🤖", T(S_M_APK), NULL, 0);
+    menuAdd(m, ID_C_NEWFILE, L"+", T(S_NEWFILE), NULL, 0);
+    menuAdd(m, ID_C_NEWP, L"", T(S_NEWP), NULL, 0);
+    menuAdd(m, ID_C_OPEN, L"", T(S_OPEN), L"Ctrl+O", 0);
+    menuAdd(m, ID_C_SAVE, L"", T(S_SAVE), L"Ctrl+S", 0);
+    menuAdd(m, ID_C_CLOSEP, L"", T(S_CLOSEPROJ), NULL, 0);
     menuSep(m);
-    menuAdd(m, ID_C_RUNASK, L"↻", T(S_RUNASK), NULL, CFG.askRun);
+    menuAdd(m, ID_C_CHECK, L"✓", T(S_CHECK), L"F7", 0);
+    menuAdd(m, ID_C_HTML, L"", T(S_M_HTML), NULL, 0);
+    menuAdd(m, ID_C_EXE, L"", T(S_M_EXE), NULL, 0);
+    menuAdd(m, ID_C_APK, L"", T(S_M_APK), NULL, 0);
+    menuSep(m);
+    menuAdd(m, ID_C_RUNASK, L"", T(S_RUNASK), NULL, CFG.askRun);
     menuAdd(m, ID_C_SETTINGS, L"⚙", T(S_SETTINGS), NULL, 0);
-    menuAdd(m, ID_C_EXPLORE, L"🔎", T(S_EXPLORE), NULL, 0);
-    if (!p) { EnableMenuItem(m, ID_C_NEWFILE, MF_GRAYED); EnableMenuItem(m, ID_C_SAVE, MF_GRAYED); EnableMenuItem(m, ID_C_EXPLORE, MF_GRAYED); }
+    menuAdd(m, ID_C_EXPLORE, L"", T(S_EXPLORE), NULL, 0);
+    if (!p) { EnableMenuItem(m, ID_C_NEWFILE, MF_GRAYED); EnableMenuItem(m, ID_C_SAVE, MF_GRAYED); EnableMenuItem(m, ID_C_EXPLORE, MF_GRAYED); EnableMenuItem(m, ID_C_CLOSEP, MF_GRAYED); }
     if (!p || run) { EnableMenuItem(m, ID_C_CHECK, MF_GRAYED); EnableMenuItem(m, ID_C_HTML, MF_GRAYED); EnableMenuItem(m, ID_C_EXE, MF_GRAYED); EnableMenuItem(m, ID_C_APK, MF_GRAYED); }
-    TrackPopupMenu(m, TPM_RIGHTALIGN | TPM_TOPALIGN, br.right, br.bottom + SC(6), 0, hMain, NULL); DestroyMenu(m);
+    TrackPopupMenu(m, TPM_LEFTALIGN | TPM_TOPALIGN, br.left, br.bottom + SC(4), 0, hMain, NULL); DestroyMenu(m);
+}
+/* 프로젝트 위젯 ⌄: 최근 프로젝트 · 새 프로젝트 · 열기 · 닫기 */
+static void projMenu(void) {
+    RECT br; GetWindowRect(hBtn[B_PROJ], &br); recentLoad();
+    HMENU m = menuNew();
+    for (int i = 0; i < NRECENT && i < 10; i++) menuAdd(m, ID_R_FIRST + i, L"", baseName(RECENT[i]), NULL, PROJ[0] && !_wcsicmp(RECENT[i], PROJ));
+    if (NRECENT) menuSep(m);
+    menuAdd(m, ID_C_NEWP, L"+", T(S_NEWP), NULL, 0); menuAdd(m, ID_C_OPEN, L"", T(S_OPEN), L"Ctrl+O", 0);
+    if (PROJ[0]) menuAdd(m, ID_C_CLOSEP, L"", T(S_CLOSEPROJ), NULL, 0);
+    TrackPopupMenu(m, TPM_LEFTALIGN | TPM_TOPALIGN, br.left, br.bottom + SC(4), 0, hMain, NULL); DestroyMenu(m);
 }
 /* 창 그림을 BMP 로 (시험용) */
 static void saveShotOf(HWND hw, const wchar_t *path) {
@@ -1426,6 +1556,7 @@ static void shotDialog(HWND d, const wchar_t *suffix) {
 static int stStep;
 static void selftestNext(void) {
     wchar_t p[MAX_PATH + 8];
+    if (SHOTSONLY && stStep < 4) stStep = 4;
     switch (stStep++) {
     case 0: logLine(L"[selftest] check"); runJdhCmd(L"check", L"jdh check"); return;
     case 1: logLine(L"[selftest] run"); cmdRun(); return;
@@ -1486,10 +1617,14 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         }
         break;
     }
-    case WM_SETCURSOR: { POINT pt; GetCursorPos(&pt); ScreenToClient(h, &pt); RECT r; GetClientRect(h, &r); int py = r.bottom - logH(r.bottom) - PHEAD;
-        if ((HWND)wp == h && pt.x >= EXW && pt.y >= py && pt.y < py + SC(10)) { SetCursor(LoadCursor(NULL, IDC_SIZENS)); return TRUE; } break; }
-    case WM_LBUTTONDOWN: { RECT r; GetClientRect(h, &r); int y = GET_Y_LPARAM(lp), py = r.bottom - logH(r.bottom) - PHEAD;
-        if (GET_X_LPARAM(lp) >= EXW && y >= py && y < py + SC(10)) { DRAG = 1; DRAGY0 = y; DRAGH0 = LOGH; SetCapture(h); } return 0; }
+    case WM_SETCURSOR: { POINT pt; GetCursorPos(&pt); ScreenToClient(h, &pt); RECT r; GetClientRect(h, &r); int py = runTop(r.bottom);
+        if ((HWND)wp == h && LOGV && pt.x >= STW && pt.y >= py - SC(3) && pt.y < py + SC(4)) { SetCursor(LoadCursor(NULL, IDC_SIZENS)); return TRUE; } break; }
+    case WM_LBUTTONDOWN: { RECT r; GetClientRect(h, &r); int x = GET_X_LPARAM(lp), y = GET_Y_LPARAM(lp), py = runTop(r.bottom);
+        if (x < STW) {   /* 도구 창 줄: 프로젝트 · 실행 창 보이기 / 숨기기 */
+            for (int k = 0; k < 2; k++) { RECT ic = stripeIcon(k, r.bottom); if (y >= ic.top && y < ic.bottom) { if (k == 0) EXPL = !EXPL; else LOGV = !LOGV; layout(); InvalidateRect(h, NULL, FALSE); } }
+            return 0;
+        }
+        if (LOGV && x >= STW && y >= py - SC(3) && y < py + SC(4)) { DRAG = 1; DRAGY0 = y; DRAGH0 = LOGH; SetCapture(h); } return 0; }
     case WM_MOUSEMOVE: if (DRAG) { LOGH = DRAGH0 + MulDiv(DRAGY0 - GET_Y_LPARAM(lp), 96, DPI); if (LOGH < 60) LOGH = 60; layout(); } return 0;
     case WM_LBUTTONUP: if (DRAG) { DRAG = 0; ReleaseCapture(); } return 0;
     case WM_COMMAND: {
@@ -1500,9 +1635,15 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
             case B_MENU: mainMenu(); break;
             case B_ADDFILE: MENUPATH[0] = 0; cmdNewFile(0); break; case B_ADDDIR: MENUPATH[0] = 0; cmdNewFile(1); break;
             case B_CLEAR: SetWindowTextW(hLog, L""); LOGBOL = 1; break;
+            case B_PROJ: projMenu(); break;
+            case B_SET: cmdSettings(); break;
+            case B_HIDE: LOGV = 0; layout(); break;
+            case B_WNEW: cmdNewProject(); break;
+            case B_WOPEN: cmdOpen(); break;
             }
             SetFocus(hEdit); return 0;
         }
+        if (id >= ID_R_FIRST && id < ID_R_FIRST + 12) { recentLoad(); int k = id - ID_R_FIRST; if (k < NRECENT) { wchar_t d[MAX_PATH]; wcscpy(d, RECENT[k]); if (!PROJ[0] || _wcsicmp(d, PROJ)) openProject(d); } return 0; }
         switch (id) {
         case ID_C_NEWFILE: MENUPATH[0] = 0; cmdNewFile(0); return 0;
         case ID_C_NEWP: cmdNewProject(); return 0;
@@ -1514,6 +1655,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         case ID_C_APK: cmdApk(); return 0;
         case ID_C_RUNASK: CFG.askRun = !CFG.askRun; cfgSave(); return 0;
         case ID_C_SETTINGS: cmdSettings(); return 0;
+        case ID_C_CLOSEP: closeProject(); return 0;
         case ID_C_EXPLORE: MENUPATH[0] = 0; /* 프로젝트 폴더 */
         case ID_M_EXPLORE: { wchar_t d[MAX_PATH]; menuDir(d); ShellExecuteW(hMain, L"explore", d, NULL, NULL, SW_SHOWNORMAL); return 0; }
         case ID_M_NEWFILE: cmdNewFile(0); return 0;
@@ -1531,6 +1673,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_TIMER: if (wp == TIMER_COLOR) { KillTimer(h, TIMER_COLOR); recolor(); } return 0;
     case WM_NOTIFY: {
         NMHDR *nh = (NMHDR*)lp;
+        if (nh->idFrom == ID_EDIT && nh->code == EN_SELCHANGE) { InvalidateRect(hPath, NULL, FALSE); InvalidateRect(hGut, NULL, FALSE); return 0; }
         if (nh->idFrom == ID_TREE && nh->code == TVN_SELCHANGEDW) {
             NMTREEVIEWW *tv = (NMTREEVIEWW*)lp; int k = (int)tv->itemNew.lParam;
             if (k >= 0 && k < NTP && fileExists(TPATHS[k])) openFile(TPATHS[k], 0);
@@ -1541,9 +1684,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
             if (cd->nmcd.dwDrawStage == CDDS_PREPAINT) return CDRF_NOTIFYITEMDRAW;
             if (cd->nmcd.dwDrawStage == CDDS_ITEMPREPAINT) {
                 int k = (int)cd->nmcd.lItemlParam; COLORREF c = TH.text;
-                if (k >= 0 && k < NTP) { const wchar_t *x = wcsrchr(TPATHS[k], L'.'), *b = baseName(TPATHS[k]); if (dirExists(TPATHS[k])) c = TH.dim; else if (x && !_wcsicmp(x, L".jb")) c = CR_PINK; else if (x && !_wcsicmp(x, L".jbl")) c = CR_BLUE; else if (x && !_wcsicmp(x, L".jbs")) c = CR_YELLOW; else if (x && !_wcsicmp(x, L".jbx")) c = CR_VIOLET; else if (x && (!_wcsicmp(x, L".png") || !_wcsicmp(x, L".jpg") || !_wcsicmp(x, L".wav") || !_wcsicmp(x, L".ogg") || !_wcsicmp(x, L".mp3"))) c = CR_MINT; (void)b; }
-                else if (k < 0) c = TH.dim;
-                cd->clrText = c; cd->clrTextBk = (cd->nmcd.uItemState & CDIS_SELECTED) ? mix(TH.panel, TH.accent, 42) : TH.panel; cd->nmcd.uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
+                if (k < 0) c = TH.dim;
+                cd->clrText = c; cd->clrTextBk = (cd->nmcd.uItemState & CDIS_SELECTED) ? TH.accent2 : TH.panel; cd->nmcd.uItemState &= ~(CDIS_SELECTED | CDIS_FOCUS);
                 return CDRF_NEWFONT;
             }
             return CDRF_DODEFAULT;
@@ -1588,18 +1730,23 @@ static void createUI(HINSTANCE hi) {
     /* 글꼴: 화면 글자 = Segoe UI (한글은 맑은 고딕으로 이어짐) · 코드 = Consolas (웹 판 --fs 14px · 줄 22px) */
     hFontUI = mkFont(13, FW_NORMAL, L"Segoe UI"); hFontBold = mkFont(13, FW_SEMIBOLD, L"Segoe UI"); hFontBrand = mkFont(17, FW_BOLD, L"Segoe UI");
     hFontSmall = mkFont(11, FW_NORMAL, L"Segoe UI"); hFontEmoji = mkFont(15, FW_NORMAL, L"Segoe UI Emoji");
-    hFontCode = mkFont(14, FW_NORMAL, L"Consolas"); hFontLog = mkFont(13, FW_NORMAL, L"Consolas"); hFontPath = mkFont(13, FW_NORMAL, L"Consolas");
-    for (int i = 0; i < B_N; i++) hBtn[i] = mkBtn(hMain, ID_BTN + i, L"", i == B_RUN ? BS_J_PRIMARY : i == B_CLEAR ? BS_J_GHOST : BS_J_PLAIN);
-    SendMessageW(hBtn[B_MENU], WM_SETFONT, (WPARAM)hFontBrand, TRUE);
+    hFontCode = mkFont(14, FW_NORMAL, L"Consolas"); hFontLog = mkFont(13, FW_NORMAL, L"Consolas"); hFontPath = mkFont(13, FW_NORMAL, L"Segoe UI");
+    hFontIcon = mkFont(15, FW_NORMAL, L"Segoe UI Symbol"); hFontTitle = mkFont(15, FW_SEMIBOLD, L"Segoe UI");
+    { WNDCLASSEXW wc2; ZeroMemory(&wc2, sizeof wc2); wc2.cbSize = sizeof wc2; wc2.lpfnWndProc = WelProc; wc2.hInstance = hi; wc2.hCursor = LoadCursor(NULL, IDC_ARROW); wc2.lpszClassName = L"JBDevWelcome"; RegisterClassExW(&wc2);
+      hWel = CreateWindowExW(0, L"JBDevWelcome", L"", WS_CHILD | WS_CLIPCHILDREN, 0, 0, 10, 10, hMain, NULL, hi, NULL); }
+    for (int i = 0; i < B_N; i++) {
+        int st = i == B_PROJ ? BS_J_WIDGET : (i == B_WNEW || i == B_WOPEN) ? (BS_J_PLAIN | BS_J_ONBG) : BS_J_ICON;
+        hBtn[i] = mkBtn(i == B_WNEW || i == B_WOPEN ? hWel : hMain, ID_BTN + i, L"", st);
+    }
     btnTexts();
     hTree = CreateWindowExW(0, WC_TREEVIEWW, L"", WS_CHILD | WS_VISIBLE | TVS_HASBUTTONS | TVS_LINESATROOT | TVS_SHOWSELALWAYS | TVS_FULLROWSELECT | TVS_TRACKSELECT, 0, 0, 10, 10, hMain, (HMENU)ID_TREE, hi, NULL);
-    SendMessageW(hTree, WM_SETFONT, (WPARAM)hFontPath, TRUE); SendMessageW(hTree, TVM_SETITEMHEIGHT, SC(28), 0); SendMessageW(hTree, TVM_SETINDENT, SC(16), 0); darkScroll(hTree);
+    SendMessageW(hTree, WM_SETFONT, (WPARAM)hFontUI, TRUE); SendMessageW(hTree, TVM_SETITEMHEIGHT, SC(26), 0); SendMessageW(hTree, TVM_SETINDENT, SC(16), 0); darkScroll(hTree);
     hTabs = mkChild(L"JBDevTabs", TabsProc, ID_TAB, hi);
     hPath = mkChild(L"JBDevPath", PathProc, ID_PATH, hi);
     hGut = mkChild(L"JBDevGutter", GutProc, ID_GUT, hi);
     hEdit = CreateWindowExW(0, MSFTEDIT_CLASS, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_NOHIDESEL | ES_WANTRETURN, 0, 0, 10, 10, hMain, (HMENU)ID_EDIT, hi, NULL);
     SendMessageW(hEdit, EM_SETTEXTMODE, TM_RICHTEXT | TM_MULTILEVELUNDO | TM_MULTICODEPAGE, 0);   /* 색칠하려면 서식 있는 글 (붙여 넣기는 글자만) */
-    SendMessageW(hEdit, WM_SETFONT, (WPARAM)hFontCode, TRUE); SendMessageW(hEdit, EM_SETEVENTMASK, 0, ENM_CHANGE | ENM_SCROLL | ENM_UPDATE); SendMessageW(hEdit, EM_EXLIMITTEXT, 0, 64 * 1024 * 1024);
+    SendMessageW(hEdit, WM_SETFONT, (WPARAM)hFontCode, TRUE); SendMessageW(hEdit, EM_SETEVENTMASK, 0, ENM_CHANGE | ENM_SCROLL | ENM_UPDATE | ENM_SELCHANGE); SendMessageW(hEdit, EM_EXLIMITTEXT, 0, 64 * 1024 * 1024);
     { PARAFORMAT2 pf; ZeroMemory(&pf, sizeof pf); pf.cbSize = sizeof pf; pf.dwMask = PFM_TABSTOPS | PFM_LINESPACING; pf.cTabCount = 32; for (int i = 0; i < 32; i++) pf.rgxTabs[i] = (i + 1) * 4 * 120; pf.bLineSpacingRule = 4; pf.dyLineSpacing = 330; SendMessageW(hEdit, EM_SETPARAFORMAT, 0, (LPARAM)&pf); }
     SendMessageW(hEdit, EM_SETREADONLY, TRUE, 0); darkScroll(hEdit);
     hLog = CreateWindowExW(0, MSFTEDIT_CLASS, L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY, 0, 0, 10, 10, hMain, (HMENU)ID_LOG, hi, NULL);
@@ -1627,6 +1774,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int show) {
     const wchar_t *openArg = NULL; int noUpdate = 0;
     for (int i = 1; i < argc; i++) {
         if (!wcscmp(argv[i], L"--no-update")) noUpdate = 1;
+        else if (!wcscmp(argv[i], L"--shots") && i + 2 < argc) { SELFTEST = SHOTSONLY = 1; noUpdate = 1; openArg = argv[i + 1]; wcsncpy(SELFOUT, argv[i + 2], MAX_PATH - 1); i += 2; }
         else if (!wcscmp(argv[i], L"--selftest") && i + 2 < argc) { SELFTEST = 1; noUpdate = 1; openArg = argv[i + 1]; wcsncpy(SELFOUT, argv[i + 2], MAX_PATH - 1); i += 2; }
         else openArg = argv[i];
     }
@@ -1642,8 +1790,14 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cl, int show) {
     ShowWindow(hMain, SELFTEST ? SW_SHOWNORMAL : show); UpdateWindow(hMain);
     treeReload();
     wchar_t last[MAX_PATH];
+    if (SELFTEST && openArg) {   /* 시험: 시작 창 그림 (최근 목록에 이 프로젝트) */
+        wchar_t full[MAX_PATH]; if (GetFullPathNameW(openArg, MAX_PATH, full, NULL)) recentAdd(full);
+        showWelcome(1); MSG pm; DWORD t0 = GetTickCount(); while (GetTickCount() - t0 < 500) { while (PeekMessageW(&pm, NULL, 0, 0, PM_REMOVE)) { TranslateMessage(&pm); DispatchMessageW(&pm); } Sleep(20); }
+        wchar_t sp[MAX_PATH + 16]; _snwprintf(sp, MAX_PATH + 16, L"%ls-welcome.bmp", SELFOUT); sp[MAX_PATH + 15] = 0; saveShot(sp);
+    }
     if (openArg) openProject(openArg);
     else if (lastProj(last) && dirExists(last)) openProject(last);
+    if (!PROJ[0]) showWelcome(1);
     if (SELFTEST) { if (!PROJ[0]) { DestroyWindow(hMain); return 2; } logLine(L"[selftest] natdir=%ls docs=%d ac=%d", NATDIR, NDOC, NACI); selftestNext(); }
     MSG m;
     while (GetMessageW(&m, NULL, 0, 0)) {

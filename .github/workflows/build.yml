@@ -416,7 +416,7 @@ jobs:
         run: |
           if (Test-Path jbdev-shot.log) { Get-Content jbdev-shot.log -Encoding utf8 | Select-Object -Last 30 }
           Add-Type -AssemblyName System.Drawing
-          foreach ($n in @('jbdev-shot', 'jbdev-shot-ac', 'jbdev-shot-set', 'jbdev-shot-apk')) {
+          foreach ($n in @('jbdev-shot-welcome', 'jbdev-shot', 'jbdev-shot-ac', 'jbdev-shot-set', 'jbdev-shot-apk')) {
             if (-not (Test-Path "$n.bmp")) { continue }
             $img = [System.Drawing.Image]::FromFile("$PWD\$n.bmp"); $img.Save("$PWD\$n.png", [System.Drawing.Imaging.ImageFormat]::Png); $img.Dispose()
             $s = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\$n.png")); Write-Host "SHOT $n $($s.Length)"

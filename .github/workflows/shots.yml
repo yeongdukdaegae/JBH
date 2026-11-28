@@ -1,0 +1,40 @@
+# JawBreaker Dev. 창 그림만 (사소한 화면 수정 확인용 · 전체 시험 없이 2분쯤)
+#   jbdev.exe 만 빌드 → 시험용 프로젝트를 열고 --shots 로 시작 창 · 편집기 · 설정 · APK 창 그림 → PNG 를 base64 로 로그에 (SHOTL <이름> …)
+name: JawBreaker Dev. 창 그림
+on:
+  workflow_dispatch:
+jobs:
+  shots:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: llvm-mingw 받기
+        shell: pwsh
+        run: |
+          $rel = Invoke-RestMethod https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest
+          $asset = $rel.assets | Where-Object { $_.name -like '*ucrt-x86_64.zip' } | Select-Object -First 1
+          Invoke-WebRequest $asset.browser_download_url -OutFile mingw.zip
+          Expand-Archive mingw.zip -DestinationPath mingw
+          $dir = (Get-ChildItem mingw -Directory | Select-Object -First 1).FullName
+          "MINGW=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: jbdev.exe 빌드 · 창 그림
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build, dist\bin, P | Out-Null
+          & "$env:MINGW\bin\x86_64-w64-mingw32-windres.exe" win\app.rc -O coff -o build\app.res.o; if ($LASTEXITCODE) { exit 1 }
+          & "$env:MINGW\bin\x86_64-w64-mingw32-clang.exe" -O2 -static -mwindows -o dist\bin\jbdev.exe src\jbdev.c build\app.res.o -lcomctl32 -lcomdlg32 -lshell32 -lole32 -lgdi32 -luser32 -ladvapi32; if ($LASTEXITCODE) { exit 1 }
+          [IO.File]::WriteAllText("$PWD\P\project.jbs", "jbs 1`nname = RunGame`nmain = main.jb`n")
+          [IO.File]::WriteAllText("$PWD\P\main.jb", "Use jawbreaker call jaw;`nUse DisPlayer call dis;`n`n// 시작`nrun{`n    var int call hp = 10;`n    var string call name = `"player`";`n    if [hp > 0]{`n        print(`"hp = %hp%`");`n    }`n    jaw.wait(500);`n}`n")
+          New-Item -ItemType Directory -Force P\lib, P\img | Out-Null
+          [IO.File]::WriteAllText("$PWD\P\lib\util.jbl", "Lib id util;`n")
+          $env:JDH_LANG = 'ko'; $env:JDH_NO_UPDATE = '1'
+          $p = Start-Process dist\bin\jbdev.exe -ArgumentList '--shots', "$PWD\P", "$PWD\shot" -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Error '1분 안에 끝나지 않았습니다'; exit 1 }
+          if (Test-Path shot.log) { Get-Content shot.log -Encoding utf8 }
+          Add-Type -AssemblyName System.Drawing
+          foreach ($n in @('shot-welcome', 'shot', 'shot-ac', 'shot-set', 'shot-apk')) {
+            if (-not (Test-Path "$n.bmp")) { Write-Host "없음: $n"; continue }
+            $img = [System.Drawing.Image]::FromFile("$PWD\$n.bmp"); $img.Save("$PWD\$n.png", [System.Drawing.Imaging.ImageFormat]::Png); $img.Dispose()
+            $s = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\$n.png")); Write-Host "SHOT $n $($s.Length)"
+            for ($i = 0; $i -lt $s.Length; $i += 8000) { Write-Host ("SHOTL $n " + $s.Substring($i, [Math]::Min(8000, $s.Length - $i))) }
+          }
