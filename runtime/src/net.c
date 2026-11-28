@@ -15,6 +15,11 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <winhttp.h>
+#define SECURITY_WIN32
+#include <security.h>
+#include <schannel.h>
+#include <wincrypt.h>
+#include <ncrypt.h>
 #else
 #include <unistd.h>
 #include <netdb.h>
@@ -39,7 +44,7 @@ typedef struct {
     int wstate; Msg *head, *tail; int qbytes;
     /* 서버: srv = 받은 서버 번호 (0 = 클라이언트) · sk = 소켓 · ready = 꺼낼 수 있음 · taken = 꺼냄 · seq = 받은 차례
      *   K_SRV: port · K_REQ: method · url (경로) · headers · req (본문) · addr · 답 (done · rst · rhead · rbody) */
-    int srv, ready, taken, done, port, rst, rn; unsigned seq; long long sk; char addr[64]; char *rhead; unsigned char *rbody;
+    int srv, ready, taken, done, port, rst, rn; unsigned seq; long long sk; char addr[64]; char *rhead; unsigned char *rbody; void *tls, *cred;   /* tls = 받은 연결의 Tls · cred = 서버의 TCred */
 #ifdef _WIN32
     HINTERNET h, hc;
 #else
@@ -290,7 +295,154 @@ static void skSleep(int ms) { struct timespec t = {ms / 1000, (long)(ms % 1000) 
 static pthread_cond_t CV = PTHREAD_COND_INITIALIZER;
 static unsigned SEQ;
 static int skSend(sk_t s, const void *b, size_t n) { const char *p = b; while (n) { int k = send(s, p, (int)(n > (1u << 30) ? (1u << 30) : n), SK_NOSIG); if (k <= 0) return 0; p += k; n -= (size_t)k; } return 1; }
-static int skRecvN(sk_t s, void *b, size_t n) { char *p = b; while (n) { int k = recv(s, p, (int)(n > (1u << 30) ? (1u << 30) : n), 0); if (k <= 0) return 0; p += k; n -= (size_t)k; } return 1; }
+/* ---- 연결 하나의 입출력: 평문 소켓 또는 TLS (https · wss — Windows 의 SChannel) ---- */
+typedef struct TCred TCred;
+typedef struct Tls Tls;
+typedef struct { sk_t s; Tls *t; } Io;
+#ifdef _WIN32
+/* 서버의 인증서 (.pfx 를 읽은 것) — 그 서버와 연결들이 나눠 씀 (ref) */
+struct TCred { CredHandle h; HCERTSTORE st; PCCERT_CONTEXT cert; int ref; };
+/* e = 받은 암호문 (en 바이트) · p = 풀어 둔 평문 (poff 부터 pn 까지) */
+struct Tls { CtxtHandle ctx; TCred *cr; SecPkgContext_StreamSizes sz; unsigned char *e, *p; int en, ecap, pn, poff, pcap; };
+#define TLS_ASC (ASC_REQ_SEQUENCE_DETECT | ASC_REQ_REPLAY_DETECT | ASC_REQ_CONFIDENTIALITY | ASC_REQ_EXTENDED_ERROR | ASC_REQ_ALLOCATE_MEMORY | ASC_REQ_STREAM)
+/* .pfx 를 가져올 때 개인 키가 이 사용자의 키 저장소에 들어감 (SChannel 이 쓰려면 저장해야 함) — 서버를 닫을 때 지움 */
+static void credKeyDelete(PCCERT_CONTEXT c) {
+    DWORD n = 0; if (!CertGetCertificateContextProperty(c, CERT_KEY_PROV_INFO_PROP_ID, NULL, &n) || !n) return;
+    CRYPT_KEY_PROV_INFO *ki = malloc(n);
+    if (CertGetCertificateContextProperty(c, CERT_KEY_PROV_INFO_PROP_ID, ki, &n)) {
+        if (ki->dwProvType == 0) {   /* CNG */
+            NCRYPT_PROV_HANDLE pv; NCRYPT_KEY_HANDLE k;
+            if (NCryptOpenStorageProvider(&pv, ki->pwszProvName, 0) == 0) {
+                if (NCryptOpenKey(pv, &k, ki->pwszContainerName, 0, ki->dwFlags & NCRYPT_MACHINE_KEY_FLAG) == 0) NCryptDeleteKey(k, 0);
+                NCryptFreeObject(pv);
+            }
+        } else { HCRYPTPROV h; CryptAcquireContextW(&h, ki->pwszContainerName, ki->pwszProvName, ki->dwProvType, CRYPT_DELETEKEYSET | (ki->dwFlags & CRYPT_MACHINE_KEYSET)); }
+    }
+    free(ki);
+}
+static TCred *credNew(const unsigned char *pfx, size_t n, const char *pw) {
+    wchar_t wp[512]; if (!MultiByteToWideChar(CP_UTF8, 0, pw ? pw : "", -1, wp, 512)) return NULL;
+    CRYPT_DATA_BLOB b = {(DWORD)n, (BYTE *)pfx};
+    if (!PFXIsPFXBlob(&b)) return NULL;
+    HCERTSTORE st = PFXImportCertStore(&b, wp, CRYPT_USER_KEYSET);
+    SecureZeroMemory(wp, sizeof wp);
+    if (!st) return NULL;
+    PCCERT_CONTEXT c = NULL; TCred *r = NULL;
+    while (!r && (c = CertEnumCertificatesInStore(st, c))) {   /* 개인 키가 있는 인증서 (자격 증명을 얻을 수 있는 것) */
+        SCHANNEL_CRED sc; memset(&sc, 0, sizeof sc); sc.dwVersion = SCHANNEL_CRED_VERSION; sc.cCreds = 1; sc.paCred = &c; sc.dwFlags = SCH_USE_STRONG_CRYPTO;
+        CredHandle h; TimeStamp ts;
+        if (AcquireCredentialsHandleW(NULL, (LPWSTR)UNISP_NAME_W, SECPKG_CRED_INBOUND, NULL, &sc, NULL, NULL, &h, &ts) == SEC_E_OK) {
+            r = calloc(1, sizeof *r); r->h = h; r->st = st; r->cert = CertDuplicateCertificateContext(c); r->ref = 1;
+        }
+    }
+    if (c) CertFreeCertificateContext(c);
+    if (!r) {
+        for (PCCERT_CONTEXT q = NULL; (q = CertEnumCertificatesInStore(st, q)); ) credKeyDelete(q);
+        CertCloseStore(st, 0);
+    }
+    return r;
+}
+static void credDrop(TCred *r) {   /* MU 를 잡은 채로 */
+    if (!r || --r->ref > 0) return;
+    FreeCredentialsHandle(&r->h);
+    for (PCCERT_CONTEXT q = NULL; (q = CertEnumCertificatesInStore(r->st, q)); ) credKeyDelete(q);
+    CertFreeCertificateContext(r->cert); CertCloseStore(r->st, 0); free(r);
+}
+static Tls *tlsAccept(sk_t s, TCred *cr) {
+    Tls *t = calloc(1, sizeof *t); t->cr = cr; t->ecap = 1 << 17; t->e = malloc((size_t)t->ecap);
+    int first = 1, need = 1;
+    for (;;) {
+        if (need) { if (t->en >= t->ecap) break; int k = recv(s, (char *)t->e + t->en, t->ecap - t->en, 0); if (k <= 0) break; t->en += k; }
+        SecBuffer ib[2] = {{(ULONG)t->en, SECBUFFER_TOKEN, t->e}, {0, SECBUFFER_EMPTY, NULL}};
+        SecBuffer ob[2] = {{0, SECBUFFER_TOKEN, NULL}, {0, SECBUFFER_ALERT, NULL}};
+        SecBufferDesc id = {SECBUFFER_VERSION, 2, ib}, od = {SECBUFFER_VERSION, 2, ob};
+        ULONG of = 0; TimeStamp ts;
+        SECURITY_STATUS r = AcceptSecurityContext(&cr->h, first ? NULL : &t->ctx, &id, TLS_ASC, 0, &t->ctx, &od, &of, &ts);
+        if (r == SEC_E_INCOMPLETE_MESSAGE) { need = 1; continue; }
+        if (r == SEC_E_OK || r == SEC_I_CONTINUE_NEEDED) first = 0;
+        int sent = 1;
+        if (ob[0].cbBuffer && ob[0].pvBuffer) sent = skSend(s, ob[0].pvBuffer, ob[0].cbBuffer);
+        if (ob[0].pvBuffer) FreeContextBuffer(ob[0].pvBuffer);
+        if (ob[1].pvBuffer) FreeContextBuffer(ob[1].pvBuffer);
+        if (!sent || (r != SEC_E_OK && r != SEC_I_CONTINUE_NEEDED)) break;
+        if (ib[1].BufferType == SECBUFFER_EXTRA && ib[1].cbBuffer) { memmove(t->e, t->e + t->en - ib[1].cbBuffer, ib[1].cbBuffer); t->en = (int)ib[1].cbBuffer; need = 0; }
+        else { t->en = 0; need = 1; }
+        if (r == SEC_E_OK) {
+            if (QueryContextAttributesW(&t->ctx, SECPKG_ATTR_STREAM_SIZES, &t->sz) != SEC_E_OK) break;
+            int want = (int)(t->sz.cbHeader + t->sz.cbMaximumMessage + t->sz.cbTrailer) + 1024;
+            if (want > t->ecap) { t->ecap = want; t->e = realloc(t->e, (size_t)want); }
+            return t;
+        }
+    }
+    if (!first) DeleteSecurityContext(&t->ctx);
+    free(t->e); free(t); return NULL;
+}
+static int tlsRecv(Io *io, void *out, int n) {   /* 평문을 n 바이트까지 · 0 = 닫힘 · -1 = 오류 */
+    Tls *t = io->t;
+    for (;;) {
+        if (t->pn > t->poff) { int k = t->pn - t->poff < n ? t->pn - t->poff : n; memcpy(out, t->p + t->poff, (size_t)k); t->poff += k; return k; }
+        if (t->en) {
+            SecBuffer b[4] = {{(ULONG)t->en, SECBUFFER_DATA, t->e}, {0, SECBUFFER_EMPTY, NULL}, {0, SECBUFFER_EMPTY, NULL}, {0, SECBUFFER_EMPTY, NULL}};
+            SecBufferDesc d = {SECBUFFER_VERSION, 4, b};
+            SECURITY_STATUS r = DecryptMessage(&t->ctx, &d, 0, NULL);
+            if (r == SEC_E_OK) {
+                int ext = 0;
+                for (int i = 0; i < 4; i++) {
+                    if (b[i].BufferType == SECBUFFER_DATA && b[i].cbBuffer) {
+                        if ((int)b[i].cbBuffer > t->pcap) { t->pcap = (int)b[i].cbBuffer; t->p = realloc(t->p, (size_t)t->pcap); }
+                        memcpy(t->p, b[i].pvBuffer, b[i].cbBuffer); t->pn = (int)b[i].cbBuffer; t->poff = 0;
+                    }
+                    if (b[i].BufferType == SECBUFFER_EXTRA) ext = (int)b[i].cbBuffer;
+                }
+                if (ext) memmove(t->e, t->e + t->en - ext, (size_t)ext);
+                t->en = ext; continue;
+            }
+            if (r == SEC_I_CONTEXT_EXPIRED) return 0;
+            if (r != SEC_E_INCOMPLETE_MESSAGE) return -1;   /* SEC_I_RENEGOTIATE 등은 받지 않음 */
+        }
+        if (t->en >= t->ecap) return -1;
+        int k = recv(io->s, (char *)t->e + t->en, t->ecap - t->en, 0); if (k <= 0) return k < 0 ? -1 : 0;
+        t->en += k;
+    }
+}
+static int tlsSend(Io *io, const void *d, size_t n) {
+    Tls *t = io->t; const unsigned char *p = d; unsigned char *buf = malloc(t->sz.cbHeader + t->sz.cbMaximumMessage + t->sz.cbTrailer);
+    int ok = 1;
+    while (ok && n) {
+        ULONG k = n > t->sz.cbMaximumMessage ? t->sz.cbMaximumMessage : (ULONG)n;
+        memcpy(buf + t->sz.cbHeader, p, k);
+        SecBuffer b[4] = {{t->sz.cbHeader, SECBUFFER_STREAM_HEADER, buf}, {k, SECBUFFER_DATA, buf + t->sz.cbHeader}, {t->sz.cbTrailer, SECBUFFER_STREAM_TRAILER, buf + t->sz.cbHeader + k}, {0, SECBUFFER_EMPTY, NULL}};
+        SecBufferDesc dd = {SECBUFFER_VERSION, 4, b};
+        ok = EncryptMessage(&t->ctx, 0, &dd, 0) == SEC_E_OK && skSend(io->s, buf, b[0].cbBuffer + b[1].cbBuffer + b[2].cbBuffer);
+        p += k; n -= k;
+    }
+    free(buf); return ok;
+}
+static void tlsEnd(Io *io) {   /* close_notify 를 보내고 정리 */
+    Tls *t = io->t; if (!t) return;
+    DWORD tok = SCHANNEL_SHUTDOWN; SecBuffer tb = {sizeof tok, SECBUFFER_TOKEN, &tok}; SecBufferDesc td = {SECBUFFER_VERSION, 1, &tb};
+    if (ApplyControlToken(&t->ctx, &td) == SEC_E_OK) {
+        SecBuffer ob = {0, SECBUFFER_TOKEN, NULL}; SecBufferDesc od = {SECBUFFER_VERSION, 1, &ob}; ULONG of; TimeStamp ts;
+        SECURITY_STATUS r = AcceptSecurityContext(&t->cr->h, &t->ctx, NULL, TLS_ASC, 0, NULL, &od, &of, &ts);
+        if ((r == SEC_E_OK || r == SEC_I_CONTINUE_NEEDED) && ob.pvBuffer && ob.cbBuffer) skSend(io->s, ob.pvBuffer, ob.cbBuffer);
+        if (ob.pvBuffer) FreeContextBuffer(ob.pvBuffer);
+    }
+    DeleteSecurityContext(&t->ctx);
+    pthread_mutex_lock(&MU); credDrop(t->cr); pthread_mutex_unlock(&MU);
+    free(t->e); free(t->p); free(t); io->t = NULL;
+}
+#else
+struct TCred { int ref; };
+struct Tls { int unused; };
+static void credDrop(TCred *r) { (void)r; }
+static int tlsRecv(Io *io, void *out, int n) { (void)io; (void)out; (void)n; return -1; }
+static int tlsSend(Io *io, const void *d, size_t n) { (void)io; (void)d; (void)n; return 0; }
+static void tlsEnd(Io *io) { (void)io; }
+#endif
+static int ioRecv(Io *io, void *b, int n) { return io->t ? tlsRecv(io, b, n) : recv(io->s, b, n, 0); }
+static int ioRecvN(Io *io, void *b, size_t n) { char *p = b; while (n) { int k = ioRecv(io, p, (int)(n > (1u << 30) ? (1u << 30) : n)); if (k <= 0) return 0; p += k; n -= (size_t)k; } return 1; }
+static int ioSend(Io *io, const void *b, size_t n) { return io->t ? tlsSend(io, b, n) : skSend(io->s, b, n); }
+static void ioClose(Io *io) { tlsEnd(io); shutdown(io->s, 2); skClose(io->s); }
 static int lowEq(const char *a, const char *b, size_t n) { for (size_t i = 0; i < n; i++) { char x = a[i], y = b[i]; if (x >= 'A' && x <= 'Z') x += 32; if (y >= 'A' && y <= 'Z') y += 32; if (x != y) return 0; } return 1; }
 /* "이름: 값\n…" 에서 이름의 값 (대소문자 무시 · 앞뒤 빈칸 뺌) → out */
 static int hdrGet(const char *h, const char *name, char *out, size_t n) {
@@ -348,7 +500,7 @@ static const char *reason(int st) {
     }
 }
 /* 답 보내기: 사용자가 준 머리에서 Content-Length · Connection 은 빼고 엔진이 붙임 */
-static void srvReply(sk_t s, int st, const char *uh, const unsigned char *body, int n) {
+static void srvReply(Io *io, int st, const char *uh, const unsigned char *body, int n) {
     size_t hl = strlen(uh ? uh : ""); char *h = malloc(hl * 2 + 256), *w = h; char ct[8];
     w += sprintf(w, "HTTP/1.1 %d %s\r\nContent-Length: %d\r\nConnection: close\r\n", st, reason(st), n);
     if (!hdrGet(uh ? uh : "", "content-type", ct, sizeof ct)) w += sprintf(w, "Content-Type: text/plain; charset=utf-8\r\n");
@@ -360,51 +512,54 @@ static void srvReply(sk_t s, int st, const char *uh, const unsigned char *body, 
         p = e ? e + 1 : p + strlen(p);
     }
     *w++ = '\r'; *w++ = '\n';
-    if (skSend(s, h, (size_t)(w - h)) && n) skSend(s, body, (size_t)n);
+    if (ioSend(io, h, (size_t)(w - h)) && n) ioSend(io, body, (size_t)n);
     free(h);
 }
-static void srvBye(sk_t s, int st, const char *msg) { srvReply(s, st, NULL, (const unsigned char *)msg, (int)strlen(msg)); shutdown(s, 2); skClose(s); }
+static void srvBye(Io *io, int st, const char *msg) { srvReply(io, st, NULL, (const unsigned char *)msg, (int)strlen(msg)); ioClose(io); }
 /* 서버 쪽 WebSocket 틀 (가리지 않음) */
-static int srvFrame(sk_t s, int op, const void *d, int n) {
+static int srvFrame(Io *io, int op, const void *d, int n) {
     unsigned char h[10]; int k = 0; h[k++] = (unsigned char)(0x80 | op);
     if (n < 126) h[k++] = (unsigned char)n; else if (n < 65536) { h[k++] = 126; h[k++] = (unsigned char)(n >> 8); h[k++] = (unsigned char)n; }
     else { h[k++] = 127; for (int i = 7; i >= 0; i--) h[k++] = (unsigned char)(((unsigned long long)n >> (8 * i)) & 255); }
-    return skSend(s, h, (size_t)k) && (!n || skSend(s, d, (size_t)n));
+    return ioSend(io, h, (size_t)k) && (!n || ioSend(io, d, (size_t)n));
 }
-static void srvWsLoop(Conn *c, sk_t s) {
+static void srvWsLoop(Conn *c, Io *io) {
     unsigned char *acc = NULL; int an = 0, cap = 0;
     for (;;) {
-        unsigned char h[2]; if (!skRecvN(s, h, 2)) break;
+        unsigned char h[2]; if (!ioRecvN(io, h, 2)) break;
         int op = h[0] & 15, fin = h[0] & 0x80, masked = h[1] & 0x80; unsigned long long len = h[1] & 127;
-        if (len == 126) { unsigned char e[2]; if (!skRecvN(s, e, 2)) break; len = (unsigned long long)e[0] << 8 | e[1]; }
-        else if (len == 127) { unsigned char e[8]; if (!skRecvN(s, e, 8)) break; len = 0; for (int i = 0; i < 8; i++) len = len << 8 | e[i]; }
-        unsigned char mk[4] = {0, 0, 0, 0}; if (masked && !skRecvN(s, mk, 4)) break;
+        if (len == 126) { unsigned char e[2]; if (!ioRecvN(io, e, 2)) break; len = (unsigned long long)e[0] << 8 | e[1]; }
+        else if (len == 127) { unsigned char e[8]; if (!ioRecvN(io, e, 8)) break; len = 0; for (int i = 0; i < 8; i++) len = len << 8 | e[i]; }
+        unsigned char mk[4] = {0, 0, 0, 0}; if (masked && !ioRecvN(io, mk, 4)) break;
         if (len > NET_CAP) break;
-        unsigned char *p = malloc(len ? (size_t)len : 1); if (len && !skRecvN(s, p, (size_t)len)) { free(p); break; }
+        unsigned char *p = malloc(len ? (size_t)len : 1); if (len && !ioRecvN(io, p, (size_t)len)) { free(p); break; }
         if (masked) for (unsigned long long i = 0; i < len; i++) p[i] ^= mk[i & 3];
-        if (op == 8) { pthread_mutex_lock(&MU); if (c->sk != -1) srvFrame(s, 8, p, len >= 2 ? 2 : 0); pthread_mutex_unlock(&MU); free(p); break; }
-        if (op == 9) { pthread_mutex_lock(&MU); if (c->sk != -1) srvFrame(s, 10, p, (int)len); pthread_mutex_unlock(&MU); free(p); continue; }
+        if (op == 8) { pthread_mutex_lock(&MU); if (c->sk != -1) srvFrame(io, 8, p, len >= 2 ? 2 : 0); pthread_mutex_unlock(&MU); free(p); break; }
+        if (op == 9) { pthread_mutex_lock(&MU); if (c->sk != -1) srvFrame(io, 10, p, (int)len); pthread_mutex_unlock(&MU); free(p); continue; }
         if (op == 10) { free(p); continue; }
         int okg = grow(&acc, &an, &cap, p, (int)len); free(p); if (!okg) break;
         if (fin) { wsPush(c, acc ? acc : calloc(1, 1), an); acc = NULL; an = 0; cap = 0; }
     }
     free(acc);
 }
-typedef struct { sk_t s; int sid; char addr[64]; } Acc;
+typedef struct { sk_t s; int sid; char addr[64]; TCred *cr; } Acc;
 static void *connThread(void *a) {
-    Acc x = *(Acc *)a; free(a); sk_t s = x.s;
+    Acc x = *(Acc *)a; free(a); sk_t s = x.s; Io io0 = {s, NULL}, *io = &io0;
     skTimeout(s, 30000);
+#ifdef _WIN32
+    if (x.cr) { io->t = tlsAccept(s, x.cr); if (!io->t) { pthread_mutex_lock(&MU); credDrop(x.cr); pthread_mutex_unlock(&MU); shutdown(s, 2); skClose(s); return NULL; } }
+#endif
     /* 머리 (64KB 까지) */
     int cap = 65536 + 1, n = 0; char *buf = malloc((size_t)cap), *end = NULL;
     while (!end && n < cap - 1) {
-        int k = recv(s, buf + n, cap - 1 - n, 0); if (k <= 0) break;
+        int k = ioRecv(io, buf + n, cap - 1 - n); if (k <= 0) break;
         n += k; buf[n] = 0; end = strstr(buf, "\r\n\r\n");
     }
-    if (!end) { if (n >= cap - 1) srvBye(s, 431, "request header too large"); else skClose(s); free(buf); return NULL; }
+    if (!end) { if (n >= cap - 1) srvBye(io, 431, "request header too large"); else ioClose(io); free(buf); return NULL; }
     *end = 0; char *bodyAt = end + 4; int have = n - (int)(bodyAt - buf);
     char method[16], target[4096];
     char *nl = strstr(buf, "\r\n"); if (nl) *nl = 0;
-    if (sscanf(buf, "%15s %4095s HTTP/", method, target) != 2) { srvBye(s, 400, "bad request"); free(buf); return NULL; }
+    if (sscanf(buf, "%15s %4095s HTTP/", method, target) != 2) { srvBye(io, 400, "bad request"); free(buf); return NULL; }
     /* 머리 → "이름: 값\n…" */
     char *hd = malloc(strlen(nl ? nl + 2 : "") + 2), *hw = hd;
     for (const char *p = nl ? nl + 2 : ""; *p; p++) { if (*p == '\r') continue; *hw++ = *p; }
@@ -415,31 +570,31 @@ static void *connThread(void *a) {
         /* ---- WebSocket ---- */
         pthread_mutex_lock(&MU);
         Conn *sv = slotOf(x.sid, K_SRV); Conn *c = sv && slotCount(1) < NET_ACC ? slotNew(K_WS) : NULL;
-        if (c) { c->srv = x.sid; c->sk = (long long)s; c->running = 1; c->method = sdup("GET"); c->url = sdup(target); c->headers = hd; hd = NULL; snprintf(c->addr, sizeof c->addr, "%s", x.addr); c->seq = ++SEQ; }
+        if (c) { c->srv = x.sid; c->sk = (long long)s; c->tls = io->t; c->running = 1; c->method = sdup("GET"); c->url = sdup(target); c->headers = hd; hd = NULL; snprintf(c->addr, sizeof c->addr, "%s", x.addr); c->seq = ++SEQ; }
         pthread_mutex_unlock(&MU);
         free(buf);
-        if (!c) { free(hd); srvBye(s, 503, "server busy"); return NULL; }
+        if (!c) { free(hd); srvBye(io, 503, "server busy"); return NULL; }
         char cat[200], acc[64]; unsigned char dg[20];
         snprintf(cat, sizeof cat, "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", key); sha1((const unsigned char *)cat, strlen(cat), dg); b64(dg, 20, acc);
         char resp[256]; int rl = snprintf(resp, sizeof resp, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n", acc);
-        int ok = skSend(s, resp, (size_t)rl);
+        int ok = ioSend(io, resp, (size_t)rl);
         skTimeout(s, 0);   /* 메시지는 언제 올지 모름 */
         pthread_mutex_lock(&MU); c->wstate = ok ? 1 : 2; c->ready = 1; pthread_mutex_unlock(&MU);
-        if (ok) srvWsLoop(c, s);
+        if (ok) srvWsLoop(c, io);
         pthread_mutex_lock(&MU);
-        c->sk = -1; c->running = 0; if (c->wstate == 1) c->wstate = 2;
+        c->sk = -1; c->tls = NULL; c->running = 0; if (c->wstate == 1) c->wstate = 2;
         if (c->released) slotFree(c);
         pthread_mutex_unlock(&MU);
-        shutdown(s, 2); skClose(s);
+        ioClose(io);
         return NULL;
     }
     /* ---- HTTP ---- */
-    if (*te) { free(hd); free(buf); srvBye(s, 411, "Content-Length required (chunked is not supported)"); return NULL; }
+    if (*te) { free(hd); free(buf); srvBye(io, 411, "Content-Length required (chunked is not supported)"); return NULL; }
     long long want = *cl ? atoll(cl) : 0;
-    if (want < 0 || want > NET_CAP) { free(hd); free(buf); srvBye(s, 413, "body too large"); return NULL; }
+    if (want < 0 || want > NET_CAP) { free(hd); free(buf); srvBye(io, 413, "body too large"); return NULL; }
     unsigned char *body = malloc((size_t)want + 1); int got = have < want ? have : (int)want;
     memcpy(body, bodyAt, (size_t)got);
-    if (got < want && !skRecvN(s, body + got, (size_t)(want - got))) { free(body); free(hd); free(buf); skClose(s); return NULL; }
+    if (got < want && !ioRecvN(io, body + got, (size_t)(want - got))) { free(body); free(hd); free(buf); ioClose(io); return NULL; }
     body[want] = 0; free(buf);
     pthread_mutex_lock(&MU);
     Conn *sv = slotOf(x.sid, K_SRV); Conn *c = sv && slotCount(1) < NET_ACC ? slotNew(K_REQ) : NULL;
@@ -454,10 +609,10 @@ static void *connThread(void *a) {
     if (c) { c->rhead = NULL; c->rbody = NULL; c->running = 0; slotFree(c); }
     pthread_mutex_unlock(&MU);
     free(hd); free(body);
-    if (done) srvReply(s, st, rh, rb, rn);
-    else { const char *m = had ? "no response" : "server busy"; srvReply(s, 503, NULL, (const unsigned char *)m, (int)strlen(m)); }
+    if (done) srvReply(io, st, rh, rb, rn);
+    else { const char *m = had ? "no response" : "server busy"; srvReply(io, 503, NULL, (const unsigned char *)m, (int)strlen(m)); }
     free(rh); free(rb);
-    shutdown(s, 2); skClose(s);
+    ioClose(io);
     return NULL;
 }
 static void *srvThread(void *a) {
@@ -469,33 +624,63 @@ static void *srvThread(void *a) {
         if (k == SK_BAD) { if (stop) break; skSleep(20); continue; }
         if (stop) { skClose(k); break; }
         Acc *x = malloc(sizeof *x); x->s = k; x->sid = sid;
+        pthread_mutex_lock(&MU); x->cr = sv->cred; if (x->cr) x->cr->ref++; pthread_mutex_unlock(&MU);
         const unsigned char *ip = (const unsigned char *)&ad.sin_addr; snprintf(x->addr, sizeof x->addr, "%u.%u.%u.%u:%u", ip[0], ip[1], ip[2], ip[3], (unsigned)ntohs(ad.sin_port));
         pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED);
-        if (pthread_create(&t, &at, connThread, x)) { free(x); skClose(k); }
+        if (pthread_create(&t, &at, connThread, x)) { pthread_mutex_lock(&MU); credDrop(x->cr); pthread_mutex_unlock(&MU); free(x); skClose(k); }
         pthread_attr_destroy(&at);
     }
 #ifndef _WIN32
     skClose(L);
 #endif
-    pthread_mutex_lock(&MU); sv->running = 0; slotFree(sv); pthread_mutex_unlock(&MU);
+    pthread_mutex_lock(&MU); sv->running = 0; credDrop(sv->cred); slotFree(sv); pthread_mutex_unlock(&MU);
     return NULL;
 }
-int jdh_srv_listen(int port, int flags) {
-    if (port < 0 || port > 65535 || !skInit()) return 0;
-    sk_t L = socket(AF_INET, SOCK_STREAM, 0); if (L == SK_BAD) return 0;
+static int srvOpen(int port, int flags, TCred *cr) {   /* cr 은 넘겨받음 (실패하면 버림) */
+    if (port < 0 || port > 65535 || !skInit()) { pthread_mutex_lock(&MU); credDrop(cr); pthread_mutex_unlock(&MU); return 0; }
+    sk_t L = socket(AF_INET, SOCK_STREAM, 0); if (L == SK_BAD) { pthread_mutex_lock(&MU); credDrop(cr); pthread_mutex_unlock(&MU); return 0; }
 #ifndef _WIN32
     { int one = 1; setsockopt(L, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one); }   /* 닫은 접속 (TIME_WAIT) 이 남아도 다시 열 수 있게 · Windows 는 기본이 그럼 */
 #endif
     struct sockaddr_in ad; memset(&ad, 0, sizeof ad); ad.sin_family = AF_INET; ad.sin_port = htons((unsigned short)port);
     ad.sin_addr.s_addr = htonl((flags & 1) ? INADDR_LOOPBACK : INADDR_ANY);
-    if (bind(L, (struct sockaddr *)&ad, sizeof ad) || listen(L, 64)) { skClose(L); return 0; }
+    if (bind(L, (struct sockaddr *)&ad, sizeof ad) || listen(L, 64)) { skClose(L); pthread_mutex_lock(&MU); credDrop(cr); pthread_mutex_unlock(&MU); return 0; }
     sklen_t al = sizeof ad; getsockname(L, (struct sockaddr *)&ad, &al);
     pthread_mutex_lock(&MU);
     Conn *c = slotCount(2) < NET_SRV ? slotNew(K_SRV) : NULL; int id = 0;
-    if (c) { c->sk = (long long)L; c->port = ntohs(ad.sin_port); id = c->id; if (!spawn(srvThread, c)) { slotFree(c); id = 0; } }
+    if (c) { c->sk = (long long)L; c->port = ntohs(ad.sin_port); c->cred = cr; cr = NULL; id = c->id; if (!spawn(srvThread, c)) { cr = c->cred; c->cred = NULL; slotFree(c); id = 0; } }
+    credDrop(cr);
     pthread_mutex_unlock(&MU);
     if (!id) skClose(L);
     return id;
+}
+int jdh_srv_listen(int port, int flags) { return srvOpen(port, flags, NULL); }
+/* https · wss: .pfx (인증서 + 개인 키) — 프로젝트 파일 (EXE 에 들어 있는 것) → 디스크 (절대 경로 · 지금 폴더 · 실행 파일 폴더 기준) */
+extern const unsigned char *proj_bytes(const char *path, size_t *len);
+extern const char *JB_EXE_DIR;
+static unsigned char *diskRead(const char *p, size_t *n) {
+    FILE *f = fopen(p, "rb"); if (!f) return NULL;
+    fseek(f, 0, SEEK_END); long L = ftell(f); fseek(f, 0, SEEK_SET);
+    if (L <= 0 || L > (16 << 20)) { fclose(f); return NULL; }
+    unsigned char *b = malloc((size_t)L); *n = fread(b, 1, (size_t)L, f); fclose(f); return b;
+}
+int jdh_srv_listen_tls(int port, int flags, const char *pfx, const char *password) {
+#ifdef _WIN32
+    if (!pfx || !*pfx) return 0;
+    size_t n = 0; const unsigned char *b = proj_bytes(pfx, &n); unsigned char *own = NULL;
+    if (!b) {
+        own = diskRead(pfx, &n);
+        int abs = pfx[0] == '/' || pfx[0] == '\\' || (pfx[0] && pfx[1] == ':');
+        if (!own && !abs && JB_EXE_DIR) { char full[4096]; snprintf(full, sizeof full, "%s/%s", JB_EXE_DIR, pfx); own = diskRead(full, &n); }
+        b = own;
+    }
+    if (!b) return 0;
+    TCred *cr = credNew(b, n, password);
+    free(own);
+    return cr ? srvOpen(port, flags, cr) : 0;
+#else
+    (void)port; (void)flags; (void)pfx; (void)password; return 0;   /* 시험용 빌드에는 TLS 가 없음 */
+#endif
 }
 int jdh_srv_port(int sid) { pthread_mutex_lock(&MU); Conn *c = slotOf(sid, K_SRV); int r = c ? c->port : 0; pthread_mutex_unlock(&MU); return r; }
 void jdh_srv_close(int sid) {
@@ -585,7 +770,7 @@ int jdh_ws_open(const char *url) {
 int jdh_ws_state(int id) { pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS); int r = c ? c->wstate : -1; pthread_mutex_unlock(&MU); return r; }
 int jdh_ws_send(int id, const void *data, int n, int text) {
     if (n < 0 || n > NET_CAP || (n && !data)) return 0;
-    pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS); int r = c && c->wstate == 1 && (c->srv ? (c->sk != -1 && srvFrame((sk_t)c->sk, text ? 1 : 2, data, n)) : wsSendRaw(c, data, n, text)); pthread_mutex_unlock(&MU); return r;
+    pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS); int r = c && c->wstate == 1 && (c->srv ? (c->sk != -1 && srvFrame(&(Io){(sk_t)c->sk, (Tls *)c->tls}, text ? 1 : 2, data, n)) : wsSendRaw(c, data, n, text)); pthread_mutex_unlock(&MU); return r;
 }
 int jdh_ws_peek(int id) { pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS); int r = c && c->head ? c->head->n : -1; pthread_mutex_unlock(&MU); return r; }
 int jdh_ws_recv(int id, void *buf, int n) {
@@ -599,7 +784,7 @@ int jdh_ws_recv(int id, void *buf, int n) {
 }
 void jdh_ws_close(int id) {
     pthread_mutex_lock(&MU); Conn *c = slotOf(id, K_WS);
-    if (c && c->srv) { if (c->running) { c->released = 1; if (c->sk != -1) { srvFrame((sk_t)c->sk, 8, "\x03\xe8", 2); shutdown((sk_t)c->sk, 2); } } else slotFree(c); }
+    if (c && c->srv) { if (c->running) { c->released = 1; if (c->sk != -1) { srvFrame(&(Io){(sk_t)c->sk, (Tls *)c->tls}, 8, "\x03\xe8", 2); shutdown((sk_t)c->sk, 2); } } else slotFree(c); }
     else if (c) { if (c->running) { c->released = 1; wsShut(c); } else slotFree(c); }
     pthread_mutex_unlock(&MU);
 }

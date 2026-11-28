@@ -1,0 +1,34 @@
+Use jawbreaker call jaw;
+Use Net call net;
+Use Server call srv;
+
+run{
+    srv.listentls(8792, 1, "cert/nope.pfx", "jdh-test");
+    print("tls missing port=%srv.port%");
+    srv.listentls(8792, 1, "cert/server.pfx", "wrong");
+    print("tls badpw port=%srv.port%");
+    srv.listentls(8792, 1, "cert/server.pfx", "jdh-test");
+    print("tls port=%srv.port%");
+    net.get("https://localhost:8792/hello");
+    jaw.wait(2000);
+    print("https status=%net.status% body=%net.body%");
+    net.post("https://localhost:8792/echo", "tag9", "암호 body");
+    jaw.wait(2000);
+    print("https post status=%net.status% body=%net.body%");
+    net.get("http://127.0.0.1:8792/hello");
+    jaw.wait(2000);
+    print("plain to tls status=%net.status%");
+    net.wsopen("wss://localhost:8792/secure");
+    jaw.wait(2000);
+    net.wssend("one");
+    net.wssend("둘");
+    jaw.wait(1500);
+    print("wss state=%net.ws% msgs=%net.msgs% path=%srv.wspath%");
+    net.wssend("bye");
+    jaw.wait(1500);
+    print("wss closed state=%net.ws%");
+    jaw.wait(10000);
+    print("tls done n=%srv.nreq%");
+    srv.stop();
+    jaw.wait(300);
+}

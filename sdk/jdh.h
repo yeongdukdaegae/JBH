@@ -111,13 +111,19 @@ JDH__IMPORT(ws_close) void jdh_ws_close(int id);          /* 닫고 잊음 (닫�
 
 /* "server" — 이 PC 의 포트를 열고 접속을 받는 서버 (엔진 1.6 부터 · EXE 에서만)
  *   웹 (Dev. · HTML · APK) 은 브라우저 안이라 포트를 열 수 없습니다: jdh_srv_listen 이 늘 0 (실패).
- *   한 포트에서 HTTP 요청과 WebSocket 접속을 같이 받습니다 (Upgrade: websocket 이면 WebSocket).  https · wss (TLS) 는 받지 않습니다.
+ *   한 포트에서 HTTP 요청과 WebSocket 접속을 같이 받습니다 (Upgrade: websocket 이면 WebSocket).
+ *   https · wss 로 받으려면 jdh_srv_listen_tls (인증서 .pfx 가 필요 · 그 밖은 같음).
  *   모두 기다리지 않습니다: 받은 것은 쌓아 두고, 명령이나 JDH_FRAME 에서 jdh_srv_next · jdh_srv_ws 로 꺼냅니다.
  *   HTTP: 요청 하나 = 번호 하나. jdh_req_respond 로 답하면 그 번호는 끝 (30초 안에 답하지 않으면 엔진이 503 으로 답함 · 연결은 요청마다 닫힘).
  *   WebSocket: jdh_srv_ws 가 준 번호는 jdh_ws_state · send · peek · recv · close 로 씁니다 (클라이언트로 연 것과 같음).
  *   한도: 서버 8개 · 받은 접속 (요청 + WebSocket) 동시에 192개 · 요청 머리 64KB · 본문 16MB (Content-Length 가 있는 것만 · chunked 는 411). */
 #define JDH_SRV_LOCAL 1      /* flags: 이 PC 안 (127.0.0.1) 에서 오는 접속만 받음 · 0 = 모든 주소 (방화벽이 물을 수 있음) */
 JDH__IMPORT(srv_listen) int jdh_srv_listen(int port, int flags);   /* 포트를 열고 서버 번호 (0 = 실패: 포트를 쓰는 중 · 막힘 · 웹) · port 0 = 비어 있는 아무 포트 */
+/* https · wss 로 받는 서버 (Windows 의 SChannel): pfx = 인증서와 개인 키가 든 .pfx 파일 · password = 그 비밀번호 (없으면 "")
+ *   pfx 경로는 먼저 프로젝트 파일 (EXE 에 들어감 — 개인 키가 실행 파일 안에 들어가므로 배포할 때 주의) · 없으면 디스크 (절대 경로 · 지금 폴더 · 실행 파일 폴더 기준)
+ *   0 = 실패 (파일 없음 · 비밀번호 틀림 · 개인 키 없음 · 포트를 쓰는 중 · 웹).  받은 요청 · WebSocket 은 jdh_srv_listen 과 같은 함수로 씁니다.
+ *   개인 키는 여는 동안 이 사용자의 Windows 키 저장소에 두었다가 서버를 닫을 때 지웁니다 (강제로 끄면 남을 수 있음). */
+JDH__IMPORT(srv_listen_tls) int jdh_srv_listen_tls(int port, int flags, const char *pfx, const char *password);
 JDH__IMPORT(srv_port) int jdh_srv_port(int sid);           /* 실제로 연 포트 (port 0 으로 연 경우) · 없으면 0 */
 JDH__IMPORT(srv_close) void jdh_srv_close(int sid);        /* 더는 받지 않음 (이미 받은 요청 · WebSocket 은 그대로 씀) */
 JDH__IMPORT(srv_next) int jdh_srv_next(int sid);           /* 다음 HTTP 요청 번호 · 없으면 0 */

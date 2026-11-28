@@ -2,6 +2,7 @@
  "permissions":["server"],
  "commands":{
   "listen":{"params":["int","int"]},
+  "listentls":{"params":["int","int","string","string"]},
   "stop":{"params":[]}
  },
  "values":{"port":"int","nreq":"int","last":"string","nws":"int","wsmsgs":"string","wspath":"string",

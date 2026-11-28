@@ -213,6 +213,37 @@ jobs:
             'info=[1, 3, ["/hello", "/echo", "/missing?x=1"], 1, 0, "한글"]', 'after stop status=0', 'relisten port=8790', "라이브러리 'Server' 의 값 'bad' 에 { } (객체)가 있습니다")
           foreach ($e in $expect) { if (-not ($all | Where-Object { $_.Contains($e) })) { Write-Host "✖ 없음: $e"; $bad++ } }
           if ($bad) { exit 1 }
+      - name: https · wss 서버 시험 (jdh_srv_listen_tls · SChannel — 스스로 서명한 인증서 · 엔진의 클라이언트 (WinHTTP) 와 Python 으로 접속)
+        shell: pwsh
+        run: |
+          $env:JDH_HOME = ''
+          dist\bin\jdh.exe new project TlsGame; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib add tests\libs\Net\Net-0.1.0.jbx TlsGame; if ($LASTEXITCODE) { exit 1 }
+          dist\bin\jdh.exe lib add tests\libs\Server\Server-0.1.0.jbx TlsGame; if ($LASTEXITCODE) { exit 1 }
+          Copy-Item tests\fixtures\server-tls-main.jb TlsGame\main.jb -Force
+          # 시험용 인증서: localhost · 이 PC 의 신뢰할 루트에 넣어 WinHTTP 가 받아들이게
+          $cert = New-SelfSignedCertificate -DnsName localhost -CertStoreLocation Cert:\LocalMachine\My -KeyExportPolicy Exportable -KeyAlgorithm RSA -KeyLength 2048 -NotAfter (Get-Date).AddDays(2)
+          New-Item -ItemType Directory TlsGame\cert -Force | Out-Null
+          Export-PfxCertificate -Cert $cert -FilePath TlsGame\cert\server.pfx -Password (ConvertTo-SecureString 'jdh-test' -AsPlainText -Force) | Out-Null
+          Export-Certificate -Cert $cert -FilePath tls.cer | Out-Null
+          Import-Certificate -FilePath tls.cer -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          dist\bin\jdh.exe build exe TlsGame -o Tls.exe; if ($LASTEXITCODE) { exit 1 }
+          $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy'
+          $p = Start-Process .\Tls.exe -ArgumentList '--no-box' -RedirectStandardOutput tls-out.txt -RedirectStandardError tls-err.txt -PassThru
+          $bad = 0
+          Start-Sleep -Seconds 12
+          $py = python tests\tls_client.py 8792 2>&1; $py | ForEach-Object { Write-Host "  $_" }
+          $cu = curl.exe -sk --max-time 10 https://127.0.0.1:8792/hello; Write-Host "  curl: $cu"
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); Write-Host '✖ 90초 안에 끝나지 않았습니다'; $bad++ }
+          Get-Content tls-out.txt -Encoding utf8; Get-Content tls-err.txt -Encoding utf8
+          $all = (Get-Content tls-out.txt -Encoding utf8) + (Get-Content tls-err.txt -Encoding utf8)
+          $expect = @('tls missing port=0', 'tls badpw port=0', 'tls port=8792', 'https status=200 body=hi GET', 'https post status=200 body=tag9:암호 body', 'plain to tls status=0',
+            'wss state=1 msgs=welcome|echo:one|echo:둘 path=/secure', 'wss closed state=2', 'tls done n=')
+          foreach ($e in $expect) { if (-not ($all | Where-Object { $_.Contains($e) })) { Write-Host "✖ 없음: $e"; $bad++ } }
+          if (-not ($py | Where-Object { "$_".StartsWith('py https=HTTP/1.1 200 OK body=hi GET tls=TLSv1.') })) { Write-Host '✖ Python https'; $bad++ }
+          if (-not ($py | Where-Object { "$_" -eq 'py wss=HTTP/1.1 101 Switching Protocols first=welcome echo=132' })) { Write-Host '✖ Python wss'; $bad++ }
+          if ($cu -ne 'hi GET') { Write-Host '✖ curl https'; $bad++ }
+          if ($bad) { exit 1 }
       - name: data 형식 시험 (넣기 · 꺼내기 · 안 맞으면 건너뜀 — 웹 시험과 같은 main.jb · 같은 줄)
         shell: pwsh
         run: |

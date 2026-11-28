@@ -8,6 +8,7 @@ static int sid, port, nreq, nws, ws[8];
 static char last[512], wsmsgs[1024], wspath[128], paths[512] = "", info[1024];
 
 JDH_COMMAND(listen, int p, int local) { sid = jdh_srv_listen(p, local ? JDH_SRV_LOCAL : 0); port = sid ? jdh_srv_port(sid) : 0; }
+JDH_COMMAND(listentls, int p, int local, const char *pfx, const char *pw) { sid = jdh_srv_listen_tls(p, local ? JDH_SRV_LOCAL : 0, pfx, pw); port = sid ? jdh_srv_port(sid) : 0; }
 JDH_COMMAND(stop, void) { if (sid) jdh_srv_close(sid); sid = 0; }
 
 static void hdr(int rid, const char *name, char *out, int n) {   // 요청 머리에서 이름의 값

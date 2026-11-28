@@ -2120,7 +2120,7 @@ const HOST={
   ws_close(id){const e=NET.get(id);if(e&&e.k===2){try{if(e.ws)e.ws.close();}catch(x){}NET.delete(id);}},
   file_read(p,b,n){const f=fileOf(p);if(!f)return -1;const k=Math.max(0,Math.min(n,f.length));if(k&&b)mem().set(f.subarray(0,k),b);return k;},
   // "server" — 브라우저 안에서는 포트를 열 수 없음: 늘 실패 (EXE 의 net.c 만 됨)
-  srv_listen(){return 0;},srv_port(){return 0;},srv_close(){},srv_next(){return 0;},srv_ws(){return 0;},
+  srv_listen(){return 0;},srv_listen_tls(){return 0;},srv_port(){return 0;},srv_close(){},srv_next(){return 0;},srv_ws(){return 0;},
   req_info(){return -1;},req_size(){return 0;},req_read(){return 0;},req_respond(){return 0;}
 };
 function flush(){if(ops.length){send({t:'ops',o:ops});ops=[];}}
@@ -2211,7 +2211,7 @@ const JBX_HOST={log:'',error:'',draw_clear:'draw',draw_layer:'draw',draw_rect:'d
   file_size:'files.read',file_read:'files.read',
   http_request:'network',http_status:'network',http_size:'network',http_read:'network',http_close:'network',
   ws_open:'network',ws_state:'network|server',ws_send:'network|server',ws_peek:'network|server',ws_recv:'network|server',ws_close:'network|server',
-  srv_listen:'server',srv_port:'server',srv_close:'server',srv_next:'server',srv_ws:'server',req_info:'server',req_size:'server',req_read:'server',req_respond:'server'};
+  srv_listen:'server',srv_listen_tls:'server',srv_port:'server',srv_close:'server',srv_next:'server',srv_ws:'server',req_info:'server',req_size:'server',req_read:'server',req_respond:'server'};
 // "files.read": 이 프로젝트의 파일 → 바이트 (ext/ 는 빼고 · 그림 · 소리 · 글꼴은 data: 주소를 풂)
 function jbxFiles(files){
   const m=new Map(),bin=/\.(png|jpe?g|gif|webp|bmp|wav|mp3|ogg|m4a|ttf|otf)$/i,te=new TextEncoder();

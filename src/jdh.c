@@ -418,7 +418,7 @@ static const char *HOSTFN[][2] = {
     {"file_size", "files.read"}, {"file_read", "files.read"},
     {"http_request", "network"}, {"http_status", "network"}, {"http_size", "network"}, {"http_read", "network"}, {"http_close", "network"},
     {"ws_open", "network"}, {"ws_state", "network|server"}, {"ws_send", "network|server"}, {"ws_peek", "network|server"}, {"ws_recv", "network|server"}, {"ws_close", "network|server"},   /* | = 둘 중 하나 (서버가 받은 WebSocket 도 같은 함수) */
-    {"srv_listen", "server"}, {"srv_port", "server"}, {"srv_close", "server"}, {"srv_next", "server"}, {"srv_ws", "server"},
+    {"srv_listen", "server"}, {"srv_listen_tls", "server"}, {"srv_port", "server"}, {"srv_close", "server"}, {"srv_next", "server"}, {"srv_ws", "server"},
     {"req_info", "server"}, {"req_size", "server"}, {"req_read", "server"}, {"req_respond", "server"},
     {NULL, NULL}
 };
@@ -981,7 +981,7 @@ static int cmdBuildExe(const char *projArg, const char *outArg, int console, con
     const char *cout = base ? base : out;   /* 실행기를 둘 곳 (base 면 나중에 다시 씀) */
     if (base) remove(base);
     printf("  실행기를 컴파일합니다 (처음에는 1분쯤 걸릴 수 있습니다)…\n");
-    char *cmd = fmtdup("%s cc %s -O2 -s %s -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32 -lwinhttp -lws2_32",
+    char *cmd = fmtdup("%s cc %s -O2 -s %s -w -I\"%s/vendor\" -I\"%s/include/SDL2\" -I\"%s\" -I\"%s\" -D_REENTRANT -DSDL_MAIN_HANDLED -o \"%s\"%s \"%s\"%s%s \"%s\" -lm -lpthread -lcomdlg32 -lsetupapi -lcfgmgr32 -lwinmm -limm32 -lversion -lole32 -loleaut32 -lgdi32 -luuid -lshell32 -luser32 -ladvapi32 -lwinhttp -lws2_32 -lsecur32 -lcrypt32 -lncrypt",
         zig, tg, console ? "-mconsole" : "-mwindows", rt, sdl, rtsrc, sdk, cout, srcs, genp, objs, rcarg, sdla);
     if (run(cmd) || !isFile(cout)) die("실행 파일을 만들지 못했습니다 (위 메시지를 확인하세요)");
     if (base) { char *kp = fmtdup("%s.key", base); writeAll(kp, key, strlen(key)); free(kp); copyFile(base, out); }
