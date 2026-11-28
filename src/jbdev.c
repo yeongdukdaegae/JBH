@@ -1421,14 +1421,15 @@ static LRESULT CALLBACK WelProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(h, msg, wp, lp);
 }
 static void layout(void);
-static void showWelcome(int on) {
+static BOOL CALLBACK kidShow(HWND k, LPARAM on) { if (GetParent(k) == hMain && k != hWel && k != hAc && (GetWindowLongPtrW(k, GWL_STYLE) & WS_CHILD)) ShowWindow(k, on ? SW_SHOW : SW_HIDE); return TRUE; }
+static void showWelcome(int on) {   /* 시작 창이 보이는 동안 편집기 쪽 컨트롤은 숨김 */
     recentLoad(); WHOVER = -1;
-    if (on) { RECT r; GetClientRect(hMain, &r); MoveWindow(hWel, 0, 0, r.right, r.bottom, TRUE); SetWindowPos(hWel, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW); InvalidateRect(hWel, NULL, TRUE); }
-    else ShowWindow(hWel, SW_HIDE);
+    if (on) { EnumChildWindows(hMain, kidShow, 0); RECT r; GetClientRect(hMain, &r); MoveWindow(hWel, 0, 0, r.right, r.bottom, TRUE); ShowWindow(hWel, SW_SHOW); InvalidateRect(hWel, NULL, TRUE); }
+    else { ShowWindow(hWel, SW_HIDE); EnumChildWindows(hMain, kidShow, 1); layout(); }
 }
 static void layout(void) {
     RECT r; GetClientRect(hMain, &r); int W = r.right, H = r.bottom, lh = logH(H), pw = PWID, rt = runTop(H);
-    if (hWel && IsWindowVisible(hWel)) MoveWindow(hWel, 0, 0, W, H, TRUE);
+    if (hWel && IsWindowVisible(hWel)) { MoveWindow(hWel, 0, 0, W, H, TRUE); return; }
     int by = (TBH - SC(30)) / 2;
     MoveWindow(hBtn[B_MENU], SC(6), by, SC(32), SC(30), TRUE);
     { HDC dc = GetDC(hMain); wchar_t t[128]; GetWindowTextW(hBtn[B_PROJ], t, 128); int pw2 = SC(20) + SC(14) + textW(dc, hFontBold, t) + SC(30); ReleaseDC(hMain, dc); if (pw2 > SC(320)) pw2 = SC(320);
