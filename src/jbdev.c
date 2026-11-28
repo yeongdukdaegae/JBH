@@ -310,7 +310,9 @@ static int LOGBOL = 1; static COLORREF LOGCOL;
 static void logPut(const wchar_t *t, int n, COLORREF c) {
     if (n <= 0) return;
     int L = GetWindowTextLengthW(hLog); SendMessageW(hLog, EM_SETSEL, L, L);
-    CHARFORMAT2W cf; ZeroMemory(&cf, sizeof cf); cf.cbSize = sizeof cf; cf.dwMask = CFM_COLOR; cf.crTextColor = c; SendMessageW(hLog, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf);
+    CHARFORMAT2W cf; ZeroMemory(&cf, sizeof cf); cf.cbSize = sizeof cf; cf.dwMask = CFM_COLOR | CFM_FACE | CFM_SIZE | CFM_BOLD | CFM_ITALIC; cf.crTextColor = c;
+    wcscpy(cf.szFaceName, L"Consolas"); cf.yHeight = 13 * 15;   /* 줄마다 글꼴 · 크기를 다시 정함 (이모지 뒤에 글꼴이 바뀌지 않게) */
+    SendMessageW(hLog, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf);
     wchar_t *b = malloc((n + 1) * sizeof(wchar_t)); memcpy(b, t, n * sizeof(wchar_t)); b[n] = 0; SendMessageW(hLog, EM_REPLACESEL, FALSE, (LPARAM)b); free(b);
 }
 static COLORREF logKind(const wchar_t *t) {
@@ -679,6 +681,10 @@ static HWND dlgCombo(HWND d, int id, int x, int y, int w) {
     return c;
 }
 static HWND dlgButton(HWND d, int id, int x, int y, int w, int h, const wchar_t *t, int style) { HWND b = mkBtn(d, id, t, style); MoveWindow(b, x, y, w, h, FALSE); return b; }
+static void dlgFit(HWND d, int ch) {   /* 안쪽 높이 = ch */
+    RECT cr, wr; GetClientRect(d, &cr); GetWindowRect(d, &wr);
+    SetWindowPos(d, NULL, 0, 0, wr.right - wr.left, (wr.bottom - wr.top) - cr.bottom + ch, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
 static int dlgRun(HWND d, DlgCtx *c, HWND focus) {
     EnableWindow(hMain, FALSE); ShowWindow(d, SW_SHOW); if (focus) SetFocus(focus);
     MSG m;
@@ -1136,8 +1142,8 @@ static HWND buildSettings(DlgCtx *c) {
 
     wchar_t v[96]; _snwprintf(v, 96, T(S_VERSION), L"1.6", JDH_VER_W); v[95] = 0;
     HWND vs = dlgLabel(d, M, y, cw, SC(18), v, 1); SetWindowLongPtrW(vs, GWL_STYLE, GetWindowLongPtrW(vs, GWL_STYLE) | SS_CENTER); y += SC(30);
-    dlgButton(d, IDOK, M, y, cw, SC(40), T(S_CLOSE), BS_J_PRIMARY);
-    return d;
+    dlgButton(d, IDOK, M, y, cw, SC(40), T(S_CLOSE), BS_J_PRIMARY); y += SC(40) + SC(20);
+    dlgFit(d, y); return d;
 }
 static void cmdSettings(void) {
     do { sReopen = 0; DlgCtx c = {0, 0, setCmd}; HWND d = buildSettings(&c); dlgRun(d, &c, NULL); } while (sReopen);
@@ -1259,10 +1265,10 @@ static HWND buildApk(DlgCtx *c) {
     SendMessageW(aIcon, CB_SETCURSEL, sel, 0); y += SC(46);
     wchar_t ki[160]; keyInfo(ki, 160); aKey = dlgLabel(d, M, y, cw, SC(20), ki, 1); y += SC(24);
     dlgButton(d, ID_D_FIRST + 10, M, y, SC(130), SC(32), T(S_KEY_EXPORT), BS_J_PLAIN); dlgButton(d, ID_D_FIRST + 11, M + SC(138), y, SC(130), SC(32), T(S_KEY_IMPORT), BS_J_PLAIN); y += SC(42);
-    aErr = dlgLabel(d, M, y, cw, SC(36), L"", 2); y += SC(40);
+    aErr = dlgLabel(d, M, y, cw, SC(36), L"", 2); y += SC(38);
     dlgButton(d, IDOK, M, y, cw, SC(40), T(S_APK_BUILD), BS_J_PRIMARY); y += SC(46);
-    dlgButton(d, IDCANCEL, M, y, cw, SC(36), T(S_CANCELB), BS_J_PLAIN);
-    return d;
+    dlgButton(d, IDCANCEL, M, y, cw, SC(36), T(S_CANCELB), BS_J_PLAIN); y += SC(36) + SC(20);
+    dlgFit(d, y); return d;
 }
 static void cmdApk(void) {
     if (!PROJ[0]) { status(L"%ls", T(S_NOPROJ)); return; }
