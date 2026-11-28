@@ -22,7 +22,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#define JDH_VER_W L"0.8.5"   /* src/jdh.c 의 JDH_VERSION 과 같게 */
+#define JDH_VER_W L"0.8.6"   /* src/jdh.c 의 JDH_VERSION 과 같게 */
 
 static int fileExists(const wchar_t *p) { DWORD a = GetFileAttributesW(p); return a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY); }
 static int dirExists(const wchar_t *p) { DWORD a = GetFileAttributesW(p); return a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_DIRECTORY); }

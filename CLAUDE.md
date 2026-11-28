@@ -72,8 +72,9 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
   - 웹에서는 엔진이 바뀐 오브젝트를 명령 묶음과 화면 프레임마다 워커로 보내고, 쓰기 · 그리기는 명령 묶음 · 프레임이 끝날 때 엔진으로 온다 (한 박자 늦을 수 있음 — 값과 같은 규칙). EXE 는 바로.
   - 시험: `tests/libs/Probe` (모든 기능) · `tests/libs/NoPerm` (권한 없이 씀 → 거부) · `tests/fixtures/probe-main.jb` 를 웹 (`tests/dev.mjs`) 과 EXE (CI) 가 같이 돌려 같은 줄이 나오는지 본다.
 - `jdh build exe` 결과물: 디버그 정보를 뺀다 (`-s` · `.pdb` 도 안 생김). 아이콘과 고해상도 화면 설정 (`runtime/win/app.manifest` · PerMonitorV2) 을 리소스로 넣는다. 아이콘은 프로젝트 폴더의 `icon.ico` 가 있으면 그것, 없으면 `runtime/win/icon.ico`. 설치본에는 `sdk/runtime/win/` 으로 들어간다.
-- 업데이트 (`jdh update` · `src/jdh.c` 의 "업데이트" 부분): 새 버전은 GitHub 릴리스에서 받는다. 방식은 무결성 검사 — 파일 목록 (파일마다 SHA-256) 과 설치된 파일을 대조해 다른 파일만 받고, 받은 것을 다시 검사한 뒤 한꺼번에 바꾼다.
-  - 릴리스의 파일: `jdh-latest.txt` (버전 · 목록의 SHA-256) · `jdh-manifest.txt` (파일마다 묶음 · 시작 · 크기 · SHA-256 · 경로) · `jdh-core.pack` · `jdh-zig.pack` (파일을 이어 붙인 것 — 필요한 자리만 HTTP Range 로 받음). `jdh pack-update <dist> <out> <버전>` 이 만든다 (CI).
+- 업데이트 (`jdh update` · `src/jdh.c` 의 "업데이트" 부분): 새 버전은 GitHub 릴리스에서 받는다. 방식은 **바뀐 파일을 미리 앎** (0.8.6 부터) — 릴리스의 변경 목록 `jdh-changes.txt` (파일마다 마지막으로 바뀐 버전 `since` · 지운 파일 `gone`) 에서 지금 버전보다 뒤에 바뀐 파일과 없거나 크기가 다른 파일만 받는다 (설치된 파일을 모두 검사하지 않음). 받은 것은 SHA-256 으로 검사한 뒤 한꺼번에 바꾼다. 같은 버전 · `--repair` · 변경 목록이 없거나 맞지 않을 때는 예전 무결성 검사 (설치된 파일마다 SHA-256 대조). 0.8.5 이하 클라이언트는 변경 목록을 모르고 무결성 검사로 올라온다 (목록 · latest 꼴은 그대로).
+  - 변경 목록은 CI 가 만든다: `jdh pack-update <dist> <out> <버전> --prev <폴더>` — 지난 릴리스 (이 버전보다 낮고 목록이 붙은 가장 새 것 · `gh release download`) 의 `jdh-manifest.txt` 와 SHA-256 이 같으면 `since` 를 이어받고, 다르면 이번 버전. 지난 것이 없으면 모두 이번 버전. 변경 목록 안의 `manifest` 줄이 `jdh-latest.txt` 와 같아야 쓴다.
+  - 릴리스의 파일: `jdh-latest.txt` (버전 · 목록의 SHA-256) · `jdh-changes.txt` (변경 목록) · `jdh-manifest.txt` (파일마다 묶음 · 시작 · 크기 · SHA-256 · 경로) · `jdh-core.pack` · `jdh-zig.pack` (파일을 이어 붙인 것 — 필요한 자리만 HTTP Range 로 받음). `jdh pack-update <dist> <out> <버전>` 이 만든다 (CI).
   - 하나라도 SHA-256 이 틀리면 아무것도 바꾸지 않는다. 바꾸다 실패하면 되돌린다. 같은 버전이어도 파일이 깨졌으면 고친다. 지난 목록 (`{설치 폴더}/jdh-manifest.txt`) 에 있고 새 목록에 없는 파일은 지운다. 목록의 경로는 설치 폴더 안의 상대 경로만 받는다.
   - `jbdev.exe` 는 열 때 `jdh update --check` (5초 한도 · 실패하면 조용히 넘어감) 로 확인하고, 새 버전이면 "업데이트하시겠습니까?" 를 묻는다 (예 · 아니요 = 그 버전 건너뛰기 · 취소 = 다음에). `JDH_NO_UPDATE=1` 이면 확인하지 않는다. `JDH_UPDATE_URL` 로 받는 곳을 바꿀 수 있다 (시험용 · 폴더도 됨).
   - 게시: 버전 태그 (`v0.6.0` 꼴 · `JDH_VERSION` 과 같아야 함) 를 올리면 CI 가 릴리스로 게시한다. main 에 올리는 것만으로는 게시되지 않는다. **태그는 요청받았을 때만 만든다.**
@@ -120,4 +121,4 @@ Jawbreaker 는 이 저장소 주인이 만드는 프로그래밍 언어와 게�
 - 네이티브 에디터의 새 모양: CI 창 그림으로만 봤다 (실제 PC 의 화면 배율 · 한글 입력 · 메뉴 · 콤보 상자 어두운 모양은 미확인).
 - 서버 (`server`): 실제 PC 의 방화벽 창 (모든 주소로 열 때) · 다른 PC 에서의 접속 · 공인 인증서 (Let's Encrypt 등) 로 연 https · 브라우저에서의 wss 접속은 확인하지 못했다 (CI 는 같은 PC 의 127.0.0.1 · 스스로 서명한 인증서).
 - 네트워크: https · wss (실제 인터넷의 서버) 는 확인하지 못했다 (시험은 로컬의 http · ws 서버). APK 에서의 네트워크 (INTERNET 권한) 도 미확인.
-- 업데이트: 실제 GitHub 릴리스에서 받는 것 · `jbdev.exe` 의 "업데이트하시겠습니까?" 창은 확인하지 못했다 (CI 는 로컬 HTTP 서버로 `jdh update` 만 시험 · 릴리스를 게시한 적이 없음).
+- 업데이트: 실제 GitHub 릴리스에서 받는 것 · 변경 목록 방식의 실제 릴리스 간 업데이트 (0.8.6 → 다음) · `jbdev.exe` 의 "업데이트하시겠습니까?" 창은 확인하지 못했다 (CI 는 로컬 HTTP 서버로 `jdh update` 만 시험 · 릴리스를 게시한 적이 없음).

@@ -4,7 +4,7 @@
  *   .jbx: "JBLX" u32 개수 · (u32 경로 길이 · 경로 · u32 크기 · 내용)…   (모두 little-endian)
  *         jdl.json (선언) · lib.wasm (웹용) · native/… (C 소스 · EXE 용) · doc/… (설명서)
  */
-#define JDH_VERSION "0.8.5"
+#define JDH_VERSION "0.8.6"
 #define JDH_ENGINE_MAJOR 1
 #define JDH_ENGINE_MINOR 6   /* 이 JDH 와 짝인 엔진 버전 (에디터의 JB_VER) */
 #include <stdio.h>
@@ -1172,9 +1172,13 @@ static int cmdBuildHtml(const char *projArg, const char *outArg, const char *lan
 }
 /* ---------- 업데이트 ----------
  *   새 버전은 GitHub 릴리스에: jdh-latest.txt (버전 · 목록의 SHA-256) · jdh-manifest.txt (파일 목록) · jdh-*.pack (파일을 이어 붙인 묶음)
- *   방식 (무결성 검사): 목록의 파일마다 설치된 파일의 크기 · SHA-256 을 대조 → 다른 파일만 묶음에서 그 자리(Range)만 받음
+ *   방식 (바뀐 파일을 미리 앎 · 0.8.6 부터): jdh-changes.txt 가 파일마다 "마지막으로 바뀐 버전" 과 지워진 파일을 알려 줌
+ *     → 지금 버전보다 뒤에 바뀐 파일 · 없거나 크기가 다른 파일만 묶음에서 그 자리(Range)만 받음 (설치된 파일을 모두 검사하지 않음)
  *     → 받은 파일을 다시 SHA-256 으로 검사 → 모두 맞을 때만 한꺼번에 바꿈 (하나라도 틀리면 아무것도 바꾸지 않음 · 바꾸다 실패하면 되돌림)
- *   같은 버전이어도 파일이 깨졌으면 같은 방법으로 고침.
+ *   무결성 검사 (설치된 파일마다 크기 · SHA-256 대조): 같은 버전일 때 · --repair · jdh-changes.txt 가 없거나 맞지 않을 때.
+ *   jdh-changes.txt:  "JDHUPDATE 1" · "version 0.8.6" · "manifest <크기> <sha256>" (jdh-latest.txt 와 같아야 함)
+ *                     · "since <버전> <경로>" (지금 파일마다) · "gone <버전> <경로>" (지워진 파일)
+ *     — CI 가 지난 릴리스의 목록 (jdh pack-update … --prev <폴더>) 과 SHA-256 을 비교해 만듦. 0.8.5 이하는 이 파일을 모르고 무결성 검사로 업데이트함.
  *   jdh-latest.txt:   "JDHUPDATE 1" · "version 0.6.0" · "manifest <크기> <sha256>"
  *   jdh-manifest.txt: "JDHUPDATE 1" · "version 0.6.0" · "file <묶음> <시작> <크기> <sha256> <경로>" …
  *   JDH_UPDATE_URL = 받는 곳을 바꿈 (http(s) 주소 또는 폴더 · 시험용) · JDH_NO_UPDATE=1 = 시작할 때 확인하지 않음
@@ -1343,6 +1347,30 @@ static int manParse(char *text, UMan *m) {
     }
     return head && m->ver[0];
 }
+/* jdh-changes.txt: since · gone (틀리면 0) */
+typedef struct { char *path; char ver[24]; int gone; } UChg;
+typedef struct { char ver[24]; uint64_t msize; char msha[65]; UChg *c; int n; } UChgs;
+static int chgParse(char *text, UChgs *m) {
+    memset(m, 0, sizeof *m); int cap = 0, head = 0;
+    for (char *ln = text; ln && *ln; ) {
+        char *nl = strchr(ln, '\n'); if (nl) *nl = 0;
+        size_t L = strlen(ln); if (L && ln[L - 1] == '\r') ln[--L] = 0;
+        if (!head) { if (strcmp(ln, "JDHUPDATE 1")) return 0; head = 1; }
+        else if (!strncmp(ln, "version ", 8)) { if (!verOk(ln + 8)) return 0; strcpy(m->ver, ln + 8); }
+        else if (!strncmp(ln, "manifest ", 9)) { char sh[80]; unsigned long long sz; if (sscanf(ln + 9, "%llu %79s", &sz, sh) != 2 || !shaOk(sh)) return 0; m->msize = sz; strcpy(m->msha, sh); }
+        else if (!strncmp(ln, "since ", 6) || !strncmp(ln, "gone ", 5)) {
+            int g = ln[0] == 'g'; char v[40]; int used = 0;
+            if (sscanf(ln + (g ? 5 : 6), "%39s %n", v, &used) != 1 || !used || !verOk(v)) return 0;
+            const char *path = ln + (g ? 5 : 6) + used; if (!updPathOk(path)) return 0;
+            if (m->n == cap) { cap = cap ? cap * 2 : 256; m->c = realloc(m->c, sizeof(UChg) * cap); }
+            UChg *c = &m->c[m->n++]; c->path = xdup(path); strcpy(c->ver, v); c->gone = g;
+        } else if (L) return 0;
+        ln = nl ? nl + 1 : NULL;
+    }
+    return head && m->ver[0] && m->msha[0];
+}
+static int cmpUChg(const void *a, const void *b) { const UChg *x = a, *y = b; int c = strcmp(x->path, y->path); return c ? c : x->gone - y->gone; }
+static UChg *chgFind(UChgs *m, const char *path, int gone) { UChg k = { (char *)path, "", gone }; return m->n ? bsearch(&k, m->c, m->n, sizeof(UChg), cmpUChg) : NULL; }
 static int cmpUPath(const void *a, const void *b) { return strcmp(((const UFile *)a)->path, ((const UFile *)b)->path); }
 static int cmpUPack(const void *a, const void *b) {
     const UFile *x = a, *y = b; int c = strcmp(x->pack, y->pack);
@@ -1757,9 +1785,21 @@ static int cmdApkKey(const char *what, const char *file) {
         apkKeyWrite(p, &k); printf("✔ 서명 키를 가져왔습니다: %s\n", p); return 0; }
     die("jdh apk-key [path | export <파일> | import <파일>]"); return 1;
 }
-static int cmdPackUpdate(const char *dist, const char *out, const char *ver) {
+static int cmdPackUpdate(const char *dist, const char *out, const char *ver, const char *prev) {
     if (!isDir(dist)) die("폴더가 없습니다: %s", dist);
     if (!verOk(ver)) die("버전은 0.6.0 꼴로 씁니다 (받은 값: %s)", ver);
+    /* 지난 릴리스 (--prev 폴더: jdh-manifest.txt · 있으면 jdh-changes.txt) — 파일마다 SHA-256 이 같으면 "바뀐 버전" 을 이어받음 */
+    UMan pm; UChgs pc; int hasPm = 0, hasPc = 0; memset(&pm, 0, sizeof pm); memset(&pc, 0, sizeof pc);
+    if (prev) {
+        char *a = fmtdup("%s/jdh-manifest.txt", prev), *b = fmtdup("%s/jdh-changes.txt", prev); size_t n;
+        unsigned char *t = readAll(a, &n);
+        if (t && manParse((char *)t, &pm) && verCmp(pm.ver, ver) < 0) { hasPm = 1; qsort(pm.f, pm.n, sizeof(UFile), cmpUPath); }
+        else printf("⚠ 지난 목록을 읽지 못했습니다 (%s) — 모든 파일을 이번 버전에서 바뀐 것으로 적습니다\n", a);
+        t = readAll(b, &n);
+        if (hasPm && t && chgParse((char *)t, &pc) && !strcmp(pc.ver, pm.ver)) { hasPc = 1; qsort(pc.c, pc.n, sizeof(UChg), cmpUChg); }
+        free(a); free(b);
+    }
+    char *chg = NULL; int nchg = 0;
     PList pl = { NULL, 0 }; walkAll(dist, "", &pl);
     qsort(pl.path, pl.n, sizeof(char*), cmpStr);
     mkdirs(out);
@@ -1776,14 +1816,34 @@ static int cmdPackUpdate(const char *dist, const char *out, const char *ver) {
         if (pos[k] + len > 0x7fffffff) die("묶음이 너무 큽니다 (2GB 까지): %s", packs[k]);
         if (len && fwrite(b, 1, len, pf[k]) != len) die("묶음을 쓰다가 실패했습니다: %s", packs[k]);
         man = catf(man, "file %s %llu %llu %s %s\n", packs[k], (unsigned long long)pos[k], (unsigned long long)len, sh, pl.path[i]);
+        const char *since = ver;
+        if (hasPm) {
+            UFile key; memset(&key, 0, sizeof key); key.path = pl.path[i];
+            UFile *o = bsearch(&key, pm.f, pm.n, sizeof(UFile), cmpUPath);
+            if (o && o->size == len && !strcmp(o->sha, sh)) { UChg *c = hasPc ? chgFind(&pc, pl.path[i], 0) : NULL; since = c ? c->ver : pm.ver; }
+        }
+        if (!strcmp(since, ver)) nchg++;
+        chg = catf(chg ? chg : xdup(""), "since %s %s\n", since, pl.path[i]);
         pos[k] += len; nf++; free(b); free(fp);
     }
     for (int k = 0; k < 2; k++) if (fclose(pf[k])) die("묶음을 쓰다가 실패했습니다: %s", packs[k]);
     char msh[65]; shaMem((unsigned char *)man, strlen(man), msh);
-    char *mp = fmtdup("%s/jdh-manifest.txt", out), *lp = fmtdup("%s/jdh-latest.txt", out);
+    /* 지워진 파일: 지난 목록에 있고 이번에 없는 것 (이번 버전) · 지난 변경 목록의 gone 도 이어받음 (다시 생긴 것은 뺌) */
+    int ngone = 0;
+    qsort(pl.path, pl.n, sizeof(char*), cmpStr);
+    for (int i = 0; hasPm && i < pm.n; i++) if (!bsearch(&pm.f[i].path, pl.path, pl.n, sizeof(char*), cmpStr)) { chg = catf(chg ? chg : xdup(""), "gone %s %s\n", ver, pm.f[i].path); ngone++; }
+    for (int i = 0; hasPc && i < pc.n; i++) {
+        if (!pc.c[i].gone || bsearch(&pc.c[i].path, pl.path, pl.n, sizeof(char*), cmpStr)) continue;
+        UFile key; memset(&key, 0, sizeof key); key.path = pc.c[i].path;
+        if (bsearch(&key, pm.f, pm.n, sizeof(UFile), cmpUPath)) continue;   /* 지난 버전에 다시 있던 것은 위에서 이번 버전으로 적음 */
+        chg = catf(chg, "gone %s %s\n", pc.c[i].ver, pc.c[i].path);
+    }
+    char *chgAll = fmtdup("JDHUPDATE 1\nversion %s\nmanifest %llu %s\n%s", ver, (unsigned long long)strlen(man), msh, chg ? chg : "");
+    char *mp = fmtdup("%s/jdh-manifest.txt", out), *lp = fmtdup("%s/jdh-latest.txt", out), *cp = fmtdup("%s/jdh-changes.txt", out);
     char *lat = fmtdup("JDHUPDATE 1\nversion %s\nmanifest %llu %s\n", ver, (unsigned long long)strlen(man), msh);
-    writeAll(mp, man, strlen(man)); writeAll(lp, lat, strlen(lat));
+    writeAll(mp, man, strlen(man)); writeAll(lp, lat, strlen(lat)); writeAll(cp, chgAll, strlen(chgAll));
     printf("✔ 업데이트 파일을 만들었습니다: %s — 버전 %s · 파일 %d개 (core %.1f MB · zig %.1f MB)\n", out, ver, nf, pos[0] / 1048576.0, pos[1] / 1048576.0);
+    if (hasPm) printf("  지난 버전 %s 와 비교: 바뀐 파일 %d개 · 지운 파일 %d개\n", pm.ver, nchg, ngone);
     return 0;
 }
 /* 묶음의 한 구간을 받아 파일들로 나눠 씀 */
@@ -1808,7 +1868,7 @@ static int cutSink(void *ud, const unsigned char *p, size_t n) {
 }
 /* jdh update [--check | --yes] [--pause]
  *   --check: 새 버전이 있으면 그 버전을 찍고 10 을 돌려줌 (없거나 확인하지 못하면 0 · 아무것도 찍지 않음) — jbdev 가 시작할 때 씀 */
-static int cmdUpdate(int check, int yes) {
+static int cmdUpdate(int check, int yes, int repair) {
     char err[256] = ""; char *root = homeDir();
     if (!root) { if (check) return 0; die("JDH 설치 폴더를 찾을 수 없습니다"); }
     if (check) {   /* 지난 업데이트 때 쓰고 있어서 못 지운 파일 */
@@ -1834,19 +1894,37 @@ static int cmdUpdate(int check, int yes) {
     if (!manParse((char *)mm.b, &man) || strcmp(man.ver, lat.ver) || !man.n) die("파일 목록을 읽을 수 없습니다 — 아무것도 바꾸지 않았습니다");
     qsort(man.f, man.n, sizeof(UFile), cmpUPath);
     for (int i = 1; i < man.n; i++) if (!strcmp(man.f[i].path, man.f[i - 1].path)) die("파일 목록에 같은 경로가 두 번 있습니다 — 아무것도 바꾸지 않았습니다");
-    /* 2. 대조: 설치된 파일의 크기 · SHA-256 */
-    printf("  설치된 파일 %d개를 검사합니다…\n", man.n); fflush(stdout);
+    /* 2. 바꿀 파일 정하기
+     *    새 버전: 변경 목록 (jdh-changes.txt) — 지금 버전보다 뒤에 바뀐 파일 (설치된 것과 SHA-256 이 다를 때) · 없거나 크기가 다른 파일만
+     *    같은 버전 · --repair · 변경 목록을 못 쓰면: 설치된 파일을 모두 크기 · SHA-256 으로 대조 (무결성 검사) */
+    UChgs chg; int useChg = 0; memset(&chg, 0, sizeof chg);
+    if (vc > 0 && !repair) {
+        char *cu = updUrl(lat.ver, "jdh-changes.txt"); MemSink cm = { NULL, 0, 0, 64u << 20 }; char e2[256] = "";
+        if (fetch(cu, 0, 0, 30000, memSink, &cm, e2, sizeof e2) && cm.b && chgParse((char *)cm.b, &chg)
+            && !strcmp(chg.ver, lat.ver) && chg.msize == lat.msize && !strcmp(chg.msha, lat.msha)) { useChg = 1; qsort(chg.c, chg.n, sizeof(UChg), cmpUChg); }
+        else printf("  변경 목록을 쓰지 못해 설치된 파일을 모두 검사합니다 (%s)\n", e2[0] ? e2 : "목록이 맞지 않음");
+        free(cu);
+    }
     int need = 0; uint64_t total = 0;
+    if (useChg) printf("  변경 목록으로 %s 뒤에 바뀐 파일을 고릅니다…\n", JDH_VERSION);
+    else printf("  설치된 파일 %d개를 검사합니다…\n", man.n);
+    fflush(stdout);
     for (int i = 0; i < man.n; i++) {
         UFile *f = &man.f[i]; char *p = fmtdup("%s/%s", root, f->path); char cur[65];
-        f->need = !(isFile(p) && fileSize(p) == f->size && shaFile(p, cur, NULL) && !strcmp(cur, f->sha));
+        if (!isFile(p) || fileSize(p) != f->size) f->need = 1;
+        else if (useChg) { UChg *c = chgFind(&chg, f->path, 0); f->need = (!c || verCmp(c->ver, JDH_VERSION) > 0) && !(shaFile(p, cur, NULL) && !strcmp(cur, f->sha)); }
+        else f->need = !(shaFile(p, cur, NULL) && !strcmp(cur, f->sha));
         if (f->need) { need++; total += f->size; }
         free(p);
     }
     char *lmp = fmtdup("%s/jdh-manifest.txt", root);
     if (!need) {
+        int gone = 0;
+        for (int i = 0; useChg && i < chg.n; i++) if (chg.c[i].gone && verCmp(chg.c[i].ver, JDH_VERSION) > 0) { char *p = fmtdup("%s/%s", root, chg.c[i].path); if (!remove(p)) gone++; free(p); }
         if (vc) writeAll(lmp, mtext, strlen(mtext));
-        printf("✔ 최신 버전이고 파일이 모두 온전합니다 (%s)\n", lat.ver); return 0;
+        if (useChg) printf("✔ 바꿀 파일이 없습니다 (%s · 변경 목록 기준%s)\n", lat.ver, gone ? " · 지운 파일 있음" : "");
+        else printf("✔ 최신 버전이고 파일이 모두 온전합니다 (%s)\n", lat.ver);
+        return 0;
     }
     printf("  %s: 파일 %d개 · %.1f MB\n", vc ? "바뀐 것" : "손상되었거나 없는 것", need, total / 1048576.0);
     if (!yes) {
@@ -1916,6 +1994,12 @@ static int cmdUpdate(int check, int yes) {
         if (bsearch(&om.f[i], man.f, man.n, sizeof(UFile), cmpUPath)) continue;
         char *p = fmtdup("%s/%s", root, om.f[i].path); if (!remove(p)) gone++; free(p);
     }
+    for (int i = 0; useChg && i < chg.n; i++) {   /* 변경 목록의 지워진 파일 (지금 버전보다 뒤에 지운 것 · 새 목록에 없는 것만) */
+        if (!chg.c[i].gone || verCmp(chg.c[i].ver, JDH_VERSION) <= 0) continue;
+        UFile key; memset(&key, 0, sizeof key); key.path = chg.c[i].path;
+        if (bsearch(&key, man.f, man.n, sizeof(UFile), cmpUPath)) continue;
+        char *p = fmtdup("%s/%s", root, chg.c[i].path); if (!remove(p)) gone++; free(p);
+    }
     writeAll(lmp, mtext, strlen(mtext));
     if (vc) printf("✔ 업데이트했습니다: %s → %s (파일 %d개", JDH_VERSION, lat.ver, applied);
     else printf("✔ 고쳤습니다: %s (파일 %d개", lat.ver, applied);
@@ -1955,7 +2039,7 @@ static void usage(void) {
          "  jdh apk-key [path | export <파일> | import <파일>]  APK 서명 키 (웹 판의 키 파일과 같은 꼴)\n"
          "  jdh run [프로젝트]               main 실행 (이 창에 print · 서버는 Ctrl+C 로 끝냄 · 프로젝트의 run.bat 이 부름)\n"
          "  jdh open                         JawBreaker Dev. 열기\n"
-         "  jdh update [--yes]               새 버전 확인 · 업데이트 (설치된 파일을 검사해 바뀐 것만 받음 · 깨진 설치도 고침)");
+         "  jdh update [--yes] [--repair]    새 버전 확인 · 업데이트 (변경 목록으로 바뀐 파일만 받음 · --repair = 설치된 파일을 모두 검사해 깨진 것도 고침)");
 }
 int main(int argc, char **argv) {
 #ifdef _WIN32
@@ -1969,11 +2053,14 @@ int main(int argc, char **argv) {
     if (!strcmp(a, "version")) { puts("jdh " JDH_VERSION); return 0; }
     if (!strcmp(a, "open")) return cmdOpen();
     if (!strcmp(a, "update")) {
-        int check = 0, yes = 0;
-        for (int i = 2; i < argc; i++) { if (!strcmp(argv[i], "--check")) check = 1; else if (!strcmp(argv[i], "--yes") || !strcmp(argv[i], "-y")) yes = 1; else if (!strcmp(argv[i], "--pause")) DIE_PAUSE = 1; else die("알 수 없는 옵션입니다: %s (jdh update [--check | --yes])", argv[i]); }
-        return cmdUpdate(check, yes);
+        int check = 0, yes = 0, repair = 0;
+        for (int i = 2; i < argc; i++) { if (!strcmp(argv[i], "--check")) check = 1; else if (!strcmp(argv[i], "--yes") || !strcmp(argv[i], "-y")) yes = 1; else if (!strcmp(argv[i], "--repair")) repair = 1; else if (!strcmp(argv[i], "--pause")) DIE_PAUSE = 1; else die("알 수 없는 옵션입니다: %s (jdh update [--check | --yes | --repair])", argv[i]); }
+        return cmdUpdate(check, yes, repair);
     }
-    if (!strcmp(a, "pack-update")) { if (argc < 5) die("jdh pack-update <배포 폴더> <만들 폴더> <버전>"); return cmdPackUpdate(argv[2], argv[3], argv[4]); }
+    if (!strcmp(a, "pack-update")) {
+        if (argc != 5 && !(argc == 7 && !strcmp(argv[5], "--prev"))) die("jdh pack-update <배포 폴더> <만들 폴더> <버전> [--prev <지난 릴리스 파일 폴더>]");
+        return cmdPackUpdate(argv[2], argv[3], argv[4], argc == 7 ? argv[6] : NULL);
+    }
     if (!strcmp(a, "new") && b) {
         if (argc < 4) die("이름이 필요합니다: jdh new %s <이름>", b);
         if (!strcmp(b, "lib")) return cmdNewLib(argv[3]);
