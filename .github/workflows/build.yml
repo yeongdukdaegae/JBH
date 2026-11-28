@@ -327,16 +327,30 @@ jobs:
           if (-not (Select-String -Path jbdev-shot.log -Pattern 'ac items=[1-9][0-9]* first=' -Quiet -Encoding utf8)) { Write-Host '✖ jaw. 자동완성 목록이 뜨지 않았습니다'; $bad++ }
           if (-not (Select-String -Path jbdev-shot.log -Pattern 'doc jawbreaker.jbl lines=[1-9][0-9]+ ro=1' -Quiet -Encoding utf8)) { Write-Host '✖ 내장 설명서를 읽기 전용으로 열지 못했습니다'; $bad++ }
           if (-not (Test-Path RunGame\RunGame.html)) { Write-Host '✖ HTML 만들기 결과가 없습니다'; $bad++ } elseif (-not (Select-String -Path RunGame\RunGame.html -SimpleMatch 'run ok 2' -Quiet -Encoding utf8)) { Write-Host '✖ HTML 에 프로젝트가 들어가지 않았습니다'; $bad++ }
+          if (-not (Test-Path RunGame\RunGame.apk)) { Write-Host '✖ APK 만들기 결과가 없습니다 (☰ → APK 로 변환)'; $bad++ }
+          if (-not (Select-String -Path jbdev-shot.log -Pattern '\[selftest\] ui=(color|mono) lang=ko' -Quiet -Encoding utf8)) { Write-Host '✖ 설정 창 · APK 창을 그리지 못했습니다'; $bad++ }
+          foreach ($f in @('jbdev-shot-set.bmp', 'jbdev-shot-apk.bmp')) { if (-not (Test-Path $f)) { Write-Host "✖ 창 그림이 없습니다: $f"; $bad++ } }
           if ($bad) { exit 1 }
           if (-not (Test-Path jbdev-shot.bmp)) { Write-Error '창 그림이 없습니다'; exit 1 }
           Write-Host "창 그림: $((Get-Item jbdev-shot.bmp).Length) 바이트"
+      - name: 창 그림 (PNG 를 base64 로 로그에 — 내려받지 않고 볼 수 있게)
+        if: always()
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          foreach ($n in @('jbdev-shot', 'jbdev-shot-ac', 'jbdev-shot-set', 'jbdev-shot-apk')) {
+            if (-not (Test-Path "$n.bmp")) { continue }
+            $img = [System.Drawing.Image]::FromFile("$PWD\$n.bmp"); $img.Save("$PWD\$n.png", [System.Drawing.Imaging.ImageFormat]::Png); $img.Dispose()
+            $s = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\$n.png")); Write-Host "SHOT $n $($s.Length)"
+            for ($i = 0; $i -lt $s.Length; $i += 8000) { Write-Host ("SHOTL $n " + $s.Substring($i, [Math]::Min(8000, $s.Length - $i))) }
+          }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: JDH-test-screens
           path: |
-            jbdev-shot.bmp
-            jbdev-shot-ac.bmp
+            jbdev-shot*.png
+            jbdev-shot*.bmp
             probe-exe.png
             layers-exe.png
           if-no-files-found: ignore
