@@ -98,10 +98,10 @@ const JBMEM=(()=>{
       list.sort((a,b)=>a.t-b.t);
       let k=0;
       for(const it of list){if(used<=goal)break;out(it);k++;}
-      if(k&&!(told&1)){told|=1;if(note)note(`🧹 램 한도 ${fmt(limit)} 를 넘어 오래 안 쓴 캐시를 비웠습니다 (다시 쓰일 때 다시 읽음)`);}
+      if(k&&!(told&1)){told|=1;if(note)note(`🧹 램 한도 ${fmt(limit)} 를 넘어 오래 안 쓴 캐시를 비움 (다시 쓰일 때 다시 읽음)`);}
       if(used>limit){   // 지금 쓰는 것만으로 넘침 — 30 프레임 뒤에 다시 봄
         failAt=M.n+30;
-        if(!inP&&++failN>=2&&!(told&2)){told|=2;if(note)note(`⚠ 지금 쓰는 것만으로 램 한도 ${fmt(limit)} 를 넘습니다 (${fmt(used)} 사용 중) — ☰ → 설정에서 램 한도를 올리세요`);}
+        if(!inP&&++failN>=2&&!(told&2)){told|=2;if(note)note(`⚠ 지금 쓰는 것만으로 램 한도 ${fmt(limit)} 를 넘음 (${fmt(used)} 사용 중) — ☰ → 설정에서 램 한도를 올릴 것`);}
       }else{failN=0;failAt=0;}
     },
     frame(){   // 그리기 시작 (disUI.paint)
@@ -2239,9 +2239,9 @@ const JBEXT={
       fr.style.cssText='position:absolute;width:0;height:0;border:0;visibility:hidden';
       fr.srcdoc=JBX_FRAME;
       const man={cmds:{},vals:{},perms:lib.perms.slice(),host:JBX_HOST,net:lib.perms.includes('network')&&netGrant.has(lib.id)};for(const k in lib.cmds)man.cmds[k]=lib.cmds[k].spec;for(const k in lib.vals)man.vals[k]=lib.vals[k];
-      if(lib.perms.includes('files.read')&&!grant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 파일 읽기를 허락하지 않아 파일이 없는 것처럼 실행합니다`);
-      if(lib.perms.includes('network')&&!netGrant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 네트워크를 허락하지 않아 접속하지 않습니다`);
-      if(lib.perms.includes('server'))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 서버 (접속 받기) 는 EXE 에서만 됩니다 — 여기서는 포트를 열지 않습니다`);
+      if(lib.perms.includes('files.read')&&!grant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 파일 읽기를 허락하지 않아 파일이 없는 것처럼 실행함`);
+      if(lib.perms.includes('network')&&!netGrant.has(lib.id))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 네트워크를 허락하지 않아 접속하지 않음`);
+      if(lib.perms.includes('server'))io.sys&&io.sys(`⧉ 라이브러리 ${lib.id}: 서버 (접속 받기) 는 EXE 에서만 됨 — 여기서는 포트를 열지 않음`);
       fr.onload=()=>{if(L.dead)return;try{
         const wb=lib.wasm.slice().buffer,init={port:ch.port2,wasm:wb,man},xfer=[ch.port2,wb];
         if(lib.perms.includes('files.read')&&grant.has(lib.id)){init.files=jbxFiles(prog.files);for(const u of init.files.values())xfer.push(u.buffer);}
@@ -5474,7 +5474,7 @@ function savedFiles(){
 }
 function keepFile(p,t){
   try{localStorage.setItem(SAVE_KEY+p,t);}
-  catch(e){showErr(new Error('세이브를 저장하지 못했습니다 (저장 공간이 꽉 찼거나 막혀 있음): '+p));}
+  catch(e){showErr(new Error('세이브를 저장하지 못함 (저장 공간이 꽉 찼거나 막혀 있음): '+p));}
 }
 async function run(){
   let prog;
